@@ -1,0 +1,63 @@
+# Docker Compose: runs the database, C# API, forecasting service and Mailpit (catches emails in development)
+name: sme-budget
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sme-budget-postgres
+    environment:
+      POSTGRES_DB: sme_budget
+      POSTGRES_USER: budget
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
+    ports:
+      - "5432:5432"
+    volumes:
+      - sme_budget_pgdata:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget -d sme_budget"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: BudgetApi/Dockerfile
+    container_name: sme-budget-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=sme_budget;Username=budget;Password=${POSTGRES_PASSWORD}
+      Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env (copy .env.example)}
+      ForecastService__BaseUrl: http://forecast:8000/
+      Mail__Host: mailpit
+      Mail__Port: 1025
+    ports:
+      - "5080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      forecast:
+        condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sme-budget-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  forecast:
+    build:
+      context: ./forecasting
+    container_name: sme-budget-forecast
+    environment:
+      DATABASE_URL: postgresql://budget:${POSTGRES_PASSWORD}@postgres:5432/sme_budget
+    ports:
+      - "5090:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  sme_budget_pgdata:

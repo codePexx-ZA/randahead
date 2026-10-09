@@ -1,0 +1,16 @@
+@BudgetApi_HostAddress = http://localhost:5080
+
+### Ingest all four South African indicators
+POST {{BudgetApi_HostAddress}}/api/ingestion/run
+
+### Ingest one indicator (cpi_headline, cpi_core, electricity_price, fuel_price)
+POST {{BudgetApi_HostAddress}}/api/ingestion/fuel_price
+
+### Indicator catalog
+GET {{BudgetApi_HostAddress}}/api/indicators/catalog
+
+###
+GET {{BudgetApi_HostAddress}}/api/indicators?code=electricity_price&take=10
+
+###
+GET {{BudgetApi_HostAddress}}/api/indicators/alerts?take=20

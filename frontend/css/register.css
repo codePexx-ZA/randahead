@@ -1,0 +1,59 @@
+/* Register page styles: extras on top of the login card */
+.register-page {
+  overflow: auto;
+  padding: 40px 20px;
+}
+
+.register-page .wrapper {
+  width: 440px;
+}
+
+.register-page .brand {
+  margin-bottom: 10px;
+}
+
+.register-page .brand-logo {
+  width: 72px;
+  height: 72px;
+}
+
+.form-step {
+  margin: 26px 0 0;
+  color: var(--accent);
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.field-hint {
+  margin: -18px 0 22px;
+  color: var(--text-muted);
+  font-size: 0.8em;
+  line-height: 1.4;
+}
+
+.form-step + .field-hint {
+  margin: 4px 0 0;
+}
+
+.select-box select {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.select-box select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .register-page {
+    padding: 0;
+  }
+}

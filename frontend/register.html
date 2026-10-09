@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!-- Register page: sign up a new business and its first Decision Maker -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register your business | RandAhead</title>
+    <link rel="icon" type="image/png" href="assets/images/favicon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/login.css" />
+    <link rel="stylesheet" href="css/register.css" />
+  </head>
+  <body class="auth-page register-page">
+    <main class="wrapper">
+      <form id="registerForm" novalidate>
+        <div class="brand">
+          <img src="assets/images/logo.png" alt="RandAhead logo" class="brand-logo" id="brandLogo" />
+          <span class="brand-name">RandAhead<sup>&trade;</sup></span>
+        </div>
+        <h1 class="subtitle">Register your business</h1>
+
+        <h2 class="form-step">Your business</h2>
+
+        <div class="input-box">
+          <input id="businessInput" type="text" autocomplete="organization" maxlength="200" required />
+          <label for="businessInput">Registered name</label>
+          <i class="fas fa-building icon"></i>
+        </div>
+
+        <div class="input-box select-box filled">
+          <select id="industryInput"></select>
+          <label for="industryInput">Industry (optional)</label>
+        </div>
+
+        <div class="input-box select-box filled">
+          <select id="yearEndInput"></select>
+          <label for="yearEndInput">Financial year ends in</label>
+        </div>
+        <p class="field-hint" id="yearEndHint"></p>
+
+        <h2 class="form-step">You</h2>
+        <p class="field-hint">You'll be the Decision Maker. Add your Approver and Submitters after signing in.</p>
+
+        <div class="input-box">
+          <input id="nameInput" type="text" autocomplete="name" maxlength="200" required />
+          <label for="nameInput">Full name</label>
+          <i class="fas fa-user icon"></i>
+        </div>
+
+        <div class="input-box">
+          <input id="emailInput" type="email" autocomplete="email" maxlength="254" required />
+          <label for="emailInput">Email</label>
+          <i class="fas fa-envelope icon"></i>
+        </div>
+
+        <div class="input-box">
+          <input id="passwordInput" type="password" autocomplete="new-password" maxlength="72" required />
+          <label for="passwordInput">Password</label>
+          <button type="button" class="icon toggle-password" aria-label="Show password">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+
+        <div class="input-box">
+          <input id="confirmInput" type="password" autocomplete="new-password" maxlength="72" required />
+          <label for="confirmInput">Confirm password</label>
+        </div>
+
+        <button type="submit" class="btn" id="registerBtn">
+          <span class="btn-text">Register and sign in</span>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
+
+        <div class="signup-link">
+          <p>Already registered? <a href="index.html">Sign in</a></p>
+        </div>
+      </form>
+    </main>
+
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/toast.js"></script>
+    <script src="js/mock-data.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/register.js"></script>
+  </body>
+</html>

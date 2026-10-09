@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!-- Login page -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign in | RandAhead</title>
+    <link rel="icon" type="image/png" href="assets/images/favicon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/login.css" />
+  </head>
+  <body class="auth-page">
+    <main class="wrapper">
+      <form id="loginForm" novalidate>
+        <div class="brand">
+          <img src="assets/images/logo.png" alt="RandAhead logo" class="brand-logo" id="brandLogo" />
+          <span class="brand-name">RandAhead<sup>&trade;</sup></span>
+          <span class="brand-tagline">Clear forecasts. Confident decisions.</span>
+        </div>
+        <h1 class="subtitle">Sign in to forecast your next budget</h1>
+
+        <div class="input-box">
+          <input id="emailInput" type="email" autocomplete="email" required />
+          <label for="emailInput">Email</label>
+          <i class="fas fa-envelope icon"></i>
+        </div>
+
+        <div class="input-box">
+          <input id="passwordInput" type="password" autocomplete="current-password" required />
+          <label for="passwordInput">Password</label>
+          <button type="button" class="icon toggle-password" aria-label="Show password">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+
+        <div class="row">
+          <label class="remember">
+            <input id="rememberInput" type="checkbox" />
+            Remember me
+          </label>
+          <a href="password.html">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn" id="loginBtn">
+          <span class="btn-text">Sign in</span>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
+
+        <div class="signup-link">
+          <p>New business? <a href="register.html">Register here</a></p>
+        </div>
+      </form>
+    </main>
+
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/toast.js"></script>
+    <script src="js/mock-data.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/login.js"></script>
+  </body>
+</html>

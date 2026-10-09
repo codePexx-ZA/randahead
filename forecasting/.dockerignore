@@ -1,0 +1,5 @@
+# Docker ignore: files left out of the forecasting image
+__pycache__/
+*.pyc
+.venv/
+.env

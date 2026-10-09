@@ -1,0 +1,4 @@
+# Git attributes: line ending settings
+* text=auto
+*.sh text eol=lf
+*.sql text eol=lf

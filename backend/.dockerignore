@@ -1,0 +1,7 @@
+# Docker ignore: files left out of the API image
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/*.user
+.env

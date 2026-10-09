@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<!-- Dashboard page: the main app with all sections -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard | RandAhead</title>
+    <link rel="icon" type="image/png" href="assets/images/favicon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <link rel="stylesheet" href="css/upload.css" />
+    <link rel="stylesheet" href="css/forecast-section.css" />
+    <link rel="stylesheet" href="css/approvals.css" />
+    <link rel="stylesheet" href="css/targets.css" />
+    <link rel="stylesheet" href="css/settings.css" />
+    <link rel="stylesheet" href="css/activity.css" />
+  </head>
+  <body class="app">
+    <aside class="sidebar" id="sidebar">
+      <a href="#dashboard" class="sidebar-brand">
+        <img src="assets/images/logo.png" alt="RandAhead logo" />
+        <div>
+          <span class="brand-name">RandAhead<sup>&trade;</sup></span>
+          <span class="brand-tagline">Clear forecasts. Confident decisions.</span>
+        </div>
+      </a>
+
+      <nav class="nav">
+        <a href="#upload" class="nav-item" data-view="upload">
+          <i class="fas fa-file-arrow-up"></i><span>Upload statement</span>
+        </a>
+        <a href="#targets" class="nav-item" data-view="targets">
+          <i class="fas fa-bullseye"></i><span>Targets &amp; rules</span>
+        </a>
+        <a href="#forecast" class="nav-item" data-view="forecast">
+          <i class="fas fa-chart-line"></i><span>Forecast &amp; budget</span>
+        </a>
+        <a href="#approvals" class="nav-item" data-view="approvals">
+          <i class="fas fa-clipboard-check"></i><span>Approvals</span>
+          <span class="nav-count" id="apNavCount" hidden></span>
+        </a>
+        <a href="#dashboard" class="nav-item" data-view="dashboard">
+          <i class="fas fa-gauge-high"></i><span>Dashboard</span>
+        </a>
+        <a href="#settings" class="nav-item" data-view="settings">
+          <i class="fas fa-users-gear"></i><span>Users &amp; business</span>
+        </a>
+        <a href="#activity" class="nav-item" data-view="activity">
+          <i class="fas fa-clock-rotate-left"></i><span>Activity log</span>
+        </a>
+        <a href="#support" class="nav-item" data-view="support">
+          <i class="fas fa-headset"></i><span>Contact support</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <i class="fas fa-building"></i>
+        <span id="sidebarBusiness">Loading business…</span>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
+          <i class="fas fa-bars"></i>
+        </button>
+
+        <div class="topbar-title">
+          <h1 id="viewTitle">Dashboard</h1>
+          <p id="viewSubtitle"></p>
+        </div>
+
+        <div class="topbar-actions">
+          <label class="year-picker" id="yearPicker">
+            <span>Year</span>
+            <select id="yearSelect" aria-label="Financial year"></select>
+          </label>
+
+          <div class="user-chip">
+            <span class="avatar" id="userAvatar">G</span>
+            <div class="user-text">
+              <strong id="userName">Guest</strong>
+              <small id="userRole">Not signed in</small>
+            </div>
+          </div>
+
+          <a href="password.html?change" class="btn-outline" id="passwordBtn" title="Change your password">
+            <i class="fas fa-key"></i><span>Password</span>
+          </a>
+
+          <button type="button" class="btn-outline" id="signOutBtn">
+            <i class="fas fa-right-from-bracket"></i><span>Sign out</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="view" id="view-dashboard" data-title="Dashboard">
+          <div class="search-box">
+            <i class="fas fa-magnifying-glass"></i>
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="Search income statement lines, e.g. electricity"
+              aria-label="Search income statement lines"
+            />
+          </div>
+
+          <div class="metrics" id="metrics">
+            <div class="metric-card skeleton"></div>
+            <div class="metric-card skeleton"></div>
+            <div class="metric-card skeleton"></div>
+            <div class="metric-card skeleton"></div>
+          </div>
+
+          <article class="panel dash-kpis">
+            <header class="panel-header">
+              <div>
+                <h2>KPI targets</h2>
+                <p class="panel-meta" id="dashKpiMeta">Loading…</p>
+              </div>
+              <span class="badge" id="dashKpiBadge" hidden></span>
+            </header>
+            <div class="dash-kpi-list" id="dashKpiList">
+              <div class="dash-kpi skeleton"></div>
+              <div class="dash-kpi skeleton"></div>
+              <div class="dash-kpi skeleton"></div>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span id="dashKpiNote">
+                Years with actual figures are checked against them; future years against the budget.
+              </span>
+            </p>
+          </article>
+
+          <div class="statements">
+            <article class="panel">
+              <header class="panel-header">
+                <div>
+                  <h2>Submitted income statement</h2>
+                  <p class="panel-meta" id="submittedMeta">Loading…</p>
+                </div>
+                <span class="badge" id="submittedBadge"></span>
+              </header>
+              <div class="table-wrap">
+                <table class="statement" id="submittedTable">
+                  <tbody><tr class="row-loading"><td></td></tr></tbody>
+                </table>
+              </div>
+              <p class="panel-note">
+                <i class="fas fa-circle-info"></i>
+                Exactly as uploaded: amounts in R'000, expenses in brackets. When several uploads are
+                combined, each year comes from the newest upload that covers it (hover a year to see the file);
+                a dash means that year's upload doesn't have the line.
+              </p>
+            </article>
+
+            <article class="panel">
+              <header class="panel-header">
+                <div>
+                  <h2>Processed income statement</h2>
+                  <p class="panel-meta" id="processedMeta">Loading…</p>
+                </div>
+                <span class="badge" id="processedBadge"></span>
+              </header>
+              <div class="table-wrap">
+                <table class="statement" id="processedTable">
+                  <tbody><tr class="row-loading"><td></td></tr></tbody>
+                </table>
+              </div>
+              <p class="panel-note">
+                <i class="fas fa-circle-info"></i>
+                <span>
+                  In rands across RandAhead's 13 categories: last year's actual, the Moving Average (MA)
+                  and Exponential Smoothing (ES) forecasts, and the <strong>Budget</strong> chosen in
+                  Forecast &amp; budget (MA, ES or the average of both). <strong class="note-good">Green</strong>
+                  is better for the business (more income or profit, lower costs), <strong class="note-bad">red</strong>
+                  is worse. The % in brackets is the change from <span id="processedNoteYear">last year</span>'s actual.
+                </span>
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section
+          class="view"
+          id="view-upload"
+          data-title="Upload statement"
+          data-subtitle="Send your income statement history for approval"
+        >
+          <p class="role-note" id="uploadRoleNote" hidden>
+            <i class="fas fa-lock"></i><span></span>
+          </p>
+
+          <div id="uploadFlow">
+            <ol class="stepper" id="uploadSteps">
+              <li class="step" data-step="1"><span class="step-dot">1</span><span>Choose file</span></li>
+              <li class="step" data-step="2"><span class="step-dot">2</span><span>Check &amp; map lines</span></li>
+              <li class="step" data-step="3"><span class="step-dot">3</span><span>Send for approval</span></li>
+            </ol>
+
+            <div class="upload-step" id="uploadStep1">
+              <div class="upload-grid">
+                <div class="panel upload-card">
+                  <p class="replace-note" id="replaceNote" hidden>
+                    <i class="fas fa-rotate"></i>
+                    <span id="replaceText"></span>
+                    <button type="button" class="link-btn" id="replaceCancel">Cancel</button>
+                  </p>
+
+                  <label class="dropzone" id="dropzone" for="fileInput" tabindex="0">
+                    <input type="file" id="fileInput" accept=".xlsx,.csv" hidden />
+                    <i class="fas fa-cloud-arrow-up"></i>
+                    <strong>Drag your income statement here</strong>
+                    <span>or <span class="dropzone-link">browse your files</span></span>
+                    <small>Excel (.xlsx) or CSV, up to 5 MB</small>
+                  </label>
+
+                  <p class="template-note" id="templateNote">
+                    No statement in Excel yet?
+                    <button type="button" class="link-btn" id="templateBtn"><i class="fas fa-file-arrow-down"></i> Download the template</button>
+                  </p>
+                </div>
+
+                <aside class="panel upload-help">
+                  <h2>What we need</h2>
+                  <ul class="need-list">
+                    <li><i class="fas fa-file-invoice-dollar"></i><span>Your <strong>income statement</strong> only (no balance sheet)</span></li>
+                    <li><i class="fas fa-calendar-days"></i><span><strong>3 to 5 financial years</strong> in total, one column per year (e.g. FY2022 to FY2026)</span></li>
+                    <li><i class="fas fa-layer-group"></i><span><strong>One file or several.</strong> A file with a single year (e.g. just FY2026) is added to your approved history. If a year is in more than one upload, the newest upload's figures are used</span></li>
+                    <li><i class="fas fa-ban"></i><span>PDFs and scanned images can't be read</span></li>
+                    <li><i class="fas fa-table"></i><span>If your Excel file has several sheets, we read the first sheet with year columns, so put the income statement there</span></li>
+                    <li><i class="fas fa-list"></i><span>Line names in the first column. We match them <strong>by name</strong>, so your own layout works</span></li>
+                    <li><i class="fas fa-calculator"></i><span>Keep your subtotals (gross profit, net profit) so we can check the totals</span></li>
+                  </ul>
+                </aside>
+              </div>
+            </div>
+
+            <div class="upload-step" id="uploadStep2" hidden>
+              <article class="panel">
+                <header class="panel-header">
+                  <div>
+                    <h2><span id="previewFile"></span></h2>
+                    <p class="panel-meta" id="previewMeta"></p>
+                  </div>
+                  <label class="scale-picker">
+                    <span>Amounts in</span>
+                    <select id="scaleSelect" aria-label="Amounts in"></select>
+                  </label>
+                </header>
+
+                <ul class="checks" id="previewChecks"></ul>
+
+                <div class="history-plan" id="historyPlan"></div>
+
+                <div class="table-wrap">
+                  <table class="statement map-table" id="mapTable"></table>
+                </div>
+
+                <footer class="preview-footer">
+                  <label class="confirm">
+                    <input type="checkbox" id="confirmCheck" />
+                    <span>I've checked the amounts, the scale and the categories</span>
+                  </label>
+                  <div class="preview-buttons">
+                    <button type="button" class="btn-outline" id="changeFileBtn">
+                      <i class="fas fa-arrow-left"></i><span>Choose a different file</span>
+                    </button>
+                    <button type="button" class="btn-primary" id="submitUploadBtn" disabled>
+                      <i class="fas fa-paper-plane"></i><span>Send for approval</span>
+                    </button>
+                  </div>
+                </footer>
+              </article>
+            </div>
+
+            <div class="upload-step" id="uploadStep3" hidden>
+              <div class="panel upload-done">
+                <i class="fas fa-circle-check"></i>
+                <h2>Sent for approval</h2>
+                <p id="doneText"></p>
+                <button type="button" class="btn-primary" id="uploadAnotherBtn">
+                  <i class="fas fa-file-arrow-up"></i><span>Upload another file</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <article class="panel uploads">
+            <header class="panel-header">
+              <div>
+                <h2>Your uploads</h2>
+                <p class="panel-meta">Every version is kept. Approved uploads combine into one history; where a year is in more than one, the newest upload is used.</p>
+              </div>
+            </header>
+            <div class="table-wrap">
+              <table class="uploads-table" id="uploadsTable">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section
+          class="view"
+          id="view-forecast"
+          data-title="Forecast &amp; budget"
+          data-subtitle="Compare forecasting methods and choose your budget"
+        >
+          <p class="role-note" id="fcRoleNote" hidden>
+            <i class="fas fa-lock"></i><span></span>
+          </p>
+
+          <div class="fc-top">
+            <form class="panel fc-settings" id="fcSettings" novalidate>
+              <header class="panel-header">
+                <div>
+                  <h2>Forecast settings</h2>
+                  <p class="panel-meta" id="fcHistoryMeta">Loading your approved history…</p>
+                </div>
+              </header>
+
+              <div class="fc-settings-body">
+                <div class="fc-field">
+                  <span class="fc-label"><span class="swatch swatch-ma"></span>Moving Average window</span>
+                  <div class="segmented" role="radiogroup" aria-label="Moving Average window">
+                    <label><input type="radio" name="fcWindow" value="2" /><span>2 years</span></label>
+                    <label><input type="radio" name="fcWindow" value="3" checked /><span>3 years</span></label>
+                  </div>
+                </div>
+
+                <div class="fc-field">
+                  <label class="fc-label" for="fcAlpha">
+                    <span class="swatch swatch-es"></span>Smoothing weight (α)
+                    <output id="fcAlphaOut" for="fcAlpha">0.5</output>
+                  </label>
+                  <input type="range" id="fcAlpha" min="0.1" max="0.9" step="0.1" value="0.5" />
+                  <div class="range-ends"><span>0.1 · steadier</span><span>0.9 · follows recent years</span></div>
+                </div>
+
+                <div class="fc-field">
+                  <span class="fc-label"><i class="fas fa-calendar-days"></i>Forecast horizon</span>
+                  <div class="segmented" role="radiogroup" aria-label="Forecast horizon">
+                    <label><input type="radio" name="fcHorizon" value="1" checked /><span>1 year</span></label>
+                    <label><input type="radio" name="fcHorizon" value="2" /><span>2 years</span></label>
+                    <label><input type="radio" name="fcHorizon" value="3" /><span>3 years</span></label>
+                  </div>
+                </div>
+              </div>
+
+              <footer class="fc-settings-footer">
+                <p class="fc-stale" id="fcStale" hidden>
+                  <i class="fas fa-rotate"></i> Settings changed. Run again to update the figures.
+                </p>
+                <button type="submit" class="btn-primary" id="fcRunBtn" disabled>
+                  <i class="fas fa-play"></i><span>Run forecasts</span>
+                </button>
+              </footer>
+            </form>
+
+            <article class="panel fc-methods">
+              <header class="panel-header">
+                <div>
+                  <h2>How the two methods work</h2>
+                  <p class="panel-meta">Simple methods you can check by hand. No machine learning.</p>
+                </div>
+              </header>
+              <div class="method-cards">
+                <div class="method-card ma">
+                  <h3><span class="swatch swatch-ma"></span>Moving Average</h3>
+                  <p id="fcMaExplain"></p>
+                </div>
+                <div class="method-card es">
+                  <h3><span class="swatch swatch-es"></span>Exponential Smoothing</h3>
+                  <p id="fcEsExplain"></p>
+                </div>
+              </div>
+              <p class="fc-flat-note">
+                <i class="fas fa-circle-info"></i>
+                <span id="fcFlatNote">Both methods forecast one level, not a trend.</span>
+              </p>
+            </article>
+          </div>
+
+          <article class="panel fc-warnings">
+            <header class="panel-header">
+              <div>
+                <h2>Economic warnings</h2>
+                <p class="panel-meta">
+                  Inflation, electricity and fuel prices checked against their thresholds. Warnings only:
+                  they flag categories to review and never change the forecast figures.
+                </p>
+              </div>
+              <span class="badge" id="fcWarnBadge"></span>
+            </header>
+            <ul class="indicator-list" id="fcWarnings">
+              <li class="indicator skeleton"></li>
+              <li class="indicator skeleton"></li>
+              <li class="indicator skeleton"></li>
+              <li class="indicator skeleton"></li>
+            </ul>
+            <ul class="checks fc-data-checks" id="fcDataChecks" hidden></ul>
+          </article>
+
+          <article class="panel fc-chart-panel" id="fcChartPanel">
+            <header class="panel-header">
+              <div>
+                <h2>History vs forecasts</h2>
+                <p class="panel-meta" id="fcChartMeta">Loading…</p>
+              </div>
+              <label class="scale-picker">
+                <span>Show</span>
+                <select id="fcChartSelect" aria-label="Category shown on the chart"></select>
+              </label>
+            </header>
+            <div class="chart-box skeleton" id="fcChartBox">
+              <canvas id="fcChart" role="img" aria-label="Actual figures and both forecasts for the chosen category"></canvas>
+              <p class="chart-error" id="fcChartError" hidden>
+                <i class="fas fa-plug-circle-xmark"></i>
+                The chart couldn't load (check your connection). The table below has every figure.
+              </p>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span>Solid line: actual figures. Dashed lines: forecasts, starting from the last actual year. A flat dashed line means the later years repeat the first forecast year.</span>
+            </p>
+          </article>
+
+          <article class="panel fc-compare">
+            <header class="panel-header">
+              <div>
+                <h2>Side-by-side comparison</h2>
+                <p class="panel-meta" id="fcTableMeta">Loading…</p>
+              </div>
+            </header>
+            <div class="table-wrap">
+              <table class="statement fc-table" id="fcTable">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span>
+                Amounts in rands. Click a row to show it on the chart. The % in brackets is the change from
+                <span id="fcNoteYear">last year</span>'s actual: <strong class="note-good">green</strong> is better
+                for the business, <strong class="note-bad">red</strong> is worse. <strong>Team-managed</strong>
+                categories (revenue and employee costs) are set by the business itself, so treat these forecasts as a starting point.
+              </span>
+            </p>
+          </article>
+
+          <article class="panel fc-choose">
+            <header class="panel-header">
+              <div>
+                <h2>Choose your budget</h2>
+                <p class="panel-meta" id="fcCurrentBudget">Loading current budget…</p>
+              </div>
+              <span class="badge warning" id="fcBudgetBadge" hidden>Out of date</span>
+            </header>
+            <div class="choice-cards" id="fcChoices" role="radiogroup" aria-label="Method for the budget">
+              <div class="choice-card skeleton"></div>
+              <div class="choice-card skeleton"></div>
+            </div>
+            <footer class="preview-footer">
+              <p class="fc-choose-note" id="fcChooseNote">Pick the forecast that looks most realistic to you.</p>
+              <button type="button" class="btn-primary" id="fcChooseBtn" disabled>
+                <i class="fas fa-check"></i><span>Use as budget</span>
+              </button>
+            </footer>
+          </article>
+        </section>
+
+        <section
+          class="view"
+          id="view-approvals"
+          data-title="Approvals"
+          data-subtitle="Review uploads and budgets before they're used"
+        >
+          <p class="role-note" id="apRoleNote" hidden>
+            <i class="fas fa-lock"></i><span></span>
+          </p>
+
+          <div class="ap-summary">
+            <div class="ap-stat">
+              <i class="fas fa-file-excel"></i>
+              <div><strong id="apUploadCount">–</strong><span>uploads waiting</span></div>
+            </div>
+            <div class="ap-stat">
+              <i class="fas fa-check-to-slot"></i>
+              <div><strong id="apBudgetCount">–</strong><span>budget waiting</span></div>
+            </div>
+          </div>
+
+          <article class="panel ap-panel">
+            <header class="panel-header">
+              <div>
+                <h2>Uploads waiting for approval</h2>
+                <p class="panel-meta">
+                  An approved upload becomes the history behind the forecasts and the dashboard.
+                  A rejected one goes back to the submitter with your comment.
+                </p>
+              </div>
+            </header>
+            <div class="ap-list" id="apUploads">
+              <div class="ap-item skeleton"></div>
+            </div>
+          </article>
+
+          <article class="panel ap-panel">
+            <header class="panel-header">
+              <div>
+                <h2>Budget waiting for approval</h2>
+                <p class="panel-meta">
+                  The budget chosen in Forecast &amp; budget. Approving it makes it the business's budget;
+                  rejecting it asks for a new choice.
+                </p>
+              </div>
+            </header>
+            <div class="ap-list" id="apBudgets">
+              <div class="ap-item skeleton"></div>
+            </div>
+          </article>
+
+          <article class="panel ap-panel">
+            <header class="panel-header">
+              <div>
+                <h2>Recent decisions</h2>
+                <p class="panel-meta">Every decision is kept with who made it, when, and the comment.</p>
+              </div>
+            </header>
+            <div class="table-wrap">
+              <table class="uploads-table ap-history" id="apHistory">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section
+          class="view"
+          id="view-targets"
+          data-title="Targets &amp; rules"
+          data-subtitle="Set KPI targets and the economic warning thresholds"
+        >
+          <article class="panel tg-panel">
+            <header class="panel-header">
+              <div>
+                <h2>KPI targets</h2>
+                <p class="panel-meta" id="kpiMeta">
+                  A goal per KPI per financial year. Years with actual figures are checked against them;
+                  future years are checked against the budget.
+                </p>
+              </div>
+              <span class="badge" id="kpiBadge" hidden></span>
+            </header>
+
+            <p class="role-note tg-role-note" id="kpiRoleNote" hidden>
+              <i class="fas fa-lock"></i><span></span>
+            </p>
+
+            <form class="tg-form" id="kpiForm" novalidate>
+              <h3 id="kpiFormTitle">Add a target</h3>
+              <div class="tg-fields">
+                <label class="tg-field">
+                  <span>KPI</span>
+                  <select id="kpiMetric"></select>
+                </label>
+                <label class="tg-field">
+                  <span>Financial year</span>
+                  <select id="kpiYear"></select>
+                </label>
+                <label class="tg-field">
+                  <span>Target</span>
+                  <span class="input-affix" id="kpiValueField" data-unit="rand">
+                    <input type="text" inputmode="decimal" id="kpiValue" autocomplete="off" />
+                  </span>
+                </label>
+                <div class="tg-form-buttons">
+                  <button type="button" class="btn-outline" id="kpiCancel" hidden>Cancel</button>
+                  <button type="submit" class="btn-primary" id="kpiSave">
+                    <i class="fas fa-check"></i><span id="kpiSaveText">Add target</span>
+                  </button>
+                </div>
+              </div>
+              <p class="tg-hint" id="kpiHint"></p>
+            </form>
+
+            <div class="table-wrap">
+              <table class="uploads-table tg-table" id="kpiTable">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span>
+                <strong>Met / Missed</strong>: the year's actual figure reached the target or not.
+                <strong>On track / Off track</strong>: the budget for that year reaches it or not.
+                Margins are a share of revenue.
+              </span>
+            </p>
+          </article>
+
+          <article class="panel tg-panel">
+            <header class="panel-header">
+              <div>
+                <h2>Economic warning rules</h2>
+                <p class="panel-meta">
+                  A rule warns when its indicator's latest yearly change within your history years is above
+                  the threshold. Warnings flag categories to review; they never change the figures.
+                </p>
+              </div>
+              <span class="badge" id="ruleBadge"></span>
+            </header>
+
+            <p class="role-note tg-role-note" id="ruleRoleNote" hidden>
+              <i class="fas fa-lock"></i><span></span>
+            </p>
+
+            <div class="rule-list" id="ruleList">
+              <div class="rule-row skeleton"></div>
+              <div class="rule-row skeleton"></div>
+            </div>
+
+            <form class="tg-form rule-add" id="ruleForm" novalidate>
+              <h3>Add a rule</h3>
+              <div class="tg-fields">
+                <label class="tg-field">
+                  <span>Indicator</span>
+                  <select id="ruleIndicator"></select>
+                </label>
+                <label class="tg-field">
+                  <span>Warn above</span>
+                  <span class="input-affix" data-unit="percent">
+                    <input type="text" inputmode="decimal" id="ruleThreshold" placeholder="e.g. 15" autocomplete="off" />
+                  </span>
+                </label>
+                <label class="tg-field tg-field-wide">
+                  <span>Name <small>optional</small></span>
+                  <input type="text" id="ruleName" maxlength="200" autocomplete="off" />
+                </label>
+                <div class="tg-form-buttons">
+                  <button type="submit" class="btn-primary" id="ruleAddBtn">
+                    <i class="fas fa-plus"></i><span>Add rule</span>
+                  </button>
+                </div>
+              </div>
+              <p class="rule-preview none" id="ruleAddPreview"></p>
+            </form>
+          </article>
+        </section>
+
+        <section
+          class="view"
+          id="view-settings"
+          data-title="Users &amp; business"
+          data-subtitle="Your business details and who can sign in"
+        >
+          <article class="panel st-panel">
+            <header class="panel-header">
+              <div>
+                <h2>Business details</h2>
+                <p class="panel-meta">
+                  The business name shows in the sidebar and on reports. For now RandAhead budgets the whole company
+                  as one unit; stores and branches come later.
+                </p>
+              </div>
+            </header>
+
+            <p class="role-note tg-role-note" id="bizRoleNote" hidden>
+              <i class="fas fa-lock"></i><span></span>
+            </p>
+
+            <form class="st-biz" id="bizForm" novalidate>
+              <div class="st-biz-grid">
+                <label class="tg-field">
+                  <span>Registered name</span>
+                  <input type="text" id="bizName" maxlength="200" autocomplete="organization" />
+                </label>
+                <label class="tg-field">
+                  <span>Industry <small>optional</small></span>
+                  <select id="bizIndustry"></select>
+                </label>
+                <label class="tg-field">
+                  <span>Financial year ends in</span>
+                  <select id="bizYearEnd"></select>
+                </label>
+                <div class="st-fixed">
+                  <span>Country</span>
+                  <strong>South Africa</strong>
+                </div>
+                <div class="st-fixed">
+                  <span>Budgeted as</span>
+                  <strong id="bizUnit">–</strong>
+                </div>
+              </div>
+              <p class="tg-hint" id="bizYearEndHint"></p>
+              <div class="tg-form-buttons st-biz-buttons">
+                <button type="button" class="btn-outline" id="bizUndo" hidden>Undo</button>
+                <button type="submit" class="btn-primary" id="bizSave" hidden>
+                  <i class="fas fa-check"></i><span>Save changes</span>
+                </button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel st-panel">
+            <header class="panel-header">
+              <div>
+                <h2>Users</h2>
+                <p class="panel-meta">
+                  Everyone who can sign in to this business and what their role lets them do. Users with uploads or
+                  decisions on record can be switched off but not deleted, so their names stay on the history.
+                </p>
+              </div>
+              <span class="badge" id="userBadge" hidden></span>
+            </header>
+
+            <p class="role-note tg-role-note" id="userRoleNote" hidden>
+              <i class="fas fa-lock"></i><span></span>
+            </p>
+
+            <form class="tg-form" id="userForm" novalidate>
+              <h3 id="userFormTitle">Add a user</h3>
+              <div class="tg-fields">
+                <label class="tg-field">
+                  <span>Full name</span>
+                  <input type="text" id="userFullName" maxlength="200" autocomplete="off" />
+                </label>
+                <label class="tg-field tg-field-wide">
+                  <span>Email</span>
+                  <input type="email" id="userEmail" maxlength="254" autocomplete="off" />
+                </label>
+                <label class="tg-field">
+                  <span>Role</span>
+                  <select id="userRoleSelect"></select>
+                </label>
+                <label class="tg-field">
+                  <span id="userPasswordLabel">Password</span>
+                  <input type="password" id="userPassword" maxlength="72" autocomplete="new-password" />
+                </label>
+                <div class="tg-form-buttons">
+                  <button type="button" class="btn-outline" id="userCancel" hidden>Cancel</button>
+                  <button type="submit" class="btn-primary" id="userSave">
+                    <i class="fas fa-user-plus"></i><span id="userSaveText">Add user</span>
+                  </button>
+                </div>
+              </div>
+              <p class="tg-hint" id="userHint"></p>
+            </form>
+
+            <div class="table-wrap">
+              <table class="uploads-table st-users" id="userTable">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span>
+                A switched-off user can't sign in, but everything they uploaded or decided is kept. The last active Approver
+                and the last active Decision Maker can't be removed, so uploads and budgets can still be approved.
+              </span>
+            </p>
+          </article>
+        </section>
+
+        <section class="view" id="view-activity" data-title="Activity log" data-subtitle="Who did what, and when">
+          <article class="panel">
+            <header class="panel-header">
+              <div>
+                <h2 id="acHeading">Activity</h2>
+                <p class="panel-meta" id="acMeta"></p>
+              </div>
+              <span class="badge info" id="acBadge" hidden></span>
+            </header>
+
+            <form class="ac-filters" id="acFilters" novalidate>
+              <label class="tg-field">
+                <span>Area</span>
+                <select id="acArea"></select>
+              </label>
+              <label class="tg-field" id="acPersonField" hidden>
+                <span>Person</span>
+                <select id="acPerson"></select>
+              </label>
+              <label class="tg-field">
+                <span>From</span>
+                <input type="date" id="acFrom" />
+              </label>
+              <label class="tg-field">
+                <span>To</span>
+                <input type="date" id="acTo" />
+              </label>
+              <div class="tg-form-buttons">
+                <button type="button" class="btn-outline" id="acClear">Clear filters</button>
+                <button type="button" class="btn-outline" id="acRefresh">
+                  <i class="fas fa-rotate"></i><span>Refresh</span>
+                </button>
+              </div>
+            </form>
+
+            <div class="table-wrap">
+              <table class="uploads-table ac-table" id="acTable">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span id="acNote"></span>
+            </p>
+          </article>
+        </section>
+
+        <section
+          class="view"
+          id="view-support"
+          data-title="Contact support"
+          data-subtitle="We're here to help"
+        >
+          <div class="support-grid">
+            <form class="panel support-form" id="supportForm" novalidate>
+              <h2>Get in touch</h2>
+
+              <div class="field">
+                <label for="supportName">Name</label>
+                <input id="supportName" type="text" autocomplete="name" required />
+              </div>
+              <div class="field">
+                <label for="supportEmail">Email</label>
+                <input id="supportEmail" type="email" autocomplete="email" required />
+              </div>
+              <div class="field">
+                <label for="supportTopic">Topic</label>
+                <select id="supportTopic">
+                  <option>Uploading a statement</option>
+                  <option>Forecasts and budgets</option>
+                  <option>Account and access</option>
+                  <option>Something else</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="supportMessage">Message</label>
+                <textarea id="supportMessage" rows="5" required></textarea>
+              </div>
+
+              <button type="submit" class="btn-primary" id="supportBtn">
+                <i class="fas fa-paper-plane"></i><span>Send message</span>
+              </button>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/toast.js"></script>
+    <script src="js/mock-data.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/statement.js"></script>
+    <script src="js/forecast.js"></script>
+    <script src="js/importer.js"></script>
+    <script src="js/upload.js"></script>
+    <script src="js/forecast-section.js"></script>
+    <script src="js/approvals.js"></script>
+    <script src="js/targets.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/activity.js"></script>
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>
