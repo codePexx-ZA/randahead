@@ -47,6 +47,7 @@ builder.Services.AddSingleton<Mailer>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddScoped<BusinessScope>();
 builder.Services.AddScoped<ForecastRuns>();
+builder.Services.AddScoped<StatementFigures>();
 builder.Services.AddScoped<AuditLog>();
 builder
     .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

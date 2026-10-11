@@ -23,18 +23,6 @@ public record KpiTargetRequest(
 public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ControllerBase
 {
     private const string TargetEditors = "decision_maker";
-    private static readonly HashSet<string> RandSubtotals = ["net_profit", "operating_profit", "gross_profit", "profit_before_tax"];
-    private static readonly HashSet<string> PercentMargins = ["net_margin", "operating_margin", "gross_margin"];
-    private static readonly Dictionary<string, string> KpiNames = new()
-    {
-        ["net_profit"] = "Net profit",
-        ["operating_profit"] = "Operating profit",
-        ["gross_profit"] = "Gross profit",
-        ["profit_before_tax"] = "Profit before tax",
-        ["net_margin"] = "Net margin",
-        ["operating_margin"] = "Operating margin",
-        ["gross_margin"] = "Gross margin",
-    };
 
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken cancellationToken)
@@ -153,8 +141,8 @@ public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, Audit
     }
 
     private async Task<string> KpiNameAsync(string metric, CancellationToken cancellationToken) =>
-        KpiNames.TryGetValue(metric, out var name)
-            ? name
+        StatementFigures.SubtotalNames.TryGetValue(metric, out var name) ? name
+            : StatementFigures.Margins.TryGetValue(metric, out var margin) ? margin.Name
             : await db.LineCategories.Where(c => c.CategoryCode == metric).Select(c => c.DisplayName).FirstOrDefaultAsync(cancellationToken)
                 ?? metric;
 
@@ -173,8 +161,8 @@ public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, Audit
     private async Task<string?> ProblemAsync(KpiTargetRequest request, int yearEndMonth, CancellationToken cancellationToken)
     {
         var metric = request.MetricName ?? "";
-        var unit = PercentMargins.Contains(metric) ? "percent"
-            : RandSubtotals.Contains(metric) || await db.LineCategories.AnyAsync(c => c.CategoryCode == metric, cancellationToken) ? "rand"
+        var unit = StatementFigures.Margins.ContainsKey(metric) ? "percent"
+            : StatementFigures.SubtotalNames.ContainsKey(metric) || await db.LineCategories.AnyAsync(c => c.CategoryCode == metric, cancellationToken) ? "rand"
             : null;
         if (unit is null)
         {

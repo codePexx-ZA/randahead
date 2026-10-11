@@ -4,11 +4,6 @@ const params = new URLSearchParams(window.location.search);
 const resetToken = params.get("token");
 const session = Session.get();
 
-const brandLogo = document.getElementById("brandLogo");
-const hideLogo = () => brandLogo.classList.add("missing");
-brandLogo.addEventListener("error", hideLogo);
-if (brandLogo.complete && brandLogo.naturalWidth === 0) hideLogo();
-
 document.querySelectorAll(".pw-min").forEach((el) => (el.textContent = MIN_PASSWORD_LENGTH));
 
 document.querySelectorAll(".input-box input").forEach((input) => {

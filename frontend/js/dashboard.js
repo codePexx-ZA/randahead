@@ -9,6 +9,7 @@ const ROLE_PERMISSIONS = {
   editRules: ["approver", "decision_maker"],
   manageUsers: ["decision_maker", "approver"],
   editBusiness: ["decision_maker"],
+  viewReports: ["decision_maker"],
   deleteAnyUser: [],
 };
 const DEMO_ACCOUNTS = { submitter: "submitter@demo.co.za", approver: "approver@demo.co.za", decision_maker: "owner@demo.co.za" };
@@ -26,6 +27,8 @@ const state = {
   selectedMetrics: [],
   yearIndex: 0,
   search: "",
+  summaryTimer: null,
+  summaryToken: 0,
 };
 
 const randFormat = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
@@ -54,8 +57,13 @@ function userRoleLabel(user) {
   return user.isAdmin ? "Admin" : ROLE_LABELS[user.role] || user.role;
 }
 
+function allowedView(view) {
+  return Boolean(view) && (!view.dataset.permission || can(view.dataset.permission));
+}
+
 function showView(name) {
-  const view = document.getElementById(`view-${name}`) || document.getElementById(`view-${homeView()}`);
+  const requested = document.getElementById(`view-${name}`);
+  const view = allowedView(requested) ? requested : document.getElementById(`view-${homeView()}`);
   const viewName = view.id.replace("view-", "");
   const opening = !view.classList.contains("active");
 
@@ -68,11 +76,13 @@ function showView(name) {
   document.getElementById("yearPicker").hidden = viewName !== "dashboard" || !state.submission;
   document.title = `${view.dataset.title} | RandAhead`;
   if (opening && viewName === "activity") refreshActivity();
+  if (opening && viewName === "reports") refreshReports();
 
   document.body.classList.remove("sidebar-open");
 }
 
 function setupNav() {
+  navItems.forEach((item) => (item.hidden = !allowedView(document.getElementById(`view-${item.dataset.view}`))));
   window.addEventListener("hashchange", () => showView(location.hash.slice(1)));
   showView(location.hash.slice(1) || homeView());
 
@@ -95,7 +105,8 @@ function renderUserChip() {
   if (!user) return;
   document.getElementById("userName").textContent = user.fullName;
   document.getElementById("userRole").textContent = userRoleLabel(user);
-  document.getElementById("userAvatar").textContent = initials(user.fullName);  document.getElementById("supportName").value = user.fullName;
+  document.getElementById("userAvatar").textContent = initials(user.fullName);
+  document.getElementById("supportName").value = user.fullName;
   document.getElementById("supportEmail").value = user.email;
 }
 
@@ -168,6 +179,7 @@ function setupYearPicker() {
     state.yearIndex = Number(select.value);
     document.querySelectorAll(".metric-card").forEach((card) => updateMetricCard(card, false));
     renderSubmitted();
+    refreshDashboardSummary();
   });
 }
 
@@ -403,7 +415,7 @@ function renderProcessed() {
   const table = document.getElementById("processedTable");
   table.innerHTML = `<thead><tr>${header}</tr></thead><tbody>${rows}</tbody>`;
   applySearch();
-  renderDashboardTargets();
+  refreshDashboardSummary();
 }
 
 function renderNoBudget(lastYear) {
@@ -415,7 +427,7 @@ function renderNoBudget(lastYear) {
   document.getElementById("processedNoteYear").textContent = lastYear;
   document.getElementById("processedTable").innerHTML =
     '<tbody><tr class="row-empty"><td>Run the forecasts and choose a budget in Forecast &amp; budget to see it here.</td></tr></tbody>';
-  renderDashboardTargets();
+  refreshDashboardSummary();
 }
 
 function targetProgress(r) {
@@ -450,12 +462,88 @@ function dashTargetCardHtml(r) {
   </div>`;
 }
 
-function renderDashboardTargets() {
-  if (!state.processed || !tg.loaded) return;
+function refreshDashboardSummary() {
+  clearTimeout(state.summaryTimer);
+  state.summaryTimer = setTimeout(loadDashboardSummary, 50);
+}
+
+async function loadDashboardSummary() {
+  if (!state.processed) return;
+  const token = ++state.summaryToken;
+  const year = state.submission.years[state.yearIndex];
+  try {
+    const summary = await Api.getDashboard(year, state.processed, state.budget, state.business);
+    if (token !== state.summaryToken) return;
+    renderDashboardTargets(summary.targets);
+    renderBudgetCheck(summary);
+  } catch (err) {
+    if (token === state.summaryToken) showToast(err.message || "Could not load the dashboard figures.", "error");
+  }
+}
+
+function signedRand(value) {
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  return `${sign}${numberFormat.format(Math.abs(value))}`;
+}
+
+function renderBudgetCheck(summary) {
+  const { year, previousYear, budget, lines } = summary;
+  document.getElementById("checkTitle").textContent = budget ? `Budget vs actual · ${year}` : `Year on year · ${year}`;
+  document.getElementById("checkMeta").textContent = budget
+    ? `${METHOD_NAMES[budget.method]} budget, approved by ${budget.approvedBy} on ${budget.approvedOn}`
+    : `No approved budget forecast ${year}${previousYear ? `, so it's compared with ${previousYear}` : ""}`;
+
+  const badge = document.getElementById("checkBadge");
+  const net = lines.find((l) => l.code === "net_profit");
+  badge.hidden = !budget;
+  if (budget) {
+    badge.className = `badge ${net.variance >= 0 ? "approved" : "rejected"}`;
+    badge.textContent = `Net profit ${signedRand(net.variance)} vs budget`;
+  }
+
+  const header = `<th>Category (R)</th>
+    ${previousYear ? `<th class="num col-actual">${escapeHtml(previousYear)}<small>Actual</small></th>` : ""}
+    <th class="num">${escapeHtml(year)}<small>Actual</small></th>
+    ${previousYear ? `<th class="num">Change<small>vs ${escapeHtml(previousYear)}</small></th>` : ""}
+    ${budget ? `<th class="num col-actual">${escapeHtml(year)}<small>Budget</small></th>
+      <th class="num col-budget">Difference<small>vs budget</small></th>` : ""}`;
+
+  const rows = lines.map((line) => {
+    const team = line.teamManaged
+      ? `<span class="tag" title="Set by the business; no external indicator applies">Team-managed</span>`
+      : "";
+    const before = previousYear ? `<td class="num col-actual">${numberFormat.format(line.previous)}</td>` : "";
+    const change = previousYear
+      ? `<td class="num forecast-cell ${changeClass(line.change, line.kind)}">${pctText(line.change)}</td>`
+      : "";
+    const versusBudget = budget
+      ? `<td class="num col-actual">${numberFormat.format(line.budget)}</td>
+        <td class="num forecast-cell col-budget ${changeClass(line.variancePercent, line.kind)}">
+          <span class="fc-value">${signedRand(line.variance)}</span>
+          <small class="fc-change">(${pctText(line.variancePercent)})</small></td>`
+      : "";
+    return `<tr class="${line.subtotal ? "row-subtotal" : "row-line"}" data-search="${escapeHtml(line.name.toLowerCase())}">
+      <td><span class="cat-name">${escapeHtml(line.name)}</span>${team}</td>
+      ${before}<td class="num">${numberFormat.format(line.actual)}</td>${change}${versusBudget}</tr>`;
+  }).join("");
+
+  const table = document.getElementById("checkTable");
+  table.innerHTML = `<thead><tr>${header}</tr></thead><tbody>${rows}</tbody>`;
+  applySearch();
+}
+
+function renderDashboardTargets(targets) {
   const list = document.getElementById("dashKpiList");
   const badge = document.getElementById("dashKpiBadge");
-  const yem = state.business.yearEndMonth;
-  const results = tg.targets.map((t) => evaluateTarget(t, state.processed, state.budget, yem));
+  const results = targets.map((t) => ({
+    target: { metricName: t.metricName, targetValue: t.targetValue, measurementUnit: t.unit },
+    metric: getKpiMetric(t.metricName),
+    year: t.year,
+    figure: t.source ? { source: t.source, value: t.value } : null,
+    gap: t.gap,
+    reached: t.reached,
+    status: t.status,
+  }));
 
   const manage = can("editTargets")
     ? 'Add or change targets in <a href="#targets">Targets &amp; rules</a>.'
@@ -469,9 +557,6 @@ function renderDashboardTargets() {
     list.innerHTML = '<p class="ap-empty"><i class="fas fa-circle-info"></i><span>No KPI targets yet.</span></p>';
     return;
   }
-
-  const order = (r) => (r.metric ? KPI_METRICS.indexOf(r.metric) : KPI_METRICS.length);
-  results.sort((a, b) => b.target.targetPeriod.localeCompare(a.target.targetPeriod) || order(a) - order(b));
 
   const years = [...new Set(results.map((r) => r.year))].reverse();
   document.getElementById("dashKpiMeta").textContent =
@@ -538,11 +623,18 @@ function setupSupportForm() {
       return;
     }
 
+    const [name, email, message] = fields.map((f) => f.value.trim());
+    const topic = document.getElementById("supportTopic").value;
     btn.disabled = true;
-    await new Promise((r) => setTimeout(r, 700));
-    btn.disabled = false;
-    document.getElementById("supportMessage").value = "";
-    showToast("Message sent. We'll get back to you within one business day.", "success");
+    try {
+      const result = await Api.sendSupportMessage({ name, email, topic, message });
+      document.getElementById("supportMessage").value = "";
+      showToast(result.message, "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
   });
 }
 
@@ -558,7 +650,7 @@ function renderNoHistory() {
       : "A Submitter uploads it and an Approver approves it.";
   document.getElementById("metrics").innerHTML =
     `<p class="ap-empty dash-empty"><i class="fas fa-circle-info"></i><span>No approved income statement yet. ${next}</span></p>`;
-  ["submitted", "processed"].forEach((id) => {
+  ["submitted", "processed", "check"].forEach((id) => {
     document.getElementById(`${id}Meta`).textContent = "Nothing approved yet";
     document.getElementById(`${id}Badge`).hidden = true;
     document.getElementById(`${id}Table`).innerHTML = "";
@@ -594,6 +686,7 @@ async function loadData() {
     refreshApprovals();
     refreshTargets();
     refreshSettings();
+    refreshReports();
   } catch (err) {
     showToast(err.message || "Could not load the income statements.", "error");
   }
@@ -602,6 +695,7 @@ async function loadData() {
 async function init() {
   if (!setupUser()) return;
   setupActivity();
+  setupReports();
   setupNav();
   setupSearch();
   setupYearPicker();

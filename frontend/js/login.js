@@ -12,11 +12,6 @@ const ROLE_NAMES = {
   decision_maker: "Decision Maker",
 };
 
-const brandLogo = document.getElementById("brandLogo");
-const hideLogo = () => brandLogo.classList.add("missing");
-brandLogo.addEventListener("error", hideLogo);
-if (brandLogo.complete && brandLogo.naturalWidth === 0) hideLogo();
-
 document.querySelectorAll(".input-box input").forEach((input) => {
   const update = () => {
     input.parentElement.classList.toggle("filled", input.value !== "");

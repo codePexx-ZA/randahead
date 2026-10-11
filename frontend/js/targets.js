@@ -212,7 +212,7 @@ function targetRowHtml(r) {
 }
 
 function renderTargetTable() {
-  renderDashboardTargets();
+  refreshDashboardSummary();
   const table = document.getElementById("kpiTable");
   const yem = state.business.yearEndMonth;
   const results = tg.targets.map((t) => evaluateTarget(t, state.processed, state.budget, yem));

@@ -22,29 +22,25 @@
 
 .sidebar-brand {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 2px;
   padding: 0 6px 22px;
   margin-bottom: 18px;
   text-decoration: none;
 }
 
-.sidebar-brand img {
-  width: 46px;
-  height: 46px;
-  object-fit: contain;
-  transition: transform var(--transition);
-}
-
-.sidebar-brand:hover img {
-  transform: rotate(-6deg) scale(1.06);
-}
-
 .brand-name {
   display: block;
   color: var(--accent);
-  font-size: 1.2em;
+  font-size: 1.7em;
   font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+  transition: transform var(--transition);
+}
+
+.sidebar-brand:hover .brand-name {
+  transform: translateX(2px);
 }
 
 .brand-name sup {
@@ -482,7 +478,8 @@
   box-shadow: var(--neu-raised);
 }
 
-.dash-kpis {
+.dash-kpis,
+.dash-check {
   margin-bottom: 24px;
 }
 

@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard | RandAhead</title>
-    <link rel="icon" type="image/png" href="assets/images/favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -26,15 +26,13 @@
     <link rel="stylesheet" href="css/targets.css" />
     <link rel="stylesheet" href="css/settings.css" />
     <link rel="stylesheet" href="css/activity.css" />
+    <link rel="stylesheet" href="css/reports.css" />
   </head>
   <body class="app">
     <aside class="sidebar" id="sidebar">
       <a href="#dashboard" class="sidebar-brand">
-        <img src="assets/images/logo.png" alt="RandAhead logo" />
-        <div>
-          <span class="brand-name">RandAhead<sup>&trade;</sup></span>
-          <span class="brand-tagline">Clear forecasts. Confident decisions.</span>
-        </div>
+        <span class="brand-name">RandAhead<sup>&trade;</sup></span>
+        <span class="brand-tagline">Clear forecasts. Confident decisions.</span>
       </a>
 
       <nav class="nav">
@@ -53,6 +51,9 @@
         </a>
         <a href="#dashboard" class="nav-item" data-view="dashboard">
           <i class="fas fa-gauge-high"></i><span>Dashboard</span>
+        </a>
+        <a href="#reports" class="nav-item" data-view="reports">
+          <i class="fas fa-file-lines"></i><span>Reports</span>
         </a>
         <a href="#settings" class="nav-item" data-view="settings">
           <i class="fas fa-users-gear"></i><span>Users &amp; business</span>
@@ -147,6 +148,29 @@
             </p>
           </article>
 
+          <article class="panel dash-check">
+            <header class="panel-header">
+              <div>
+                <h2 id="checkTitle">Budget vs actual</h2>
+                <p class="panel-meta" id="checkMeta">Loading…</p>
+              </div>
+              <span class="badge" id="checkBadge" hidden></span>
+            </header>
+            <div class="table-wrap">
+              <table class="statement" id="checkTable">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span>
+                The chosen year against the year before and, once a year the approved budget forecast is
+                uploaded and approved, against that budget. <strong class="note-good">Green</strong> is better for
+                the business (more income or profit, lower costs), <strong class="note-bad">red</strong> is worse.
+              </span>
+            </p>
+          </article>
+
           <div class="statements">
             <article class="panel">
               <header class="panel-header">
@@ -191,6 +215,72 @@
                   is better for the business (more income or profit, lower costs), <strong class="note-bad">red</strong>
                   is worse. The % in brackets is the change from <span id="processedNoteYear">last year</span>'s actual.
                 </span>
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section
+          class="view"
+          id="view-reports"
+          data-title="Reports"
+          data-subtitle="Every approved year and the approved budget, side by side"
+          data-permission="viewReports"
+        >
+          <article class="panel rp-report">
+            <header class="panel-header">
+              <div>
+                <h2 id="rpTitle">Combined report</h2>
+                <p class="panel-meta" id="rpMeta">Loading…</p>
+              </div>
+              <div class="rp-actions">
+                <button type="button" class="btn-outline" id="rpCsv" disabled>
+                  <i class="fas fa-file-csv"></i><span>Download CSV</span>
+                </button>
+                <button type="button" class="btn-outline" id="rpPrint" disabled>
+                  <i class="fas fa-print"></i><span>Print or save as PDF</span>
+                </button>
+              </div>
+            </header>
+            <div class="table-wrap">
+              <table class="statement" id="rpStatement">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+            <p class="panel-note">
+              <i class="fas fa-circle-info"></i>
+              <span id="rpNote"></span>
+            </p>
+          </article>
+
+          <div class="rp-grid">
+            <article class="panel">
+              <header class="panel-header">
+                <div>
+                  <h2>KPI targets</h2>
+                  <p class="panel-meta" id="rpTargetsMeta">Loading…</p>
+                </div>
+                <span class="badge" id="rpTargetsBadge" hidden></span>
+              </header>
+              <div class="table-wrap">
+                <table class="statement rp-targets" id="rpTargets">
+                  <tbody><tr class="row-loading"><td></td></tr></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel">
+              <header class="panel-header">
+                <div>
+                  <h2>Economic warnings</h2>
+                  <p class="panel-meta" id="rpWarningsMeta">Loading…</p>
+                </div>
+                <span class="badge" id="rpWarningsBadge" hidden></span>
+              </header>
+              <ul class="rp-warnings" id="rpWarnings"></ul>
+              <p class="panel-note">
+                <i class="fas fa-circle-info"></i>
+                <span>Warnings flag lines to review; they never change the figures.</span>
               </p>
             </article>
           </div>
@@ -854,7 +944,7 @@
               </div>
               <div class="field">
                 <label for="supportMessage">Message</label>
-                <textarea id="supportMessage" rows="5" required></textarea>
+                <textarea id="supportMessage" rows="5" maxlength="2000" required></textarea>
               </div>
 
               <button type="submit" class="btn-primary" id="supportBtn">
@@ -879,8 +969,10 @@
     <script src="js/forecast-section.js"></script>
     <script src="js/approvals.js"></script>
     <script src="js/targets.js"></script>
+    <script src="js/summary.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/activity.js"></script>
+    <script src="js/reports.js"></script>
     <script src="js/dashboard.js"></script>
   </body>
 </html>

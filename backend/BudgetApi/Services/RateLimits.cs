@@ -1,4 +1,4 @@
-// Rate limits: caps sign-in, register and password reset attempts per client IP and answers 429 with a readable message
+// Rate limits: caps sign-in, register, password reset and support messages per client IP and answers 429 with a readable message
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -9,6 +9,7 @@ public static class RateLimits
     public const string Login = "login";
     public const string Register = "register";
     public const string PasswordReset = "password-reset";
+    public const string Support = "support";
     private const int Segments = 5;
 
     private static readonly Dictionary<string, (int Limit, TimeSpan Window)> Policies = new()
@@ -16,6 +17,7 @@ public static class RateLimits
         [Login] = (10, TimeSpan.FromMinutes(5)),
         [Register] = (5, TimeSpan.FromHours(1)),
         [PasswordReset] = (5, TimeSpan.FromMinutes(15)),
+        [Support] = (5, TimeSpan.FromMinutes(15)),
     };
 
     public static IServiceCollection AddAuthRateLimits(this IServiceCollection services) =>

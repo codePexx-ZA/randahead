@@ -41,24 +41,6 @@
   margin-bottom: 18px;
 }
 
-.brand-logo {
-  width: 96px;
-  height: 96px;
-  object-fit: contain;
-  margin-bottom: 6px;
-  animation: logo-pop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s backwards;
-  transition: transform var(--transition);
-}
-
-.wrapper:hover .brand-logo {
-  transform: translateY(-3px) scale(1.04);
-}
-
-@keyframes logo-pop {
-  from { opacity: 0; transform: scale(0.6) rotate(-8deg); }
-  to   { opacity: 1; transform: scale(1) rotate(0); }
-}
-
 .brand-tagline {
   color: var(--accent-light);
   font-size: 0.85em;
@@ -66,15 +48,23 @@
   letter-spacing: 0.3px;
 }
 
-.brand-logo.missing {
-  display: none;
-}
-
 .brand-name {
   color: var(--accent);
-  font-size: 1.6em;
+  font-size: 2.4em;
   font-weight: 700;
   letter-spacing: 0.5px;
+  line-height: 1.1;
+  animation: name-pop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s backwards;
+  transition: transform var(--transition);
+}
+
+.wrapper:hover .brand-name {
+  transform: translateY(-2px) scale(1.03);
+}
+
+@keyframes name-pop {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .brand-name sup {

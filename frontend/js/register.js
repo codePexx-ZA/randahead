@@ -13,11 +13,6 @@ const wrapper = document.querySelector(".wrapper");
 
 const monthName = (month) => new Date(2000, month - 1, 1).toLocaleString("en-ZA", { month: "long" });
 
-const brandLogo = document.getElementById("brandLogo");
-const hideLogo = () => brandLogo.classList.add("missing");
-brandLogo.addEventListener("error", hideLogo);
-if (brandLogo.complete && brandLogo.naturalWidth === 0) hideLogo();
-
 industryInput.innerHTML = ['<option value="">Not set</option>', ...INDUSTRIES.map((i) => `<option>${i}</option>`)].join("");
 yearEndInput.innerHTML = Array.from({ length: 12 }, (_, i) => i + 1)
   .map((m) => `<option value="${m}"${m === 2 ? " selected" : ""}>${monthName(m)}</option>`)

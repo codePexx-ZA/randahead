@@ -16,6 +16,8 @@ public static partial class AccountRules
 
     public static string CleanName(string? name) => Spaces().Replace(name?.Trim() ?? "", " ");
 
+    public static bool IsValidEmail(string email) => email.Length <= 254 && EmailPattern().IsMatch(email);
+
     public static string? CleanIndustry(string? industry) => string.IsNullOrWhiteSpace(industry) ? null : industry.Trim();
 
     public static string? BusinessProblem(string name, string? industry, int? yearEndMonth) =>
@@ -36,7 +38,7 @@ public static partial class AccountRules
         {
             _ when name.Length == 0 => "Type the person's full name.",
             _ when name.Length > 200 => "The full name can be at most 200 characters.",
-            _ when cleanEmail.Length > 254 || !EmailPattern().IsMatch(cleanEmail) =>
+            _ when !IsValidEmail(cleanEmail) =>
                 "Type a valid email address, e.g. name@business.co.za.",
             _ when passwordRequired && cleanPassword.Length == 0 => "Type a password.",
             _ when cleanPassword.Length is > 0 and < MinPasswordLength => $"The password needs at least {MinPasswordLength} characters.",

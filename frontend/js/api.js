@@ -112,6 +112,23 @@ const Api = {
     return buildBudget(processed, MockStore.getBudget() || MOCK_BUDGET);
   },
 
+  async getDashboard(year, processed, budget, business) {
+    if (!mockSubmissions() && !mockForecasts() && !mockTargets()) {
+      const query = year ? `?year=${encodeURIComponent(year)}` : "";
+      return (await apiSend(`/dashboard${query}`, {}, "Could not load the dashboard figures.")).json();
+    }
+    await delay(200);
+    return buildDashboardSummary(processed, budget, MockStore.getKpiTargets(), year, business.yearEndMonth);
+  },
+
+  async getReport(processed, budget, business) {
+    if (!mockSubmissions() && !mockForecasts() && !mockTargets()) {
+      return (await apiSend("/reports", {}, "Could not load the report.")).json();
+    }
+    await delay(300);
+    return buildReport(processed, budget, MockStore.getKpiTargets(), business);
+  },
+
   async getLatestForecast() {
     if (mockForecasts()) {
       await delay(300);
@@ -412,6 +429,14 @@ const Api = {
     const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value)).toString();
     const res = await apiSend(`/audit${query ? `?${query}` : ""}`, {}, "Could not load the activity log.");
     return res.json();
+  },
+
+  async sendSupportMessage(message) {
+    if (Session.get()?.token === "mock-token") {
+      await delay(700);
+      return { message: "Message sent. We'll get back to you within one business day." };
+    }
+    return sendJson("/support", "POST", message, "Could not send your message. Try again.");
   },
 };
 

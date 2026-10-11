@@ -12,9 +12,8 @@
   margin-bottom: 10px;
 }
 
-.register-page .brand-logo {
-  width: 72px;
-  height: 72px;
+.register-page .brand-name {
+  font-size: 2em;
 }
 
 .form-step {

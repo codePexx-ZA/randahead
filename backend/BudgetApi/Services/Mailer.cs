@@ -1,4 +1,4 @@
-// Mailer: sends plain-text emails over SMTP (Mailpit in development) and logs the email when sending fails
+// Mailer: sends plain-text emails over SMTP (Mailpit in development), logs the email when sending fails and reports whether it went out
 using System.Net;
 using System.Net.Mail;
 
@@ -13,18 +13,27 @@ public class MailSettings
     public string Password { get; set; } = "";
     public string From { get; set; } = "RandAhead <no-reply@randahead.local>";
     public string WebAppUrl { get; set; } = "http://127.0.0.1:5500";
+    public string SupportTo { get; set; } = "support@randahead.local";
 }
 
 public class Mailer(MailSettings settings, ILogger<Mailer> logger)
 {
     public string WebAppUrl => settings.WebAppUrl.TrimEnd('/');
 
-    public async Task SendAsync(string to, string subject, string body, CancellationToken cancellationToken)
+    public string SupportTo => settings.SupportTo;
+
+    public async Task<bool> SendAsync(
+        string to,
+        string subject,
+        string body,
+        CancellationToken cancellationToken,
+        string? replyTo = null
+    )
     {
         if (string.IsNullOrWhiteSpace(settings.Host))
         {
             logger.LogWarning("Mail:Host is not set, so this email was not sent. To {To}: {Subject}\n{Body}", to, subject, body);
-            return;
+            return false;
         }
         try
         {
@@ -35,11 +44,17 @@ public class Mailer(MailSettings settings, ILogger<Mailer> logger)
             }
             using var message = new MailMessage { From = new MailAddress(settings.From), Subject = subject, Body = body };
             message.To.Add(to);
+            if (replyTo is not null)
+            {
+                message.ReplyToList.Add(replyTo);
+            }
             await client.SendMailAsync(message, cancellationToken);
+            return true;
         }
-        catch (Exception error) when (error is SmtpException or InvalidOperationException or IOException)
+        catch (Exception error) when (error is SmtpException or InvalidOperationException or IOException or FormatException)
         {
             logger.LogWarning(error, "Could not send an email. To {To}: {Subject}\n{Body}", to, subject, body);
+            return false;
         }
     }
 }
