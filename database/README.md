@@ -82,6 +82,7 @@ erDiagram
         varchar active_status
         boolean is_admin
         boolean must_change_password
+        timestamptz password_changed_at
         timestamptz deleted_at
     }
 
@@ -338,7 +339,7 @@ Passwords are stored as BCrypt hashes. The admin password is a development place
 
 The last two also have their file rows (`submission_row`) so the web app can show and combine them; "Franchise levy" in the waiting upload was mapped by hand. Plus the remembered label mappings for that last upload and 5 KPI targets.
 
-**Approved budget:** one forecast pair on the approved FY2021–FY2025 history (Moving Average, 3-year window, and Exponential Smoothing, α 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget by Johan van Wyk and approved by Anika Pillay.
+**Approved budget.** One forecast pair on the approved FY2021–FY2025 history (Moving Average, 3-year window, and Exponential Smoothing, α 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget by Johan van Wyk and approved by Anika Pillay.
 
 The scripts only run on an **empty** volume. After changing a script, reset the database:
 
@@ -352,10 +353,10 @@ docker compose up -d
 
 ## Conventions in `01_schema.sql`
 
-- **IDs:** every primary key is `VARCHAR(32)`, a UUID without dashes (C# `Guid.ToString("N")`). Services may supply their own ID; if they don't, Postgres generates one. Reference tables use readable codes instead (`category_code`, `indicator_code`).
-- **Money:** `NUMERIC(18,2)`. **Indicator values / rule thresholds:** `NUMERIC(18,6)`.
-- **Timestamps:** `TIMESTAMPTZ` (UTC). **Calendar periods:** `DATE` (first day of the period), except `external_indicator.relevant_period`, which stays text (`"2024"`) for the C# API.
-- **Forecast parameters:** `forecast_run.parameters` is `JSONB`, e.g. `{"window_size": 3}` or `{"alpha": 0.5}`.
+- **IDs.** Every primary key is `VARCHAR(32)`, a UUID without dashes (C# `Guid.ToString("N")`). Services may supply their own ID; if they don't, Postgres generates one. Reference tables use readable codes instead (`category_code`, `indicator_code`).
+- **Money.** `NUMERIC(18,2)`. **Indicator values / rule thresholds.** `NUMERIC(18,6)`.
+- **Timestamps.** `TIMESTAMPTZ` (UTC). **Calendar periods.** `DATE` (first day of the period), except `external_indicator.relevant_period`, which stays text (`"2024"`) for the C# API.
+- **Forecast parameters.** `forecast_run.parameters` is `JSONB`, e.g. `{"window_size": 3}` or `{"alpha": 0.5}`.
 
 ## Allowed status values (enforced by `CHECK` constraints)
 
@@ -371,7 +372,7 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 | `budget_submission.import_method` | `template`, `mapped_import`, `manual` |
 | `budget_submission.source_scale` | `1`, `1000` (R'000), `1000000` (R million) |
 | `financial_line_item.frequency` | `monthly`, `quarterly`, `annual` (default) |
-| `import_mapping.split_percent` | above 0, up to 100 (rows for one label must add up to 100 — checked by the importer) |
+| `import_mapping.split_percent` | above 0, up to 100 (rows for one label must add up to 100; the importer checks this) |
 | `approval_action.decision` | `approved`, `rejected` (a rejection must have `comments`; each row points to exactly one of `submission_id` or `budget_id`) |
 | `budget_selection.budget_method` | `moving_average`, `exponential_smoothing`, `combined` (the average of the two, per category) |
 | `budget_selection.status` | `submitted`, `approved`, `rejected`, `superseded` (at most one `submitted` and one `approved` per unit) |
@@ -388,16 +389,16 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 
 ## Income statement uploads
 
-**History length:** 3–5 years of annual statements, or at least 24 months of monthly reports (monthly preferred). Older years are not used.
+**History length.** 3–5 years of annual statements, or at least 24 months of monthly reports (monthly preferred). Older years are not used.
 
-**External data uses the same time frame:** for each business, alerts and forecast inputs only use indicator periods inside its approved income statement history (e.g. FY2022 onwards → indicators from 2022). Approver / Decision Maker can request a longer range. Indicators are calendar years; they are matched to financial years with `business.year_end_month`.
+**External data uses the same time frame.** For each business, alerts and forecast inputs only use indicator periods inside its approved income statement history (a history from FY2022 onwards uses indicators from 2022). Approver / Decision Maker can request a longer range. Indicators are calendar years; they are matched to financial years with `business.year_end_month`.
 
-- **One upload = one `budget_submission`.** `period_start` / `period_end` span every period in the file (e.g. 5 financial years).
+- **Each upload is one `budget_submission`.** `period_start` / `period_end` span every period in the file (e.g. 5 financial years).
 - **One `financial_line_item` per category per period.** `period_start` is the first day of the month, quarter or financial year (for a February year-end, FY2025 starts `2024-03-01`). Amounts are stored in rands after applying `source_scale`, **as positive figures for income and expenses alike** (the category says which it is; the bracketed negatives on a sheet are flipped on import).
-- **Combining uploads:** all `approved` submissions of a unit together form its history. A newer upload adds its periods; where two approved uploads cover the same category and period, the more recently submitted one wins. Only the latest 5 years are used. A file may hold a single year. Save every category for every period of an upload (0 where the file has no lines), so a newer upload's year fully replaces the older one.
-- **Re-uploads (versioning):** a corrected upload sets `replaces_submission_id` to the rejected version it replaces. When the new one is approved, the old one's status becomes `superseded`. An approved upload whose periods are all covered by newer approved uploads also becomes `superseded`. Superseded uploads are kept for history, never deleted. Forecasts read only `approved` submissions.
-- **File rows (`submission_row`):** every row of the uploaded statement as it was in the file, in order (`row_order`): `row_kind` `heading`, `line`, `subtotal` (with `subtotal_code`) or `total`, the label, `amounts` (one per year, in file units before `source_scale`, signs as in the file, `NULL` for an empty cell), and for lines the chosen `mapping` (`JSONB`, e.g. `[{"category": "electricity", "percent": 70}, {"category": "other_utilities", "percent": 30}]`) and `hand_mapped`. The web app shows these to the Approver and on the dashboard; forecasts use `financial_line_item`.
-- **Remembered mappings (`import_mapping`):** per business, `label_key` (trimmed, lower case, single spaces) → category. A normal label has one row at 100%. A cross-category line has one row per category, e.g. "Water & electricity" → 70% `electricity` + 30% `other_utilities`. Split rows are summed into their categories before line items are saved.
+- **Combining uploads.** All `approved` submissions of a unit together form its history. A newer upload adds its periods; where two approved uploads cover the same category and period, the more recently submitted one wins. Only the latest 5 years are used. A file may hold a single year. Save every category for every period of an upload (0 where the file has no lines), so a newer upload's year fully replaces the older one.
+- **Re-uploads (versioning).** A corrected upload sets `replaces_submission_id` to the rejected version it replaces. When the new one is approved, the old one's status becomes `superseded`. An approved upload whose periods are all covered by newer approved uploads also becomes `superseded`. Superseded uploads are kept for history, never deleted. Forecasts read only `approved` submissions.
+- **File rows (`submission_row`).** Every row of the uploaded statement as it was in the file, in order (`row_order`): `row_kind` `heading`, `line`, `subtotal` (with `subtotal_code`) or `total`, the label, `amounts` (one per year, in file units before `source_scale`, signs as in the file, `NULL` for an empty cell), and for lines the chosen `mapping` (`JSONB`, e.g. `[{"category": "electricity", "percent": 70}, {"category": "other_utilities", "percent": 30}]`) and `hand_mapped`. The web app shows these to the Approver and on the dashboard; forecasts use `financial_line_item`.
+- **Remembered mappings (`import_mapping`).** Per business, `label_key` (trimmed, lower case, single spaces) → category. A normal label has one row at 100%. A cross-category line has one row per category, e.g. "Water & electricity" → 70% `electricity` + 30% `other_utilities`. Split rows are summed into their categories before line items are saved.
 
 ## Forecasts and the chosen budget (`forecast_run`, `budget_selection`)
 
@@ -415,6 +416,7 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 ## Passwords (`app_user.must_change_password`, `password_reset`)
 
 - A password set by an Approver or Decision Maker (new user, or a forgotten password) is temporary: `must_change_password` is `true` until the person chooses their own at the next sign-in. Registering, changing your own password or using a reset link sets it back to `false`.
+- Every password change (own change, reset link or a temporary password) sets `password_changed_at`. The API refuses sign-in tokens issued before it, so a password change signs out every other session.
 - "Forgot password?" adds a `password_reset` row and emails a one-time link. Only the SHA-256 hash of the link's token is stored (`token_hash`); the link works for 30 minutes (`expires_at`) and once (`used_at`). Asking again deletes the person's unused links. Rows go when the user is hard-deleted (`ON DELETE CASCADE`).
 
 ## Income statement categories (`line_category`)
@@ -470,7 +472,7 @@ Thresholds are starting values to confirm with the business. Users change them i
 - New table `import_mapping` (remembered label → category choices per business, with % splits).
 - New table `submission_row` (each upload's rows as in the file, with the chosen mapping).
 - New table `audit_log` (who did what and when, for the activity log).
-- New table `password_reset` (one-time emailed reset links) and `app_user.must_change_password` (temporary passwords).
+- New table `password_reset` (one-time emailed reset links) and `app_user.must_change_password` (temporary passwords); `app_user.password_changed_at` (ends older sessions after a password change).
 - New table `budget_selection` (which forecast became the budget, and its approval status); `approval_action.submission_id` is nullable and `budget_id` added, so one table holds decisions on uploads and budgets.
 - `business.year_end_month` added; `business_unit.unit_type` gains `company`.
 - `budget_submission`: `replaces_submission_id`, `import_method`, `source_file_name`, `source_scale` added; status gains `superseded`.
@@ -514,7 +516,7 @@ The C# API maps these tables. Keep these names and types so EF Core can read and
 | | `chosen_at` | `TIMESTAMPTZ` |
 | `audit_log` | `log_id` (PK), `business_id` (FK → `business`), `user_id` (FK → `app_user`, nullable), `user_name`, `area`, `action`, `summary` | `VARCHAR` |
 | | `details` / `occurred_at` | `JSONB` / `TIMESTAMPTZ` |
-| `app_user` | `must_change_password` | `BOOLEAN` |
+| `app_user` | `must_change_password` / `password_changed_at` | `BOOLEAN` / `TIMESTAMPTZ` |
 | `password_reset` | `reset_id` (PK), `user_id` (FK → `app_user`, cascade delete) / `token_hash` (unique) | `VARCHAR` / `CHAR(64)` |
 | | `created_at` / `expires_at` / `used_at` | `TIMESTAMPTZ` |
 

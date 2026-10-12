@@ -1,4 +1,4 @@
-// Forecast maths: Moving Average, Exponential Smoothing and warnings
+// Forecast results: compares the two methods' runs, financial-year labels and economic warnings
 const METHOD_NAMES = {
   moving_average: "Moving Average",
   exponential_smoothing: "Exponential Smoothing",
@@ -9,15 +9,6 @@ function averageOfMethods(ma, es) {
   return Math.round((ma + es) / 2);
 }
 
-function movingAverageForecast(values, windowSize) {
-  const w = Math.min(windowSize, values.length);
-  return values.slice(-w).reduce((sum, v) => sum + v, 0) / w;
-}
-
-function exponentialSmoothingForecast(values, alpha) {
-  return values.slice(1).reduce((level, v) => alpha * v + (1 - alpha) * level, values[0]);
-}
-
 function yearNumber(label) {
   return parseInt(label.replace(/\D/g, ""), 10);
 }
@@ -25,30 +16,6 @@ function yearNumber(label) {
 function nextYearLabels(lastYear, horizon) {
   const year = yearNumber(lastYear);
   return Array.from({ length: horizon }, (_, i) => `FY${year + i + 1}`);
-}
-
-function buildBudget(processed, budget) {
-  const windowSize = budget.parameters.window_size ?? 3;
-  const alpha = budget.parameters.alpha ?? 0.5;
-  const years = nextYearLabels(processed.years[processed.years.length - 1], budget.horizon);
-  const flat = (value) => new Array(years.length).fill(value);
-
-  const forecasts = { moving_average: {}, exponential_smoothing: {}, combined: {} };
-  LINE_CATEGORIES.forEach((c) => {
-    const ma = Math.round(movingAverageForecast(processed.totals[c.code], windowSize));
-    const es = Math.round(exponentialSmoothingForecast(processed.totals[c.code], alpha));
-    forecasts.moving_average[c.code] = flat(ma);
-    forecasts.exponential_smoothing[c.code] = flat(es);
-    forecasts.combined[c.code] = flat(averageOfMethods(ma, es));
-  });
-
-  const methods = {};
-  Object.entries(forecasts).forEach(([method, totals]) => {
-    methods[method] = { totals, subtotals: calculateSubtotals(totals, years.length) };
-  });
-  const { totals, subtotals } = methods[budget.method];
-
-  return { ...budget, parameters: { window_size: windowSize, alpha }, years, totals, subtotals, methods };
 }
 
 function describeMethod(budget) {
@@ -73,43 +40,6 @@ function fyLabelFromDate(iso, yearEndMonth) {
 function calendarYearOf(label, yearEndMonth) {
   const year = yearNumber(label);
   return yearEndMonth >= 6 ? year : year - 1;
-}
-
-function runForecastsLocally(processed, settings, yearEndMonth, unitId) {
-  const { windowSize, alpha, horizon } = settings;
-  const history = processed.years;
-  const futureYears = nextYearLabels(history[history.length - 1], horizon);
-
-  const warnings = [];
-  if (history.length < 3) {
-    warnings.push(`Short history: ${history.length} annual periods (recommended at least 3). Treat forecasts with caution.`);
-  }
-
-  const methods = {
-    moving_average: [{ window_size: windowSize }, (v) => movingAverageForecast(v, windowSize)],
-    exponential_smoothing: [{ alpha }, (v) => exponentialSmoothingForecast(v, alpha)],
-  };
-  const createdAt = new Date().toISOString();
-
-  return Object.entries(methods).map(([method, [params, forecastOne]], i) => ({
-    run_id: `run-${Date.now()}-${i}`,
-    unit_id: unitId,
-    forecasting_method: method,
-    history_start: fyStartDate(history[0], yearEndMonth),
-    history_end: fyStartDate(history[history.length - 1], yearEndMonth),
-    parameters: { ...params, frequency: "annual", horizon, warnings },
-    created_at: createdAt,
-    values: LINE_CATEGORIES.flatMap((c) => {
-      const amount = Math.round(forecastOne(processed.totals[c.code]));
-      return futureYears.map((year) => ({
-        category: c.code,
-        display_name: c.name,
-        forecast_period: fyStartDate(year, yearEndMonth),
-        baseline_amount: amount,
-        adjusted_amount: null,
-      }));
-    }),
-  }));
 }
 
 function compareRuns(runs, yearEndMonth) {

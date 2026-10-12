@@ -1,4 +1,4 @@
-# RandAhead™ — SME Budget Forecasting System
+# RandAhead™, budget forecasting for SMEs
 
 [![CI](https://github.com/codePexx-ZA/randahead/actions/workflows/ci.yml/badge.svg)](https://github.com/codePexx-ZA/randahead/actions/workflows/ci.yml)
 
@@ -20,7 +20,7 @@ Businesses upload past **income statements** (Excel). The system forecasts each 
 
 ## Architecture
 
-A layered Decision Support System: **data input → processing → interface**.
+A decision support system in three layers: data input, processing and the web interface.
 
 ```mermaid
 graph LR
@@ -123,6 +123,8 @@ The database starts with a fictional business (Karoo Outdoor Supplies) and demo 
 | Mailpit (development inbox: password reset and support emails) | http://localhost:8025 |
 | PostgreSQL | localhost:5432, database `sme_budget`, user `budget` |
 
+PostgreSQL and the Python forecasting API only listen on this computer (`127.0.0.1`), so other devices on the network can't reach them.
+
 Load the external indicators once the API is up:
 
 ```powershell
@@ -141,10 +143,10 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | Job | Checks |
 |---|---|
 | Database | Runs `database/init/*.sql` in order on a fresh PostgreSQL 16 |
-| C# API | `dotnet build` in Release, warnings treated as errors |
+| C# API | `dotnet build` in Release, warnings treated as errors; `dotnet test` on `backend/BudgetApi.Tests` (statement reading and category totals) |
 | Forecasting | Algorithm doctests and that the FastAPI app imports |
 | Frontend | `node --check` on every JS file; no hex colours outside `base.css`; no inline styles or scripts in HTML |
 
 ## Credits
 
-Forecasting algorithms adapted from [TheAlgorithms/Python](https://github.com/TheAlgorithms/Python) (MIT): `simple_moving_average.py` and `exponential_moving_average.py`. Excel files are read by the API with [ClosedXML](https://github.com/ClosedXML/ClosedXML) (MIT) and in the browser demo with [SheetJS](https://sheetjs.com/) (Apache 2.0). Charts use [Chart.js](https://www.chartjs.org/) (MIT).
+Forecasting algorithms adapted from [TheAlgorithms/Python](https://github.com/TheAlgorithms/Python) (MIT): `simple_moving_average.py` and `exponential_moving_average.py`. Excel files are read by the API with [ClosedXML](https://github.com/ClosedXML/ClosedXML) (MIT). Charts use [Chart.js](https://www.chartjs.org/) (MIT).

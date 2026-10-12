@@ -472,7 +472,7 @@ async function loadDashboardSummary() {
   const token = ++state.summaryToken;
   const year = state.submission.years[state.yearIndex];
   try {
-    const summary = await Api.getDashboard(year, state.processed, state.budget, state.business);
+    const summary = await Api.getDashboard(year);
     if (token !== state.summaryToken) return;
     renderDashboardTargets(summary.targets);
     renderBudgetCheck(summary);
@@ -666,7 +666,7 @@ async function loadData() {
     state.business = business;
     state.submission = submission;
     state.processed = submission ? processStatement(submission) : null;
-    state.budget = submission ? await Api.getLatestBudget(state.processed, state.business) : null;
+    state.budget = submission ? await Api.getLatestBudget(state.business) : null;
 
     document.getElementById("sidebarBusiness").textContent = business.name;
     showView(location.hash.slice(1) || homeView());

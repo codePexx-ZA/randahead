@@ -429,7 +429,6 @@ function setupUpload() {
 
   setupDropzone();
   goToStep(1);
-  document.getElementById("templateNote").hidden = mockSubmissions();
   document.getElementById("templateBtn").addEventListener("click", downloadTemplate);
 
   const table = document.getElementById("mapTable");

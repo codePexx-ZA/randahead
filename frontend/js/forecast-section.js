@@ -122,7 +122,7 @@ async function runForecast(announce = true) {
   if (fc.running || !state.processed) return;
   setRunning(true);
   try {
-    const runs = await Api.runForecasts(readSettings(), state.processed, state.business);
+    const runs = await Api.runForecasts(readSettings());
     applyRuns(runs);
     if (announce) showToast(`Forecasts updated: both methods ran on ${yearsText(state.processed.years)}.`, "success");
   } catch (err) {
@@ -529,7 +529,7 @@ async function chooseBudget() {
 
   try {
     await Api.chooseBudget(fc.comparison, fc.chosen);
-    state.budget = await Api.getLatestBudget(state.processed, state.business);
+    state.budget = await Api.getLatestBudget(state.business);
     renderProcessed();
     refreshApprovals();
     btn.classList.remove("busy");

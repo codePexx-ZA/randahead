@@ -67,8 +67,9 @@ function processStatement(submission) {
     .filter((row) => row.category)
     .forEach((row) => {
       sources[row.category].push(row.label);
-      row.values.forEach((v, i) => (totals[row.category][i] += Math.abs(v) * submission.scale));
+      row.values.forEach((v, i) => (totals[row.category][i] += v * submission.scale));
     });
+  Object.values(totals).forEach((t) => t.forEach((v, i) => (t[i] = Math.abs(v))));
 
   const subtotals = calculateSubtotals(totals, n);
 

@@ -54,6 +54,7 @@ CREATE TABLE app_user (
                   CHECK (active_status IN ('active', 'inactive')),
     is_admin      BOOLEAN      NOT NULL DEFAULT false,
     must_change_password BOOLEAN NOT NULL DEFAULT false,
+    password_changed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at    TIMESTAMPTZ,
     CHECK (deleted_at IS NULL OR (active_status = 'inactive' AND password_hash IS NULL AND NOT is_admin))
 );

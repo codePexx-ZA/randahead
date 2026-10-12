@@ -165,7 +165,7 @@ async function refreshReports() {
   rpSetActions(false);
   try {
     const [data, warnings] = await Promise.all([
-      Api.getReport(state.processed, state.budget, state.business),
+      Api.getReport(),
       Api.getIndicatorWarnings(historyYears(), state.business.yearEndMonth),
     ]);
     if (request !== rp.request) return;

@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: budget
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - sme_budget_pgdata:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d:ro
@@ -54,7 +54,7 @@ services:
     environment:
       DATABASE_URL: postgresql://budget:${POSTGRES_PASSWORD}@postgres:5432/sme_budget
     ports:
-      - "5090:8000"
+      - "127.0.0.1:5090:8000"
     depends_on:
       postgres:
         condition: service_healthy

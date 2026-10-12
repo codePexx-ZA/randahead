@@ -1,8 +1,8 @@
-# Forecasting Service (Python)
+# Python forecasting service
 
 Runs **Moving Average** and **Exponential Smoothing** on a business's approved income statement history and saves the forecasts to PostgreSQL.
 
-Approved history (`financial_line_item`) → forecast per category → `forecast_run` + `forecast_value`.
+The service reads the approved history (`financial_line_item`), forecasts each category and saves the results in `forecast_run` and `forecast_value`.
 
 The web app never calls this service: the C# API calls `POST /api/forecasts` for the signed-in user's unit (`ForecastService:BaseUrl`) and reads the saved runs back itself. The other endpoints are for checking runs by hand.
 
@@ -41,7 +41,7 @@ API docs (try every endpoint): http://localhost:5090/docs
 
 The database password comes from the root `.env`, same as the C# API.
 
-**Without Docker (optional):** Python 3.13 + a virtual environment in `forecasting/.venv` (gitignored):
+**Without Docker (optional).** Python 3.13 and a virtual environment in `forecasting/.venv` (gitignored):
 
 ```powershell
 cd forecasting

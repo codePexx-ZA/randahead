@@ -149,6 +149,7 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
         {
             user.PasswordHash = AccountRules.HashPassword(request.Password);
             user.MustChangePassword = true;
+            user.PasswordChangedAt = DateTime.UtcNow;
         }
         if (LostKeyRole(keyRolesBefore, users) is { } missing)
         {

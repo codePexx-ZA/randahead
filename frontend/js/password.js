@@ -131,8 +131,8 @@ function setupChange() {
       return rejectInput(passwordInput, "Choose a new password that's different from the current one.");
     }
     submitForm(form, async () => {
-      const user = await Api.changePassword(currentInput.value, passwordInput.value);
-      Session.update({ ...user, mustChangePassword: false });
+      const result = await Api.changePassword(currentInput.value, passwordInput.value);
+      Session.save(result, Boolean(localStorage.getItem("session")));
       showToast("Your password is changed.", "success");
       setTimeout(() => (window.location.href = "dashboard.html"), 1100);
     });

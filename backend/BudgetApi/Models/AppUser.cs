@@ -16,6 +16,9 @@ public class AppUser
     public string ActiveStatus { get; set; } = "active";
     public bool IsAdmin { get; set; }
     public bool MustChangePassword { get; set; }
+
+    [JsonIgnore]
+    public DateTime PasswordChangedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DeletedAt { get; set; }
 
     [JsonIgnore]

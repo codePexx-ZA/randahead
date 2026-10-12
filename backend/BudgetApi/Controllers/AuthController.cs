@@ -221,6 +221,7 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
 
         user.PasswordHash = AccountRules.HashPassword(request.Password!);
         user.MustChangePassword = false;
+        user.PasswordChangedAt = now;
         reset.UsedAt = now;
         audit.Add(user, "account", "changed", "Reset their password with an emailed link");
         await db.SaveChangesAsync(cancellationToken);
@@ -257,9 +258,11 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
 
         user.PasswordHash = AccountRules.HashPassword(request.NewPassword!);
         user.MustChangePassword = false;
+        user.PasswordChangedAt = DateTime.UtcNow;
         audit.Add(user, "account", "changed", "Changed their password");
         await db.SaveChangesAsync(cancellationToken);
-        return Ok(UserView(user));
+        var (token, expiresAt) = tokens.Create(user);
+        return Ok(new { token, expiresAt, user = UserView(user) });
     }
 
     [HttpGet("me")]

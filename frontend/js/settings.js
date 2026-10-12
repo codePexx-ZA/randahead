@@ -203,7 +203,7 @@ function userRowHtml(u) {
 
 function confirmDeleteRowHtml(u) {
   const name = escapeHtml(u.fullName);
-  const history = u.deletable ? "" : " Their past uploads and decisions stay on record, marked “former user”.";
+  const history = u.deletable ? "" : " Their past uploads and decisions stay on record, marked 'former user'.";
   return `<tr class="st-confirm-row"><td colspan="4">
     <div class="st-confirm">
       <p><i class="fas fa-triangle-exclamation"></i> Delete ${name}? They can't sign in any more.${history}</p>
@@ -341,7 +341,7 @@ async function deleteUser(id, btn) {
     st.confirmDelete = null;
     if (st.editingId === id) resetUserForm();
     await reloadUsers();
-    const history = u && !u.deletable ? " Their past uploads and decisions stay, marked “former user”." : "";
+    const history = u && !u.deletable ? " Their past uploads and decisions stay, marked 'former user'." : "";
     showToast(`${u?.fullName ?? "User"} deleted.${history}`, "success");
   } catch (err) {
     const wrongPassword = passwordInput && /password/i.test(err.message || "");

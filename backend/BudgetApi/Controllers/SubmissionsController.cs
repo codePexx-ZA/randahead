@@ -208,18 +208,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             );
         }
 
-        var totals = categories.ToDictionary(c => c, _ => new decimal[starts.Length]);
-        foreach (var row in rows.Where(r => r.Kind == "line"))
-        {
-            foreach (var part in row.Mapping ?? [])
-            {
-                for (var k = 0; k < starts.Length; k++)
-                {
-                    totals[part.Category][k] += Math.Abs((row.Values![order[k]] ?? 0) * part.Percent / 100m) * request.Scale;
-                }
-            }
-        }
-        foreach (var (category, amounts) in totals)
+        foreach (var (category, amounts) in CategoryTotals(rows, order, request.Scale, categories))
         {
             for (var k = 0; k < starts.Length; k++)
             {
@@ -366,6 +355,35 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
                 })
             )
         );
+    }
+
+    internal static Dictionary<string, decimal[]> CategoryTotals(
+        SubmissionRowRequest[] rows,
+        int[] order,
+        int scale,
+        IEnumerable<string> categories
+    )
+    {
+        var totals = categories.ToDictionary(c => c, _ => new decimal[order.Length]);
+        foreach (var row in rows.Where(r => r.Kind == "line"))
+        {
+            foreach (var part in row.Mapping ?? [])
+            {
+                for (var k = 0; k < order.Length; k++)
+                {
+                    totals[part.Category][k] += (row.Values![order[k]] ?? 0) * part.Percent / 100m * scale;
+                }
+            }
+        }
+        // Only the category total loses its sign, so contra lines such as returns still subtract
+        foreach (var amounts in totals.Values)
+        {
+            for (var k = 0; k < amounts.Length; k++)
+            {
+                amounts[k] = Math.Abs(amounts[k]);
+            }
+        }
+        return totals;
     }
 
     private static void SupersedeCovered(List<BudgetSubmission> newestFirst)

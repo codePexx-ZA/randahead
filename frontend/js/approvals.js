@@ -310,7 +310,7 @@ async function decide(item, decision) {
       await refreshApprovals();
       showToast("Upload rejected. The submitter sees your comment and can fix it.", "success", 5000);
     } else {
-      state.budget = await Api.getLatestBudget(state.processed, state.business);
+      state.budget = await Api.getLatestBudget(state.business);
       renderProcessed();
       if (fc.comparison) renderChoices();
       await refreshApprovals();

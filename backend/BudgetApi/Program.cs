@@ -3,6 +3,7 @@ using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -61,6 +62,23 @@ builder
             IssuerSigningKey = jwt.SigningKey(),
             NameClaimType = "name",
             RoleClaimType = "role",
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var db = context.HttpContext.RequestServices.GetRequiredService<BudgetDbContext>();
+                var userId = context.Principal?.FindFirst("sub")?.Value;
+                var changedAt = await db
+                    .AppUsers.Where(u => u.UserId == userId)
+                    .Select(u => (DateTime?)u.PasswordChangedAt)
+                    .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+                // iat is whole seconds, so a token issued in the same second as the change still counts as newer
+                if (changedAt is null || context.SecurityToken is not JsonWebToken { IssuedAt: var issuedAt } || issuedAt.AddSeconds(1) <= changedAt)
+                {
+                    context.Fail("The password changed after this token was issued.");
+                }
+            },
         };
     });
 builder.Services.AddAuthorization();

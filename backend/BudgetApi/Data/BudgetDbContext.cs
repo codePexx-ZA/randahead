@@ -252,6 +252,7 @@ public class BudgetDbContext(DbContextOptions<BudgetDbContext> options) : DbCont
             entity.Property(e => e.ActiveStatus).HasColumnName("active_status").HasMaxLength(20);
             entity.Property(e => e.IsAdmin).HasColumnName("is_admin");
             entity.Property(e => e.MustChangePassword).HasColumnName("must_change_password");
+            entity.Property(e => e.PasswordChangedAt).HasColumnName("password_changed_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
 
             entity

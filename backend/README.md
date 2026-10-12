@@ -1,12 +1,12 @@
-# Backend — C# ASP.NET Core API
+# Backend API in C# and ASP.NET Core
 
 The main API for the SME budget forecasting system. It handles **login**, **users and business details**, **income statement uploads and their approval**, **forecasts and the chosen budget**, **KPI targets**, **the dashboard summary** (a year's figures, budget vs actual, target progress), **the combined report** for Decision Makers, **external data ingestion**, **warning rules** and **support messages**.
 
-World Bank + OECD APIs → `BudgetApi` → PostgreSQL. `BudgetApi` → Python forecasting service (`../forecasting/`) for forecast runs; the browser never calls Python directly.
+`BudgetApi` fetches indicators from the World Bank and OECD APIs and saves them in PostgreSQL. It calls the Python forecasting service (`../forecasting/`) for forecast runs. The browser never calls Python directly.
 
 ## What it does today
 
-1. Fetches four South African indicators (annual % change, last 6 years — `IndicatorCatalog.HistoryYears`; each business later uses only the years inside its own income statement history):
+1. Fetches four South African indicators (annual % change for the last 6 years, set by `IndicatorCatalog.HistoryYears`; each business later uses only the years inside its own income statement history):
 
    | Code | Indicator | API |
    |---|---|---|
@@ -55,9 +55,9 @@ The API refuses to start without a `Jwt:Key` of at least 32 characters.
 | `GET /api/auth/me` | `Authorization: Bearer <token>` | The signed-in user, or `401` |
 | `POST /api/auth/forgot-password` | `{ email }` (no token) | `200 { message }` whether or not the email has an account (no account leak); emails a one-time link to active accounts; `400` no email |
 | `POST /api/auth/reset-password` | `{ token, password }` (no token header) | `200 { message }`; `400` password under 8 characters, or link unknown / used / expired / account switched off |
-| `POST /api/auth/change-password` | `{ current_password, new_password }` + token | The user as in `/me`; `400` current password wrong (not `401`, so the web app doesn't sign out), new one too short or the same |
+| `POST /api/auth/change-password` | `{ current_password, new_password }` + token | `{ token, expiresAt, user }` (a new token: every token issued before the change stops working); `400` current password wrong (not `401`, so the web app doesn't sign out), new one too short or the same |
 
-**Passwords.** Every user object has `mustChangePassword`. Passwords set by an Approver or Decision Maker (`POST /api/users`, or `PUT` with a `password`) are temporary (`true`); the web app sends the person to `password.html?change` until they choose their own. Registering, changing your own password and using a reset link set it to `false`. You can't set your own password through `PUT /api/users/{id}` (`400`). "Forgot password?" stores only a SHA-256 hash of a random 32-byte token in `password_reset`; the link (`Mail:WebAppUrl` + `/password.html?token=…`) works once, for 30 minutes, and asking again cancels the earlier link. Emails go through `Services/Mailer.cs` (SMTP, `Mail:*` settings): Docker Compose sends them to **Mailpit** (inbox at http://localhost:8025, nothing leaves your PC); `dotnet run` uses `localhost:1025`, so start Mailpit with `docker compose up -d mailpit`. If sending fails, or `Mail:Host` is empty, the email (with the link) is written to the API log. Existing tokens (JWTs) stay valid until they expire after a password change.
+**Passwords.** Every user object has `mustChangePassword`. Passwords set by an Approver or Decision Maker (`POST /api/users`, or `PUT` with a `password`) are temporary (`true`); the web app sends the person to `password.html?change` until they choose their own. Registering, changing your own password and using a reset link set it to `false`. You can't set your own password through `PUT /api/users/{id}` (`400`). "Forgot password?" stores only a SHA-256 hash of a random 32-byte token in `password_reset`; the link (`Mail:WebAppUrl` + `/password.html?token=…`) works once, for 30 minutes, and asking again cancels the earlier link. Emails go through `Services/Mailer.cs` (SMTP, `Mail:*` settings): Docker Compose sends them to **Mailpit** (inbox at http://localhost:8025, nothing leaves your PC); `dotnet run` uses `localhost:1025`, so start Mailpit with `docker compose up -d mailpit`. If sending fails, or `Mail:Host` is empty, the email (with the link) is written to the API log. Every password change sets `password_changed_at`; the API refuses tokens (JWTs) issued before it, so other sessions are signed out.
 
 Registering creates, in one transaction, the `business` (country `ZAF`), its "Whole company" `business_unit` (ZAR), the person as its `decision_maker` and the 4 default warning rules (`Services/DefaultRules.cs`: headline and core CPI above 6%, fuel and electricity above 10%). They add their Approver and Submitters under Users & business.
 
@@ -224,3 +224,4 @@ It currently writes `data_source`, `external_indicator`, `rule_alert`, `rule_def
 | `BudgetApi/Data` | `BudgetDbContext` (EF Core table and column mapping) |
 | `BudgetApi/Services` | Business logic: API clients (World Bank, OECD, the forecasting service), ingestion, rule engine, sign-in tokens, statement figures (history, subtotals, budget figures, KPI values) |
 | `BudgetApi/Controllers` | HTTP endpoints |
+| `BudgetApi.Tests` | xUnit tests: reading a sample statement and the category totals saved with an upload (`dotnet test BudgetApi.Tests`) |
