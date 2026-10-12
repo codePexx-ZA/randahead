@@ -22,5 +22,6 @@
 
   <ItemGroup>
     <None Include="..\..\samples\*.xlsx" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\database\init\01_schema.sql" LinkBase="schema" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

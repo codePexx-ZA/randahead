@@ -1,67 +1,28 @@
 // Targets and rules section: KPI targets and warning rules
-function percentOfRevenue(amount, revenue) {
-  return revenue ? (amount / revenue) * 100 : null;
-}
+import { createKpiTarget, createRule, deleteKpiTarget, deleteRule as removeRule, getKpiTargets, updateKpiTarget, updateRule as saveRule } from "./api.js";
+import { formatKpiValue, numberFormat } from "./format.js";
+import { INDICATOR_NAMES, fyStartDate, nextYearLabels } from "./forecast.js";
+import { can, emit, getKpi, indicatorWarnings, on, reloadRules, showRoleNote, state } from "./store.js";
+import { showToast } from "./toast.js";
+import {
+  TG_STATUS, categoryChips, chip, confirmDelete, emptyNote, emptyRow, html, kpiFigureHtml, kpiGapHtml, lockIcon, raw,
+  setTargetBadge, withBusy,
+} from "./ui.js";
 
-const KPI_GROUPS = ["Profit and margins", "Income and expenses"];
-const KPI_METRICS = [
-  ...["net_profit", "operating_profit", "gross_profit", "profit_before_tax"].map((key) => ({
-    code: key,
-    name: SUBTOTAL_NAMES[key],
-    group: KPI_GROUPS[0],
-    unit: "rand",
-    better: "higher",
-    value: (f, i) => f.subtotals[key][i],
-  })),
-  ...[
-    ["net_margin", "Net profit margin", "net_profit"],
-    ["operating_margin", "Operating profit margin", "operating_profit"],
-    ["gross_margin", "Gross profit margin", "gross_profit"],
-  ].map(([code, name, key]) => ({
-    code,
-    name,
-    group: KPI_GROUPS[0],
-    unit: "percent",
-    better: "higher",
-    value: (f, i) => percentOfRevenue(f.subtotals[key][i], f.totals.revenue[i]),
-  })),
-  ...LINE_CATEGORIES.map((c) => ({
-    code: c.code,
-    name: c.name,
-    group: KPI_GROUPS[1],
-    unit: "rand",
-    better: c.kind === "income" ? "higher" : "lower",
-    value: (f, i) => f.totals[c.code][i],
-  })),
-];
+const tg = {
+  loaded: false,
+  targets: [],
+  figures: [],
+  rules: [],
+  editingId: null,
+  confirmTarget: null,
+  confirmRule: null,
+  dirtyRules: {},
+  busy: false,
+};
 
-function getKpiMetric(code) {
-  return KPI_METRICS.find((m) => m.code === code);
-}
-
-function kpiFigure(metric, year, processed, budget) {
-  const i = processed.years.indexOf(year);
-  if (i >= 0) return { source: "actual", value: metric.value(processed, i) };
-  const j = budget?.years.indexOf(year) ?? -1;
-  if (j >= 0) return { source: "budget", value: metric.value(budget, j) };
-  return null;
-}
-
-function evaluateTarget(target, processed, budget, yearEndMonth) {
-  const metric = getKpiMetric(target.metricName);
-  const year = fyLabelFromDate(target.targetPeriod, yearEndMonth);
-  const figure = metric ? kpiFigure(metric, year, processed, budget) : null;
-  if (!figure || figure.value === null) return { target, metric, year, figure: null, status: "none" };
-
-  const gap = figure.value - target.targetValue;
-  const reached = metric.better === "higher" ? gap >= 0 : gap <= 0;
-  const status = figure.source === "actual" ? (reached ? "met" : "missed") : (reached ? "on_track" : "off_track");
-  return { target, metric, year, figure, gap, reached, status };
-}
-
-function targetYearOptions(processed) {
-  const last = processed.years.at(-1);
-  return [last, ...nextYearLabels(last, 3)];
+function formatThreshold(value) {
+  return `${Number(value)}%`;
 }
 
 function parseKpiValue(text, unit) {
@@ -72,70 +33,38 @@ function parseKpiValue(text, unit) {
   return unit === "rand" ? Math.round(Number(cleaned)) : Math.round(Number(cleaned) * 10) / 10;
 }
 
-const TG_STATUS = {
-  met: { label: "Met", cls: "ok", icon: "fa-circle-check" },
-  missed: { label: "Missed", cls: "bad", icon: "fa-circle-xmark" },
-  on_track: { label: "On track", cls: "ok", icon: "fa-circle-check" },
-  off_track: { label: "Off track", cls: "warn", icon: "fa-triangle-exclamation" },
-  none: { label: "No figures yet", cls: "muted", icon: "fa-hourglass-half" },
-};
-
-const tg = {
-  loaded: false,
-  targets: [],
-  rules: [],
-  editingId: null,
-  confirmTarget: null,
-  confirmRule: null,
-  dirtyRules: {},
-  busy: false,
-};
-
-function formatKpiValue(value, unit) {
-  return unit === "percent" ? `${value.toFixed(1)}%` : randFormat.format(value);
-}
-
-function formatGap(gap, unit) {
-  const sign = gap > 0 ? "+" : gap < 0 ? "−" : "";
-  return unit === "percent" ? `${sign}${Math.abs(gap).toFixed(1)} pts` : `${sign}${randFormat.format(Math.abs(gap))}`;
-}
-
-function formatThreshold(value) {
-  return `${Number(value)}%`;
-}
-
 function kpiMetricOptionsHtml(selected) {
-  return KPI_GROUPS.map((group) => {
-    const options = KPI_METRICS.filter((m) => m.group === group)
-      .map((m) => `<option value="${m.code}"${m.code === selected ? " selected" : ""}>${escapeHtml(m.name)}</option>`)
-      .join("");
-    return `<optgroup label="${group}">${options}</optgroup>`;
-  }).join("");
+  const { kpis } = state.definitions;
+  const groups = [...new Set(kpis.map((k) => k.group))];
+  return html`${groups.map((group) => html`<optgroup label="${group}">${kpis.filter((k) => k.group === group)
+    .map((k) => html`<option value="${k.code}"${raw(k.code === selected ? " selected" : "")}>${k.name}</option>`)}</optgroup>`)}`;
 }
 
 function kpiYearOptionsHtml(selected) {
   const p = state.processed;
-  const years = targetYearOptions(p);
+  const last = p.years.at(-1);
+  const years = [last, ...nextYearLabels(last, 3)];
   if (selected && !years.includes(selected)) years.unshift(selected);
-  return years.map((year) => {
+  return html`${years.map((year) => {
     const note = p.years.includes(year) ? " · actual" : state.budget?.years.includes(year) ? " · budget" : "";
-    return `<option value="${year}"${year === selected ? " selected" : ""}>${year}${note}</option>`;
-  }).join("");
+    return html`<option value="${year}"${raw(year === selected ? " selected" : "")}>${year}${note}</option>`;
+  })}`;
 }
 
 function updateKpiHint() {
-  const metric = getKpiMetric(document.getElementById("kpiMetric").value);
+  const metric = getKpi(document.getElementById("kpiMetric").value);
   const year = document.getElementById("kpiYear").value;
   const field = document.getElementById("kpiValueField");
   field.dataset.unit = metric.unit;
   document.getElementById("kpiValue").placeholder = metric.unit === "rand" ? "e.g. 1 200 000" : "e.g. 7.5";
 
-  const way = metric.better === "higher"
+  const way = metric.higherIsBetter
     ? "Higher is better: reached when the figure is at least the target."
     : "Lower is better: reached when the figure is at most the target.";
-  const figure = kpiFigure(metric, year, state.processed, state.budget);
-  const current = figure && figure.value !== null
-    ? ` ${figure.source === "actual" ? "Actual" : "Budget"} ${year}: ${formatKpiValue(figure.value, metric.unit)}.`
+  const figure = tg.figures.find((f) => f.year === year);
+  const value = figure?.values[metric.code] ?? null;
+  const current = value !== null
+    ? ` ${figure.source === "actual" ? "Actual" : "Budget"} ${year}: ${formatKpiValue(value, metric.unit)}.`
     : ` No actual or budget figure for ${year} yet.`;
   document.getElementById("kpiHint").textContent = way + current;
 }
@@ -161,14 +90,13 @@ function resetKpiForm() {
 
 function startEditTarget(id) {
   const t = tg.targets.find((x) => x.id === id);
-  const metric = getKpiMetric(t.metricName);
   tg.confirmTarget = null;
   fillKpiForm(
     id,
     t.metricName,
-    fyLabelFromDate(t.targetPeriod, state.business.yearEndMonth),
-    metric.unit === "rand" ? numberFormat.format(t.targetValue) : String(t.targetValue),
-    `Edit target: ${metric.name}`
+    t.year,
+    t.unit === "rand" ? numberFormat.format(t.targetValue) : String(t.targetValue),
+    `Edit target: ${t.name}`
   );
   renderTargetTable();
   document.getElementById("kpiForm").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -177,87 +105,74 @@ function startEditTarget(id) {
 
 function targetActionsHtml(id) {
   if (!can("editTargets")) return "";
-  if (tg.confirmTarget === id) {
-    return `<td class="action-cell"><span class="tg-confirm">Delete this target?
-      <button type="button" class="btn-reject btn-small" data-action="delete-target" data-id="${escapeHtml(id)}">Delete</button>
-      <button type="button" class="btn-outline btn-small" data-action="keep-target">Keep</button></span></td>`;
-  }
-  return `<td class="action-cell">
-    <button type="button" class="icon-btn" data-action="edit-target" data-id="${escapeHtml(id)}" title="Edit" aria-label="Edit target"><i class="fas fa-pen"></i></button>
-    <button type="button" class="icon-btn danger" data-action="ask-delete-target" data-id="${escapeHtml(id)}" title="Delete" aria-label="Delete target"><i class="fas fa-trash-can"></i></button>
+  if (tg.confirmTarget === id) return html`<td class="action-cell">${confirmDelete("Delete this target?", "target", id)}</td>`;
+  return html`<td class="action-cell">
+    <button type="button" class="icon-btn" data-action="edit-target" data-id="${id}" title="Edit" aria-label="Edit target"><i class="fas fa-pen"></i></button>
+    <button type="button" class="icon-btn danger" data-action="ask-delete-target" data-id="${id}" title="Delete" aria-label="Delete target"><i class="fas fa-trash-can"></i></button>
   </td>`;
 }
 
-function targetRowHtml(r) {
-  const { target, metric, figure } = r;
-  const status = TG_STATUS[r.status];
-  const name = metric ? metric.name : target.metricName;
-  const unit = metric ? metric.unit : target.measurementUnit;
-  const way = metric ? (metric.better === "higher" ? "at least" : "at most") : "";
-  const dash = '<span class="tg-muted">–</span>';
-  const compared = figure
-    ? `${formatKpiValue(figure.value, unit)}<small>${figure.source === "actual" ? "Actual" : "Budget"}</small>`
-    : dash;
-  const gap = figure ? `<span class="tg-gap ${r.reached ? "good" : "bad"}">${formatGap(r.gap, unit)}</span>` : dash;
-  const editing = tg.editingId === target.id ? " row-editing" : "";
+function targetRowHtml(t) {
+  const status = TG_STATUS[t.status];
+  const known = getKpi(t.metricName);
+  const way = t.higherIsBetter ? "at least" : "at most";
+  const dash = raw('<span class="tg-muted">–</span>');
+  const checked = t.value !== null;
 
-  return `<tr class="tg-row${editing}" data-id="${escapeHtml(target.id)}">
-    <td><span class="cat-name">${escapeHtml(name)}</span><small>${way ? `Target: ${way}` : "Unknown KPI"}</small></td>
-    <td class="num">${formatKpiValue(target.targetValue, unit)}</td>
-    <td class="num">${compared}</td>
-    <td class="num">${gap}</td>
+  return html`<tr class="tg-row${tg.editingId === t.id ? " row-editing" : ""}" data-id="${t.id}">
+    <td><span class="cat-name">${t.name}</span><small>${known ? `Target: ${way}` : "Unknown KPI"}</small></td>
+    <td class="num">${formatKpiValue(t.targetValue, t.unit)}</td>
+    <td class="num">${checked ? kpiFigureHtml(t.value, t.unit, t.source) : dash}</td>
+    <td class="num">${checked ? kpiGapHtml(t.gap, t.unit, t.reached) : dash}</td>
     <td>${chip(status.cls, status.label, status.icon)}</td>
-    ${targetActionsHtml(target.id)}
+    ${targetActionsHtml(t.id)}
   </tr>`;
 }
 
 function renderTargetTable() {
-  refreshDashboardSummary();
   const table = document.getElementById("kpiTable");
-  const yem = state.business.yearEndMonth;
-  const results = tg.targets.map((t) => evaluateTarget(t, state.processed, state.budget, yem));
+  const results = tg.targets;
   document.getElementById("kpiMeta").textContent = state.budget?.outOfDate
     ? `A goal per KPI per financial year. Years with actual figures are checked against them; future years against the budget, which is out of date (the approved history now runs to ${state.processed.years.at(-1)}). Choose a new budget in Forecast & budget.`
     : "A goal per KPI per financial year. Years with actual figures are checked against them; future years are checked against the budget.";
 
-  const checked = results.filter((r) => r.figure);
-  const reached = checked.filter((r) => r.reached).length;
+  const checked = results.filter((r) => r.value !== null);
   const badge = document.getElementById("kpiBadge");
   badge.hidden = !results.length;
-  badge.className = `badge ${checked.length && reached === checked.length ? "approved" : "warning"}`;
-  badge.textContent = checked.length ? `${reached} of ${checked.length} on target` : `${results.length} set`;
+  setTargetBadge(badge, results.length, checked.length, checked.filter((r) => r.reached).length);
 
   if (!results.length) {
-    const hint = can("editTargets") ? " Add one above." : "";
-    table.innerHTML = `<tbody><tr class="row-empty"><td>No KPI targets yet.${hint}</td></tr></tbody>`;
+    table.innerHTML = emptyRow(`No KPI targets yet.${can("editTargets") ? " Add one above." : ""}`);
     return;
   }
 
-  const order = (r) => (r.metric ? KPI_METRICS.indexOf(r.metric) : KPI_METRICS.length);
-  results.sort((a, b) => b.target.targetPeriod.localeCompare(a.target.targetPeriod) || order(a) - order(b));
-
   const cols = can("editTargets") ? 6 : 5;
-  let body = "";
   let lastYear = null;
-  results.forEach((r) => {
+  const body = results.map((r) => {
+    let yearRow = "";
     if (r.year !== lastYear) {
       lastYear = r.year;
-      const source = r.figure ? (r.figure.source === "actual" ? "checked against the actual figures" : "checked against the budget") : "no actual or budget figures yet";
-      body += `<tr class="tg-year"><td colspan="${cols}"><strong>${escapeHtml(r.year)}</strong> · ${source}</td></tr>`;
+      const source = r.value !== null ? (r.source === "actual" ? "checked against the actual figures" : "checked against the budget") : "no actual or budget figures yet";
+      yearRow = html`<tr class="tg-year"><td colspan="${cols}"><strong>${r.year}</strong> · ${source}</td></tr>`;
     }
-    body += targetRowHtml(r);
+    return html`${yearRow}${targetRowHtml(r)}`;
   });
 
-  table.innerHTML = `<thead><tr>
+  table.innerHTML = html`<thead><tr>
       <th>KPI</th><th class="num">Target</th><th class="num">Figure</th><th class="num">Difference</th><th>Status</th>
-      ${can("editTargets") ? '<th class="action-cell"><span class="sr-only">Actions</span></th>' : ""}
+      ${can("editTargets") ? raw('<th class="action-cell"><span class="sr-only">Actions</span></th>') : ""}
     </tr></thead><tbody>${body}</tbody>`;
 }
 
+async function loadTargets() {
+  ({ targets: tg.targets, figures: tg.figures } = await getKpiTargets());
+}
+
 async function reloadTargets(highlightId) {
-  tg.targets = await Api.getKpiTargets();
+  await loadTargets();
   renderTargetTable();
   if (highlightId) document.querySelector(`#kpiTable tr[data-id="${CSS.escape(highlightId)}"]`)?.classList.add("row-new");
+  await emit("targets");
 }
 
 function rejectField(input, message) {
@@ -270,7 +185,7 @@ async function saveTarget(e) {
   e.preventDefault();
   if (tg.busy || !can("editTargets")) return;
 
-  const metric = getKpiMetric(document.getElementById("kpiMetric").value);
+  const metric = getKpi(document.getElementById("kpiMetric").value);
   const year = document.getElementById("kpiYear").value;
   const input = document.getElementById("kpiValue");
   const value = parseKpiValue(input.value, metric.unit);
@@ -287,32 +202,31 @@ async function saveTarget(e) {
     measurementUnit: metric.unit,
     targetPeriod: fyStartDate(year, state.business.yearEndMonth),
   };
-  const btn = document.getElementById("kpiSave");
   tg.busy = true;
-  btn.disabled = true;
   try {
-    const editing = tg.editingId;
-    const saved = editing ? await Api.updateKpiTarget(editing, target) : await Api.createKpiTarget(target);
-    resetKpiForm();
-    await reloadTargets(saved.id);
-    showToast(`${metric.name} target for ${year} ${editing ? "updated" : "added"}.`, "success");
+    await withBusy(document.getElementById("kpiSave"), async () => {
+      const editing = tg.editingId;
+      const saved = editing ? await updateKpiTarget(editing, target) : await createKpiTarget(target);
+      resetKpiForm();
+      await reloadTargets(saved.id);
+      showToast(`${metric.name} target for ${year} ${editing ? "updated" : "added"}.`, "success");
+    });
   } catch (err) {
-    showToast(err.message || "Could not save the target.", "error");
+    showToast(err.message, "error");
   } finally {
     tg.busy = false;
-    btn.disabled = false;
   }
 }
 
 async function deleteTarget(id) {
   try {
-    await Api.deleteKpiTarget(id);
+    await deleteKpiTarget(id);
     tg.confirmTarget = null;
     if (tg.editingId === id) resetKpiForm();
     await reloadTargets();
     showToast("Target deleted.", "success");
   } catch (err) {
-    showToast(err.message || "Could not delete the target.", "error");
+    showToast(err.message, "error");
   }
 }
 
@@ -326,7 +240,7 @@ function rulePreview(value, period, threshold, active = true) {
 
 function previewHtml(p) {
   const icon = { warn: "fa-triangle-exclamation", ok: "fa-circle-check", none: "fa-circle-info" }[p.cls];
-  return `<i class="fas ${icon}"></i><span>${escapeHtml(p.text)}</span>`;
+  return html`<i class="fas ${icon}"></i><span>${p.text}</span>`;
 }
 
 function setPreview(el, preview) {
@@ -341,44 +255,38 @@ function parseThreshold(text) {
 
 function ruleActionsHtml(rule) {
   if (!can("editRules")) return "";
-  if (tg.confirmRule === rule.id) {
-    return `<div class="rule-actions"><span class="tg-confirm">Delete this rule?
-      <button type="button" class="btn-reject btn-small" data-action="delete-rule">Delete</button>
-      <button type="button" class="btn-outline btn-small" data-action="keep-rule">Keep</button></span></div>`;
-  }
-  const dirty = rule.id in tg.dirtyRules;
+  if (tg.confirmRule === rule.id) return html`<div class="rule-actions">${confirmDelete("Delete this rule?", "rule")}</div>`;
+  const hidden = raw(rule.id in tg.dirtyRules ? "" : " hidden");
   const del = rule.deletable
-    ? '<button type="button" class="icon-btn danger" data-action="ask-delete-rule" title="Delete" aria-label="Delete rule"><i class="fas fa-trash-can"></i></button>'
-    : '<span class="icon-btn locked" title="This rule has raised warnings before, so it can be switched off but not deleted"><i class="fas fa-lock"></i></span>';
-  return `<div class="rule-actions">
-    <button type="button" class="btn-outline btn-small" data-action="undo-rule"${dirty ? "" : " hidden"}>Undo</button>
-    <button type="button" class="btn-primary btn-small" data-action="save-rule"${dirty ? "" : " hidden"}><i class="fas fa-check"></i><span>Save</span></button>
+    ? raw('<button type="button" class="icon-btn danger" data-action="ask-delete-rule" title="Delete" aria-label="Delete rule"><i class="fas fa-trash-can"></i></button>')
+    : lockIcon("This rule has raised warnings before, so it can be switched off but not deleted");
+  return html`<div class="rule-actions">
+    <button type="button" class="btn-outline btn-small" data-action="undo-rule"${hidden}>Undo</button>
+    <button type="button" class="btn-primary btn-small" data-action="save-rule"${hidden}><i class="fas fa-check"></i><span>Save</span></button>
     ${del}
   </div>`;
 }
 
 function ruleRowHtml(rule) {
-  const editable = can("editRules");
-  const typed = tg.dirtyRules[rule.id];
-  const threshold = typed ?? String(Number(rule.threshold));
+  const disabled = raw(can("editRules") ? "" : " disabled");
+  const threshold = tg.dirtyRules[rule.id] ?? String(Number(rule.threshold));
   const preview = rulePreview(rule.value, rule.period, parseThreshold(threshold), rule.active);
-  const cats = rule.categories.map((code) => `<span class="cat-chip">${escapeHtml(getCategory(code).name)}</span>`).join("");
-  const fieldId = `ruleThreshold-${escapeHtml(rule.id)}`;
+  const fieldId = `ruleThreshold-${rule.id}`;
 
-  return `<div class="rule-row${rule.active ? "" : " inactive"}" data-id="${escapeHtml(rule.id)}">
+  return html`<div class="rule-row${rule.active ? "" : " inactive"}" data-id="${rule.id}">
     <label class="switch" title="${rule.active ? "On: raises warnings" : "Off: raises no warnings"}">
-      <input type="checkbox" class="rule-active"${rule.active ? " checked" : ""}${editable ? "" : " disabled"} aria-label="Rule switched on" />
+      <input type="checkbox" class="rule-active"${raw(rule.active ? " checked" : "")}${disabled} aria-label="Rule switched on" />
       <span class="switch-track"></span>
     </label>
     <div class="rule-main">
-      <strong>${escapeHtml(rule.name)}</strong>
-      <small>${escapeHtml(rule.indicatorName)}${rule.active ? "" : " · switched off"}</small>
-      <div class="indicator-cats"><span>Affects:</span>${cats}</div>
+      <strong>${rule.name}</strong>
+      <small>${rule.indicatorName}${rule.active ? "" : " · switched off"}</small>
+      <div class="indicator-cats"><span>Affects:</span>${categoryChips(rule.categories)}</div>
     </div>
     <div class="rule-threshold">
       <label for="${fieldId}">Warn above</label>
       <div class="input-affix" data-unit="percent">
-        <input type="text" inputmode="decimal" id="${fieldId}" class="rule-threshold-input" value="${escapeHtml(threshold)}"${editable ? "" : " disabled"} />
+        <input type="text" inputmode="decimal" id="${fieldId}" class="rule-threshold-input" value="${threshold}"${disabled} />
       </div>
     </div>
     <p class="rule-preview ${preview.cls}">${previewHtml(preview)}</p>
@@ -387,10 +295,10 @@ function ruleRowHtml(rule) {
 }
 
 function renderRules() {
+  if (!state.rules || !state.business) return;
+  tg.rules = indicatorWarnings(false);
   const list = document.getElementById("ruleList");
-  list.innerHTML = tg.rules.length
-    ? tg.rules.map(ruleRowHtml).join("")
-    : '<p class="ap-empty"><i class="fas fa-circle-info"></i><span>No warning rules yet.</span></p>';
+  list.innerHTML = tg.rules.length ? html`${tg.rules.map(ruleRowHtml)}` : emptyNote("No warning rules yet.");
 
   const active = tg.rules.filter((r) => r.active);
   const warning = active.filter((r) => r.triggered).length;
@@ -418,18 +326,11 @@ function updateRulePreview(row) {
   row.querySelectorAll('[data-action="save-rule"], [data-action="undo-rule"]').forEach((b) => (b.hidden = !changed));
 }
 
-async function reloadRules() {
-  tg.rules = await Api.getRules(historyYears(), state.business.yearEndMonth);
-  renderRules();
-  reloadWarnings();
-  refreshApprovals();
-}
-
 async function updateRule(rule, changes, message) {
   const row = document.querySelector(`.rule-row[data-id="${CSS.escape(rule.id)}"]`);
   row?.classList.add("busy");
   try {
-    await Api.updateRule(rule.id, {
+    await saveRule(rule.id, {
       name: rule.name,
       indicatorCode: rule.indicatorCode,
       threshold: rule.threshold,
@@ -441,7 +342,7 @@ async function updateRule(rule, changes, message) {
     showToast(message, "success");
   } catch (err) {
     row?.classList.remove("busy");
-    showToast(err.message || "Could not save the rule.", "error");
+    showToast(err.message, "error");
   }
 }
 
@@ -460,7 +361,7 @@ function toggleRule(row, active) {
 
 async function deleteRule(id) {
   try {
-    await Api.deleteRule(id);
+    await removeRule(id);
     tg.confirmRule = null;
     delete tg.dirtyRules[id];
     await reloadRules();
@@ -468,14 +369,14 @@ async function deleteRule(id) {
   } catch (err) {
     tg.confirmRule = null;
     renderRules();
-    showToast(err.message || "Could not delete the rule.", "error");
+    showToast(err.message, "error");
   }
 }
 
 function suggestedRuleName() {
-  const type = getIndicatorType(document.getElementById("ruleIndicator").value);
+  const name = INDICATOR_NAMES[document.getElementById("ruleIndicator").value];
   const threshold = parseThreshold(document.getElementById("ruleThreshold").value);
-  return Number.isNaN(threshold) ? `${type.name} above threshold` : `${type.name} above ${formatThreshold(threshold)}`;
+  return Number.isNaN(threshold) ? `${name} above threshold` : `${name} above ${formatThreshold(threshold)}`;
 }
 
 function updateAddRulePreview() {
@@ -502,21 +403,20 @@ async function addRule(e) {
     return;
   }
 
-  const btn = document.getElementById("ruleAddBtn");
   tg.busy = true;
-  btn.disabled = true;
   try {
-    await Api.createRule({ name, indicatorCode: document.getElementById("ruleIndicator").value, threshold, active: true });
-    nameInput.value = "";
-    thresholdInput.value = "";
-    await reloadRules();
-    showToast(`Rule "${name}" added and switched on.`, "success");
+    await withBusy(document.getElementById("ruleAddBtn"), async () => {
+      await createRule({ name, indicatorCode: document.getElementById("ruleIndicator").value, threshold, active: true });
+      nameInput.value = "";
+      thresholdInput.value = "";
+      await reloadRules();
+      showToast(`Rule "${name}" added and switched on.`, "success");
+    });
   } catch (err) {
     nameInput.classList.add("invalid");
-    showToast(err.message || "Could not add the rule.", "error");
+    showToast(err.message, "error");
   } finally {
     tg.busy = false;
-    btn.disabled = false;
   }
 }
 
@@ -527,33 +427,14 @@ function renderNoTargetHistory() {
   document.getElementById("kpiTable").innerHTML = "";
 }
 
-async function refreshTargets() {
-  if (!state.business) return;
-  try {
-    [tg.targets, tg.rules] = await Promise.all([
-      Api.getKpiTargets(),
-      Api.getRules(historyYears(), state.business.yearEndMonth),
-    ]);
-    tg.loaded = true;
-    renderRules();
-    document.getElementById("kpiForm").hidden = !can("editTargets") || !state.processed;
-    if (!state.processed) return renderNoTargetHistory();
-    if (!tg.editingId) resetKpiForm();
-    renderTargetTable();
-  } catch (err) {
-    showToast(err.message || "Could not load the targets and rules.", "error");
-  }
-}
-
-function setupTargets() {
+export function setup() {
   showRoleNote("kpiRoleNote", "editTargets", "you can see the targets, but only a Decision Maker can add or change them.");
   showRoleNote("ruleRoleNote", "editRules", "you can see the rules, but only an Approver or Decision Maker can change them.");
   document.getElementById("kpiForm").hidden = !can("editTargets");
   document.getElementById("ruleForm").hidden = !can("editRules");
 
-  document.getElementById("ruleIndicator").innerHTML = INDICATOR_TYPES
-    .map((t) => `<option value="${t.code}">${escapeHtml(t.name)}</option>`)
-    .join("");
+  document.getElementById("ruleIndicator").innerHTML = html`${Object.entries(INDICATOR_NAMES).map(([code, name]) => html`<option value="${code}">${name}</option>`)}`;
+  on("rules", renderRules);
 
   const kpiForm = document.getElementById("kpiForm");
   kpiForm.addEventListener("submit", saveTarget);
@@ -607,10 +488,25 @@ function setupTargets() {
     e.target.classList.remove("invalid");
     updateAddRulePreview();
   });
+}
 
-  window.addEventListener("hashchange", () => {
-    if (location.hash !== "#targets" || !state.processed) return;
+export async function refresh() {
+  if (!state.business) return;
+  try {
+    await loadTargets();
+    tg.loaded = true;
+    renderRules();
+    document.getElementById("kpiForm").hidden = !can("editTargets") || !state.processed;
+    if (!state.processed) return renderNoTargetHistory();
+    if (!tg.editingId) resetKpiForm();
     renderTargetTable();
-    updateKpiHint();
-  });
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+export function onShow() {
+  if (!tg.loaded || !state.processed) return;
+  renderTargetTable();
+  updateKpiHint();
 }

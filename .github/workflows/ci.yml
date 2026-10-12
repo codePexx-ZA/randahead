@@ -70,7 +70,7 @@ jobs:
       - name: Install packages
         run: pip install -r requirements.txt
       - name: Run algorithm doctests
-        run: python -m doctest app/algorithms.py
+        run: python -m doctest app/algorithms.py app/forecasting.py
       - name: Check the API imports
         run: python -c "import app.main"
 

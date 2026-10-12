@@ -18,29 +18,23 @@ public record BusinessRequest(
 [ApiController]
 [Route("api/business")]
 [Authorize]
-public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ControllerBase
+public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ApiController
 {
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var business = caller.Unit!.Business!;
         return Ok(BusinessView(caller, await scope.HasApprovedHistoryAsync(business.BusinessId, cancellationToken)));
     }
 
     [HttpPut]
-    [Authorize(Roles = "decision_maker")]
+    [RequirePermission(Permissions.EditBusiness)]
     public async Task<IActionResult> Update(BusinessRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
 
-        var name = request.LegalName?.Trim() ?? "";
+        var name = AccountRules.CleanName(request.LegalName);
         var industry = AccountRules.CleanIndustry(request.Industry);
         if (AccountRules.BusinessProblem(name, industry, request.YearEndMonth) is { } problem)
         {
@@ -49,9 +43,14 @@ public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLo
 
         var business = caller.Unit!.Business!;
         var hasHistory = await scope.HasApprovedHistoryAsync(business.BusinessId, cancellationToken);
-        if (hasHistory && request.YearEndMonth != business.YearEndMonth)
+        if (
+            request.YearEndMonth != business.YearEndMonth
+            && await scope.HasYearDatedDataAsync(business.BusinessId, cancellationToken)
+        )
         {
-            return Conflict(new { message = "The financial year-end can't change once income statement history is approved." });
+            return Conflict(
+                new { message = "The financial year-end can't change once income statements are uploaded or KPI targets are set." }
+            );
         }
 
         var changes = AuditLog
@@ -71,8 +70,6 @@ public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLo
         await db.SaveChangesAsync(cancellationToken);
         return Ok(BusinessView(caller, hasHistory));
     }
-
-    private UnauthorizedObjectResult SessionEnded() => Unauthorized(new { message = "Your session has ended. Sign in again." });
 
     private static string MonthName(int month) => CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(month);
 

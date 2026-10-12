@@ -144,10 +144,6 @@
   border-bottom: none;
 }
 
-.check.info i {
-  color: var(--accent-light);
-}
-
 .ap-figures {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -289,32 +285,6 @@
   gap: 10px;
 }
 
-.btn-reject {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 11px 20px;
-  border: none;
-  border-radius: 40px;
-  background: var(--surface);
-  box-shadow: var(--neu-raised-sm);
-  color: var(--danger);
-  font-size: 0.95em;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
-}
-
-.btn-reject:hover:not(:disabled) {
-  background: var(--danger);
-  color: var(--on-accent);
-}
-
-.btn-reject:active {
-  box-shadow: var(--neu-inset-sm);
-}
-
 .btn-approve {
   background: var(--success);
 }
@@ -337,20 +307,6 @@
   border-top: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 0.8em;
-}
-
-.ap-empty {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 4px;
-  color: var(--text-muted);
-  font-size: 0.88em;
-}
-
-.ap-empty i {
-  color: var(--success);
-  font-size: 1.2em;
 }
 
 .ap-history td:nth-child(2),

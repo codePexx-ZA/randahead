@@ -12,11 +12,6 @@ public static class StatementTemplate
     private static readonly XLColor Mint = XLColor.FromHtml("#C8DFDB");
     private static readonly XLColor Cream = XLColor.FromHtml("#F2EFE7");
 
-    private static readonly string[] OperatingExpenses =
-    [
-        "employee_costs", "occupancy", "electricity", "other_utilities", "transport_fuel", "marketing", "other_operating", "depreciation",
-    ];
-
     public static byte[] Build(string businessName, int yearEndMonth, IReadOnlyDictionary<string, string> categoryNames, DateOnly today)
     {
         var lastYear = today.Month > yearEndMonth ? today.Year : today.Year - 1;
@@ -41,47 +36,38 @@ public static class StatementTemplate
 
         var row = HeaderRow;
         var at = new Dictionary<string, int>();
+        // A term over several lines must list them in layout order, as one SUM over their rows
+        string Term(string column, string[] codes) =>
+            codes.Length == 1 ? $"{column}{at[codes[0]]}" : $"SUM({column}{at[codes[0]]}:{column}{at[codes[^1]]})";
 
-        void Line(string code)
+        foreach (var item in IncomeStatement.Layout)
         {
             row++;
-            sheet.Cell(row, 1).Value = categoryNames[code];
-            sheet.Range(row, 2, row, lastColumn).Style.Fill.SetBackgroundColor(Cream);
-            at[code] = row;
-        }
-
-        void Subtotal(string key, string label, Func<string, string> formula)
-        {
-            row++;
-            sheet.Cell(row, 1).Value = label;
-            for (var col = 2; col <= lastColumn; col++)
+            if (item.Heading is { } heading)
             {
-                sheet.Cell(row, col).FormulaA1 = formula(XLHelper.GetColumnLetterFromNumber(col));
+                sheet.Cell(row, 1).Value = heading;
+                sheet.Cell(row, 1).Style.Font.SetItalic();
             }
-            sheet.Range(row, 1, row, lastColumn).Style.Font.SetBold().Fill.SetBackgroundColor(Mint);
-            at[key] = row;
+            else if (item.Category is { } code)
+            {
+                sheet.Cell(row, 1).Value = categoryNames[code];
+                sheet.Range(row, 2, row, lastColumn).Style.Fill.SetBackgroundColor(Cream);
+                at[code] = row;
+            }
+            else
+            {
+                var subtotal = IncomeStatement.Subtotals.First(s => s.Code == item.Subtotal);
+                sheet.Cell(row, 1).Value = subtotal.Name;
+                for (var col = 2; col <= lastColumn; col++)
+                {
+                    var c = XLHelper.GetColumnLetterFromNumber(col);
+                    var formula = string.Concat(subtotal.Terms.Select((t, i) => (t.Sign < 0 ? "-" : i == 0 ? "" : "+") + Term(c, t.Codes)));
+                    sheet.Cell(row, col).FormulaA1 = formula;
+                }
+                sheet.Range(row, 1, row, lastColumn).Style.Font.SetBold().Fill.SetBackgroundColor(Mint);
+                at[subtotal.Code] = row;
+            }
         }
-
-        Line("revenue");
-        Line("cost_of_sales");
-        Subtotal("gross_profit", "Gross profit", c => $"{c}{at["revenue"]}-{c}{at["cost_of_sales"]}");
-        Line("other_income");
-        row++;
-        sheet.Cell(row, 1).Value = "Operating expenses";
-        sheet.Cell(row, 1).Style.Font.SetItalic();
-        foreach (var code in OperatingExpenses)
-        {
-            Line(code);
-        }
-        Subtotal(
-            "operating_profit",
-            "Operating profit",
-            c => $"{c}{at["gross_profit"]}+{c}{at["other_income"]}-SUM({c}{at[OperatingExpenses[0]]}:{c}{at[OperatingExpenses[^1]]})"
-        );
-        Line("finance_costs");
-        Subtotal("profit_before_tax", "Profit before tax", c => $"{c}{at["operating_profit"]}-{c}{at["finance_costs"]}");
-        Line("income_tax");
-        Subtotal("net_profit", "Net profit", c => $"{c}{at["profit_before_tax"]}-{c}{at["income_tax"]}");
 
         sheet.Range(HeaderRow + 1, 2, row, lastColumn).Style.NumberFormat.SetFormat(AmountFormat);
         sheet.Column(1).Width = 40;

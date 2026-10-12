@@ -17,7 +17,7 @@ public record SupportRequest(
 [ApiController]
 [Route("api/support")]
 [Authorize]
-public class SupportController(BusinessScope scope, Mailer mailer) : ControllerBase
+public class SupportController(Mailer mailer) : ApiController
 {
     private const int MaxMessageLength = 2000;
     private static readonly string[] Topics =
@@ -32,10 +32,7 @@ public class SupportController(BusinessScope scope, Mailer mailer) : ControllerB
     [EnableRateLimiting(RateLimits.Support)]
     public async Task<IActionResult> Send(SupportRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
+        var caller = Caller;
 
         var name = AccountRules.CleanName(request.Name);
         var email = request.Email?.Trim() ?? "";

@@ -1,14 +1,16 @@
 // Importer: checks uploaded income statements and works out the approved history
-const MIN_HISTORY_YEARS = 3;
-const MAX_HISTORY_YEARS = 5;
+import { getCategory, subtotalName } from "./store.js";
 
-const SCALE_LABELS = { 1: "Rand", 1000: "R'000 (thousands)", 1000000: "R million" };
+const MIN_HISTORY_YEARS = 3;
+export const MAX_HISTORY_YEARS = 5;
+
+export const SCALE_LABELS = { 1: "Rand", 1000: "R'000 (thousands)", 1000000: "R million" };
 
 function labelKey(label) {
   return String(label).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function fileExtension(name) {
+export function fileExtension(name) {
   const dot = name.lastIndexOf(".");
   return dot === -1 ? "" : name.slice(dot).toLowerCase();
 }
@@ -19,7 +21,7 @@ function mappingParts(mapping) {
   return mapping.parts;
 }
 
-function isResolved(mapping) {
+export function isResolved(mapping) {
   return Boolean(mapping) && !mapping.invalid;
 }
 
@@ -29,15 +31,6 @@ function splitRows(label, parts, values) {
     category: p.category,
     values: values.map((v) => (v * p.percent) / 100),
   }));
-}
-
-function previewToSubmission(preview) {
-  const rows = preview.rows.flatMap((r) => {
-    const values = r.values.map((v) => v ?? 0);
-    if (r.kind === "subtotal") return [{ label: r.label, subtotal: r.subtotal, values }];
-    return r.kind === "line" && isResolved(r.mapping) ? splitRows(r.label, mappingParts(r.mapping), values) : [];
-  });
-  return { fileName: preview.fileName, scale: preview.scale, years: preview.years, rows };
 }
 
 function missingYears(years) {
@@ -60,10 +53,11 @@ function blankRows(lines) {
 }
 
 function subtotalsMatchItem(keys) {
-  return { level: "ok", text: `Subtotals match the file (${keys.map((k) => SUBTOTAL_NAMES[k].toLowerCase()).join(", ")}).` };
+  return { level: "ok", text: `Subtotals match the file (${keys.map((k) => subtotalName(k).toLowerCase()).join(", ")}).` };
 }
 
-function checkPreview(preview, change) {
+// statement is the API's recalculation of the preview as mapped now, or null while it is on its way
+export function checkPreview(preview, change, statement) {
   const items = [];
   const lines = preview.rows.filter((r) => r.kind === "line");
   const { years } = preview;
@@ -99,8 +93,9 @@ function checkPreview(preview, change) {
   if (!unresolved.length) {
     const hasRevenue = lines.some((r) => mappingParts(r.mapping).some((p) => p.category === "revenue"));
     if (!hasRevenue) items.push({ level: "error", text: "No line is matched to Revenue. Every income statement needs sales or revenue." });
-
-    subtotals = processStatement(previewToSubmission(preview)).checks;
+  }
+  if (!unresolved.length && statement) {
+    subtotals = statement.checks;
     const keys = Object.keys(subtotals);
     const off = keys.filter((k) => !subtotals[k].matches);
     if (!keys.length) {
@@ -108,7 +103,7 @@ function checkPreview(preview, change) {
     } else if (off.length) {
       items.push({
         level: "warning",
-        text: `${off.map((k) => SUBTOTAL_NAMES[k]).join(", ")} in the file ${off.length > 1 ? "don't" : "doesn't"} match our recalculation. Check the categories, or the sheet itself.`,
+        text: `${off.map(subtotalName).join(", ")} in the file ${off.length > 1 ? "don't" : "doesn't"} match our recalculation. Check the categories, or the sheet itself.`,
       });
     } else {
       items.push(subtotalsMatchItem(keys));
@@ -118,7 +113,7 @@ function checkPreview(preview, change) {
   return { items, subtotals, ready: !items.some((i) => i.level === "error") };
 }
 
-function buildSubmissionPayload(preview, replacesSubmissionId) {
+export function buildSubmissionPayload(preview, replacesSubmissionId) {
   return {
     fileName: preview.fileName,
     frequency: preview.frequency,
@@ -156,7 +151,7 @@ function submissionFromUpload(upload) {
   };
 }
 
-function reviewUpload(upload, change) {
+export function reviewUpload(upload, change) {
   const items = historyChecks(change);
   const lines = upload.rows.filter((r) => r.kind === "line");
   const name = (code) => getCategory(code).name;
@@ -178,7 +173,7 @@ function reviewUpload(upload, change) {
   const blanks = blankRows(lines);
   if (blanks.length) items.push({ level: "warning", text: `Blank amounts in ${listNames(blanks)} were treated as 0.` });
 
-  const subtotals = processStatement(submissionFromUpload(upload)).checks;
+  const subtotals = upload.statement.checks;
   const keys = Object.keys(subtotals);
   if (!keys.length) {
     items.push({ level: "warning", text: "No subtotals in the file, so the totals couldn't be cross-checked." });
@@ -188,20 +183,20 @@ function reviewUpload(upload, change) {
     if (check.matches) return;
     const i = check.diffs.findIndex((d) => Math.abs(d) > upload.scale);
     const off = `R ${Math.round(Math.abs(check.diffs[i])).toLocaleString("en-ZA")}`;
-    items.push({ level: "warning", text: `${SUBTOTAL_NAMES[k]} in the file doesn't match our recalculation: off by ${off} in ${upload.periods[i]}.` });
+    items.push({ level: "warning", text: `${subtotalName(k)} in the file doesn't match our recalculation: off by ${off} in ${upload.periods[i]}.` });
   });
   if (keys.length && keys.every((k) => subtotals[k].matches)) items.push(subtotalsMatchItem(keys));
 
   return { items, subtotals };
 }
 
-function uploadPeriods(u) {
+export function uploadPeriods(u) {
   if (u.periods) return u.periods;
   const [first, last] = u.years.map((y) => Number(y.slice(2)));
   return Array.from({ length: last - first + 1 }, (_, i) => `FY${first + i}`);
 }
 
-function yearList(years) {
+export function yearList(years) {
   const sorted = [...years].sort();
   const runs = [];
   sorted.forEach((y) => {
@@ -212,7 +207,7 @@ function yearList(years) {
   return runs.map((r) => (r.length > 1 ? `${r[0]}–${r.at(-1)}` : r[0])).join(", ");
 }
 
-function planHistory(uploads) {
+export function planHistory(uploads) {
   const sourceOf = {};
   uploads.forEach((u) => uploadPeriods(u).forEach((y) => (sourceOf[y] ??= u)));
   const all = Object.keys(sourceOf).sort();
@@ -224,7 +219,7 @@ function planHistory(uploads) {
   };
 }
 
-function historyChange(uploads, incoming) {
+export function historyChange(uploads, incoming) {
   const isApproved = (u) => u.status === "approved" && u.id !== incoming.id;
   const approved = uploads.filter(isApproved);
   const index = uploads.findIndex((u) => u.id === incoming.id);
@@ -246,7 +241,7 @@ function historyChange(uploads, incoming) {
   };
 }
 
-function describeChange(change) {
+export function describeChange(change) {
   const parts = [];
   if (change.added.length) parts.push(`Adds ${yearList(change.added)}.`);
   const byFile = new Map();
@@ -291,7 +286,7 @@ function rowKeys(rows) {
   });
 }
 
-function combineUploads(approved) {
+export function combineUploads(approved) {
   const plan = planHistory(approved);
   const used = approved.filter((u) => plan.years.some((y) => plan.sourceOf[y] === u));
   const newest = used[0];
@@ -329,6 +324,15 @@ function combineUploads(approved) {
     return { ...row, values };
   });
 
+  const pick = (get) => plan.years.map((y) => {
+    const s = plan.sourceOf[y].statement;
+    return get(s)[s.years.indexOf(y)];
+  });
+  const table = (field) => Object.fromEntries(Object.keys(newest.statement[field]).map((code) => [code, pick((s) => s[field][code])]));
+  const totals = table("totals");
+  const lineSources = Object.fromEntries(Object.keys(totals).map((code) => [code, []]));
+  rows.filter((r) => r.category).forEach((r) => lineSources[r.category].push(r.label));
+
   return {
     fileName: newest.fileName,
     status: "approved",
@@ -345,10 +349,17 @@ function combineUploads(approved) {
       submittedBy: u.submittedBy,
       approvedBy: u.decidedBy,
     })),
+    statement: {
+      years: plan.years,
+      totals,
+      subtotals: table("subtotals"),
+      totalExpenses: pick((s) => s.totalExpenses),
+      sources: lineSources,
+    },
   };
 }
 
-function describeSources(submission) {
+export function describeSources(submission) {
   const sources = submission.sources || [{ fileName: submission.fileName, years: submission.years }];
   const list = sources.map((s) => `${s.fileName} (${yearList(s.years)})`);
   return list.length > 1 ? `${list.slice(0, -1).join(", ")} and ${list.at(-1)}` : list[0];

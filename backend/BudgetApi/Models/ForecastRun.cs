@@ -1,9 +1,9 @@
-// Forecast run model: one method's forecast for a business unit, saved by the Python forecasting service
+// Forecast run model: one method's forecast for a business unit
 namespace BudgetApi.Models;
 
 public class ForecastRun
 {
-    public string RunId { get; set; } = string.Empty;
+    public string RunId { get; set; } = Guid.NewGuid().ToString("N");
     public string UnitId { get; set; } = string.Empty;
     public string ForecastingMethod { get; set; } = string.Empty;
     public DateOnly HistoryStart { get; set; }

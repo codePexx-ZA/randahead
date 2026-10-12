@@ -3,17 +3,16 @@ using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
-if (jwt.Key.Length < 32)
+if (jwt.Key.Length < 32 || jwt.Key.StartsWith("replace-with", StringComparison.OrdinalIgnoreCase))
 {
     throw new InvalidOperationException(
-        "Jwt:Key must be at least 32 characters. Set JWT_KEY in .env (Docker) or the Jwt:Key user secret (dotnet run)."
+        "Jwt:Key must be at least 32 random characters, not the example value. Set JWT_KEY in .env (Docker) or the Jwt:Key user secret (dotnet run)."
     );
 }
 
@@ -39,7 +38,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddDbContext<BudgetDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")).UseSnakeCaseNamingConvention()
 );
 
 builder.Services.AddSingleton(jwt);
@@ -63,23 +62,7 @@ builder
             NameClaimType = "name",
             RoleClaimType = "role",
         };
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = async context =>
-            {
-                var db = context.HttpContext.RequestServices.GetRequiredService<BudgetDbContext>();
-                var userId = context.Principal?.FindFirst("sub")?.Value;
-                var changedAt = await db
-                    .AppUsers.Where(u => u.UserId == userId)
-                    .Select(u => (DateTime?)u.PasswordChangedAt)
-                    .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
-                // iat is whole seconds, so a token issued in the same second as the change still counts as newer
-                if (changedAt is null || context.SecurityToken is not JsonWebToken { IssuedAt: var issuedAt } || issuedAt.AddSeconds(1) <= changedAt)
-                {
-                    context.Fail("The password changed after this token was issued.");
-                }
-            },
-        };
+        options.Events = new JwtBearerEvents { OnTokenValidated = CallerSession.ValidateAsync };
     });
 builder.Services.AddAuthorization();
 builder.Services.AddAuthRateLimits();
@@ -114,6 +97,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.Use(MustChangePassword.Enforce);
 app.UseAuthorization();
 app.MapControllers();
 

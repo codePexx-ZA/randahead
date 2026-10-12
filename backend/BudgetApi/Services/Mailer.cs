@@ -16,8 +16,11 @@ public class MailSettings
     public string SupportTo { get; set; } = "support@randahead.local";
 }
 
-public class Mailer(MailSettings settings, ILogger<Mailer> logger)
+public class Mailer(MailSettings settings, ILogger<Mailer> logger, IHostEnvironment environment)
 {
+    // Bodies can hold live password-reset links, so they only reach the log in development
+    private string LoggedBody(string body) => environment.IsDevelopment() ? body : "(body hidden outside development)";
+
     public string WebAppUrl => settings.WebAppUrl.TrimEnd('/');
 
     public string SupportTo => settings.SupportTo;
@@ -32,7 +35,7 @@ public class Mailer(MailSettings settings, ILogger<Mailer> logger)
     {
         if (string.IsNullOrWhiteSpace(settings.Host))
         {
-            logger.LogWarning("Mail:Host is not set, so this email was not sent. To {To}: {Subject}\n{Body}", to, subject, body);
+            logger.LogWarning("Mail:Host is not set, so this email was not sent. To {To}: {Subject}\n{Body}", to, subject, LoggedBody(body));
             return false;
         }
         try
@@ -53,7 +56,7 @@ public class Mailer(MailSettings settings, ILogger<Mailer> logger)
         }
         catch (Exception error) when (error is SmtpException or InvalidOperationException or IOException or FormatException)
         {
-            logger.LogWarning(error, "Could not send an email. To {To}: {Subject}\n{Body}", to, subject, body);
+            logger.LogWarning(error, "Could not send an email. To {To}: {Subject}\n{Body}", to, subject, LoggedBody(body));
             return false;
         }
     }

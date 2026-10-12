@@ -23,18 +23,14 @@ public record DeleteUserRequest([property: JsonPropertyName("password")] string?
 [ApiController]
 [Route("api/users")]
 [Authorize]
-public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ControllerBase
+public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ApiController
 {
-    private const string UserManagers = "approver,decision_maker";
     private static readonly Dictionary<string, string> RoleNames = AuditLog.RoleNames;
 
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var businessId = caller.Unit!.BusinessId;
         var users = await BusinessUsers(businessId).AsNoTracking().OrderBy(u => u.FullName).ToListAsync(cancellationToken);
         var onRecord = await scope.UsersOnRecordAsync(businessId, cancellationToken);
@@ -42,16 +38,17 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
     }
 
     [HttpPost]
-    [Authorize(Roles = UserManagers)]
+    [RequirePermission(Permissions.ManageUsers)]
     public async Task<IActionResult> Create(UserRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (Problem(request, passwordRequired: true) is { } problem)
         {
             return BadRequest(new { message = problem });
+        }
+        if (!Permissions.CanManage(caller, request.Role!))
+        {
+            return SubmittersOnly();
         }
 
         var email = request.Email!.Trim().ToLowerInvariant();
@@ -82,13 +79,10 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = UserManagers)]
+    [RequirePermission(Permissions.ManageUsers)]
     public async Task<IActionResult> Update(string id, UserRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (Problem(request, passwordRequired: false) is { } problem)
         {
             return BadRequest(new { message = problem });
@@ -103,6 +97,10 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
         if (user.IsAdmin && !caller.IsAdmin)
         {
             return AdminOnly();
+        }
+        if (user.UserId != caller.UserId && (!Permissions.CanManage(caller, user.Role) || !Permissions.CanManage(caller, request.Role!)))
+        {
+            return SubmittersOnly();
         }
 
         var activeStatus = request.ActiveStatus ?? user.ActiveStatus;
@@ -161,17 +159,14 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = UserManagers)]
+    [RequirePermission(Permissions.ManageUsers)]
     public async Task<IActionResult> Delete(
         string id,
         [FromBody] DeleteUserRequest? request,
         CancellationToken cancellationToken
     )
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
 
         var businessId = caller.Unit!.BusinessId;
         var users = await BusinessUsers(businessId).ToListAsync(cancellationToken);
@@ -187,9 +182,13 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
         {
             return AdminOnly();
         }
+        if (!Permissions.CanManage(caller, user.Role))
+        {
+            return SubmittersOnly();
+        }
 
         var onRecord = (await scope.UsersOnRecordAsync(businessId, cancellationToken)).Contains(user.UserId);
-        if (caller.IsAdmin)
+        if (Permissions.Allows(caller, Permissions.DeleteAnyUser))
         {
             if (string.IsNullOrEmpty(request?.Password))
             {
@@ -197,10 +196,7 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
             }
             if (caller.PasswordHash is not { } hash || !BCrypt.Net.BCrypt.Verify(request.Password, hash))
             {
-                return StatusCode(
-                    StatusCodes.Status403Forbidden,
-                    new { message = "Incorrect password, so the user was not deleted." }
-                );
+                return Forbidden("Incorrect password, so the user was not deleted.");
             }
         }
         else if (onRecord)
@@ -263,23 +259,24 @@ public class UsersController(BudgetDbContext db, BusinessScope scope, AuditLog a
         AccountRules.PersonProblem(AccountRules.CleanName(request.FullName), request.Email, request.Password, passwordRequired)
         ?? (request switch
         {
-            { Role: not ("submitter" or "approver" or "decision_maker") } => "Choose a role: Submitter, Approver or Decision Maker.",
+            { Role: not (Roles.Submitter or Roles.Approver or Roles.DecisionMaker) } => "Choose a role: Submitter, Approver or Decision Maker.",
             { ActiveStatus: not (null or "active" or "inactive") } => "The status must be active or inactive.",
             _ => null,
         });
 
     private static HashSet<string> ActiveKeyRoles(IEnumerable<AppUser> users) =>
-        users.Where(u => u.ActiveStatus == "active" && u.Role is "approver" or "decision_maker").Select(u => u.Role).ToHashSet();
+        users.Where(u => u.ActiveStatus == "active" && u.Role is Roles.Approver or Roles.DecisionMaker).Select(u => u.Role).ToHashSet();
 
     private static string? LostKeyRole(HashSet<string> before, IEnumerable<AppUser> after) =>
         before.Except(ActiveKeyRoles(after)).FirstOrDefault();
 
     private static string StatusText(string activeStatus) => activeStatus == "active" ? "Active" : "Switched off";
 
-    private ObjectResult AdminOnly() =>
-        StatusCode(StatusCodes.Status403Forbidden, new { message = "Only an admin can change or delete an admin account." });
+    private ObjectResult SubmittersOnly() =>
+        Forbidden("Approvers can only add, change or delete Submitters.");
 
-    private UnauthorizedObjectResult SessionEnded() => Unauthorized(new { message = "Your session has ended. Sign in again." });
+    private ObjectResult AdminOnly() =>
+        Forbidden("Only an admin can change or delete an admin account.");
 
     private ConflictObjectResult EmailConflict(string email) =>
         Conflict(new { message = $"{email} already has an account. Use another email address." });

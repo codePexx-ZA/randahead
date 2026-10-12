@@ -1,4 +1,12 @@
 // Register page: signs up a new business with its first Decision Maker, then signs them in
+import { register } from "./api.js";
+import { rejectInput, setLoading, setupAuthForm, shakeCard } from "./auth-form.js";
+import { EMAIL_PATTERN, INDUSTRIES, MIN_PASSWORD_LENGTH } from "./config.js";
+import { monthName } from "./format.js";
+import { Session } from "./session.js";
+import { showToast } from "./toast.js";
+import { html } from "./ui.js";
+
 const form = document.getElementById("registerForm");
 const businessInput = document.getElementById("businessInput");
 const industryInput = document.getElementById("industryInput");
@@ -9,14 +17,10 @@ const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const confirmInput = document.getElementById("confirmInput");
 const registerBtn = document.getElementById("registerBtn");
-const wrapper = document.querySelector(".wrapper");
 
-const monthName = (month) => new Date(2000, month - 1, 1).toLocaleString("en-ZA", { month: "long" });
-
-industryInput.innerHTML = ['<option value="">Not set</option>', ...INDUSTRIES.map((i) => `<option>${i}</option>`)].join("");
-yearEndInput.innerHTML = Array.from({ length: 12 }, (_, i) => i + 1)
-  .map((m) => `<option value="${m}"${m === 2 ? " selected" : ""}>${monthName(m)}</option>`)
-  .join("");
+industryInput.innerHTML = html`<option value="">Not set</option>${INDUSTRIES.map((i) => html`<option>${i}</option>`)}`;
+yearEndInput.innerHTML = html`${Array.from({ length: 12 }, (_, i) => i + 1)
+  .map((m) => html`<option value="${m}"${m === 2 ? " selected" : ""}>${monthName(m)}</option>`)}`;
 
 function showYearEndHint() {
   const end = Number(yearEndInput.value);
@@ -26,40 +30,7 @@ function showYearEndHint() {
 yearEndInput.addEventListener("change", showYearEndHint);
 showYearEndHint();
 
-document.querySelectorAll(".input-box input").forEach((input) => {
-  const update = () => {
-    input.parentElement.classList.toggle("filled", input.value !== "");
-    input.parentElement.classList.remove("invalid");
-  };
-  input.addEventListener("input", update);
-  update();
-});
-
-document.querySelector(".toggle-password").addEventListener("click", (e) => {
-  const btn = e.currentTarget;
-  const show = passwordInput.type === "password";
-  passwordInput.type = confirmInput.type = show ? "text" : "password";
-  btn.querySelector("i").className = show ? "fas fa-eye-slash" : "fas fa-eye";
-  btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
-});
-
-function shakeCard() {
-  wrapper.classList.remove("shake");
-  void wrapper.offsetWidth;
-  wrapper.classList.add("shake");
-}
-
-function setLoading(loading) {
-  registerBtn.disabled = loading;
-  registerBtn.classList.toggle("loading", loading);
-}
-
-function rejectInput(input, message) {
-  input.parentElement.classList.add("invalid");
-  input.focus();
-  showToast(message, "error");
-  shakeCard();
-}
+setupAuthForm();
 
 function findProblem(d) {
   if (d.businessName === "") return [businessInput, "Type the business's registered name."];
@@ -84,15 +55,15 @@ form.addEventListener("submit", async (e) => {
   const problem = findProblem(details);
   if (problem) return rejectInput(...problem);
 
-  setLoading(true);
+  setLoading(registerBtn, true);
   try {
-    const result = await Api.register(details);
+    const result = await register(details);
     Session.save(result, false);
     showToast(`Welcome, ${result.user.fullName}. ${details.businessName} is registered.`, "success");
     setTimeout(() => (window.location.href = "dashboard.html"), 1100);
   } catch (err) {
     showToast(err.message, "error");
     shakeCard();
-    setLoading(false);
+    setLoading(registerBtn, false);
   }
 });

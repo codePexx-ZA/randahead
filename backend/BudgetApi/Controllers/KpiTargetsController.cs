@@ -1,4 +1,4 @@
-// KPI targets API: lists, adds, changes and deletes the caller's unit's goals per KPI per financial year
+// KPI targets API: lists the caller's unit's goals per KPI per financial year with their progress, and adds, changes and deletes them
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
 using BudgetApi.Models;
@@ -20,34 +20,27 @@ public record KpiTargetRequest(
 [ApiController]
 [Route("api/kpi-targets")]
 [Authorize]
-public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ControllerBase
+public class KpiTargetsController(BudgetDbContext db, StatementFigures figures, AuditLog audit) : ApiController
 {
-    private const string TargetEditors = "decision_maker";
-
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
+        var caller = Caller;
+        string Label(DateOnly start) => FinancialYear.Label(start, caller.Unit!.Business!.YearEndMonth);
+        var history = await figures.ApprovedHistoryAsync(caller.UnitId, cancellationToken);
+        var budget = await figures.LatestBudgetAsync(caller.UnitId, cancellationToken);
+        return Ok(new
         {
-            return SessionEnded();
-        }
-        var targets = await db
-            .KpiTargets.AsNoTracking()
-            .Where(t => t.UnitId == caller.UnitId)
-            .OrderBy(t => t.TargetPeriod)
-            .ThenBy(t => t.MetricName)
-            .ToListAsync(cancellationToken);
-        return Ok(targets.Select(TargetView));
+            targets = await figures.TargetsAsync(caller.UnitId, history, budget, Label, cancellationToken),
+            figures = StatementFigures.KpiFigures(history, budget, await figures.KpisAsync(cancellationToken), Label),
+        });
     }
 
     [HttpPost]
-    [Authorize(Roles = TargetEditors)]
+    [RequirePermission(Permissions.EditTargets)]
     public async Task<IActionResult> Create(KpiTargetRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (await ProblemAsync(request, caller.Unit!.Business!.YearEndMonth, cancellationToken) is { } problem)
         {
             return BadRequest(new { message = problem });
@@ -72,13 +65,10 @@ public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, Audit
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = TargetEditors)]
+    [RequirePermission(Permissions.EditTargets)]
     public async Task<IActionResult> Update(string id, KpiTargetRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (await ProblemAsync(request, caller.Unit!.Business!.YearEndMonth, cancellationToken) is { } problem)
         {
             return BadRequest(new { message = problem });
@@ -116,13 +106,10 @@ public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, Audit
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = TargetEditors)]
+    [RequirePermission(Permissions.EditTargets)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (await db.KpiTargets.FirstOrDefaultAsync(t => t.TargetId == id && t.UnitId == caller.UnitId, cancellationToken) is not { } target)
         {
             return TargetGone();
@@ -140,11 +127,11 @@ public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, Audit
         return NoContent();
     }
 
+    private async Task<KpiDefinition?> KpiAsync(string? metric, CancellationToken cancellationToken) =>
+        (await figures.KpisAsync(cancellationToken)).FirstOrDefault(k => k.Code == metric);
+
     private async Task<string> KpiNameAsync(string metric, CancellationToken cancellationToken) =>
-        StatementFigures.SubtotalNames.TryGetValue(metric, out var name) ? name
-            : StatementFigures.Margins.TryGetValue(metric, out var margin) ? margin.Name
-            : await db.LineCategories.Where(c => c.CategoryCode == metric).Select(c => c.DisplayName).FirstOrDefaultAsync(cancellationToken)
-                ?? metric;
+        (await KpiAsync(metric, cancellationToken))?.Name ?? metric;
 
     private static string ValueText(KpiTarget target) =>
         target.MeasurementUnit == "rand" ? AuditLog.Rand(target.TargetValue) : $"{AuditLog.Number(target.TargetValue)}%";
@@ -160,10 +147,7 @@ public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, Audit
 
     private async Task<string?> ProblemAsync(KpiTargetRequest request, int yearEndMonth, CancellationToken cancellationToken)
     {
-        var metric = request.MetricName ?? "";
-        var unit = StatementFigures.Margins.ContainsKey(metric) ? "percent"
-            : StatementFigures.SubtotalNames.ContainsKey(metric) || await db.LineCategories.AnyAsync(c => c.CategoryCode == metric, cancellationToken) ? "rand"
-            : null;
+        var unit = (await KpiAsync(request.MetricName, cancellationToken))?.Unit;
         if (unit is null)
         {
             return "Choose one of the listed KPIs.";
@@ -217,8 +201,6 @@ public class KpiTargetsController(BudgetDbContext db, BusinessScope scope, Audit
             return DuplicateConflict();
         }
     }
-
-    private UnauthorizedObjectResult SessionEnded() => Unauthorized(new { message = "Your session has ended. Sign in again." });
 
     private NotFoundObjectResult TargetGone() => NotFound(new { message = "This target no longer exists." });
 

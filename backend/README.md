@@ -2,7 +2,7 @@
 
 The main API for the SME budget forecasting system. It handles **login**, **users and business details**, **income statement uploads and their approval**, **forecasts and the chosen budget**, **KPI targets**, **the dashboard summary** (a year's figures, budget vs actual, target progress), **the combined report** for Decision Makers, **external data ingestion**, **warning rules** and **support messages**.
 
-`BudgetApi` fetches indicators from the World Bank and OECD APIs and saves them in PostgreSQL. It calls the Python forecasting service (`../forecasting/`) for forecast runs. The browser never calls Python directly.
+`BudgetApi` fetches indicators from the World Bank and OECD APIs and saves them in PostgreSQL. For forecasts it sends the approved history to the Python forecasting service (`../forecasting/`), which only calculates, and saves the results itself. The browser never calls Python directly.
 
 ## What it does today
 
@@ -51,23 +51,36 @@ The API refuses to start without a `Jwt:Key` of at least 32 characters.
 | Endpoint | Body / header | Returns |
 |---|---|---|
 | `POST /api/auth/register` | `{ business_name, industry, year_end_month, full_name, email, password }` (no token; `industry` optional) | `201` with the same shape as login (signed in straight away); `400` invalid field or password under 8 characters; `409` email already has an account |
-| `POST /api/auth/login` | `{ "email", "password" }` (email is not case-sensitive) | `200 { token, expiresAt, user: { id, fullName, email, role, unitId } }`; `401 { message }` wrong email or password; `403 { message }` account switched off |
+| `POST /api/auth/login` | `{ "email", "password" }` (email is not case-sensitive) | `200 { token, expiresAt, user: { id, fullName, email, role, unitId, isAdmin, mustChangePassword, permissions, manageableRoles } }`; `401 { message }` wrong email or password; `403 { message }` account switched off |
 | `GET /api/auth/me` | `Authorization: Bearer <token>` | The signed-in user, or `401` |
 | `POST /api/auth/forgot-password` | `{ email }` (no token) | `200 { message }` whether or not the email has an account (no account leak); emails a one-time link to active accounts; `400` no email |
 | `POST /api/auth/reset-password` | `{ token, password }` (no token header) | `200 { message }`; `400` password under 8 characters, or link unknown / used / expired / account switched off |
 | `POST /api/auth/change-password` | `{ current_password, new_password }` + token | `{ token, expiresAt, user }` (a new token: every token issued before the change stops working); `400` current password wrong (not `401`, so the web app doesn't sign out), new one too short or the same |
 
-**Passwords.** Every user object has `mustChangePassword`. Passwords set by an Approver or Decision Maker (`POST /api/users`, or `PUT` with a `password`) are temporary (`true`); the web app sends the person to `password.html?change` until they choose their own. Registering, changing your own password and using a reset link set it to `false`. You can't set your own password through `PUT /api/users/{id}` (`400`). "Forgot password?" stores only a SHA-256 hash of a random 32-byte token in `password_reset`; the link (`Mail:WebAppUrl` + `/password.html?token=…`) works once, for 30 minutes, and asking again cancels the earlier link. Emails go through `Services/Mailer.cs` (SMTP, `Mail:*` settings): Docker Compose sends them to **Mailpit** (inbox at http://localhost:8025, nothing leaves your PC); `dotnet run` uses `localhost:1025`, so start Mailpit with `docker compose up -d mailpit`. If sending fails, or `Mail:Host` is empty, the email (with the link) is written to the API log. Every password change sets `password_changed_at`; the API refuses tokens (JWTs) issued before it, so other sessions are signed out.
+**Passwords.** Every user object has `mustChangePassword`. Passwords set by an Approver or Decision Maker (`POST /api/users`, or `PUT` with a `password`) are temporary (`true`); the web app sends the person to `password.html?change` until they choose their own. Registering, changing your own password and using a reset link set it to `false`. You can't set your own password through `PUT /api/users/{id}` (`400`). "Forgot password?" stores only a SHA-256 hash of a random 32-byte token in `password_reset`; the link (`Mail:WebAppUrl` + `/password.html?token=…`) works once, for 30 minutes, and asking again cancels the earlier link. Emails go through `Services/Mailer.cs` (SMTP, `Mail:*` settings): Docker Compose sends them to **Mailpit** (inbox at http://localhost:8025, nothing leaves your PC); `dotnet run` uses `localhost:1025`, so start Mailpit with `docker compose up -d mailpit`. If sending fails, or `Mail:Host` is empty, the email is written to the API log (with the link in Development only). Every password change sets `password_changed_at`; the API refuses tokens (JWTs) issued before it, so other sessions are signed out. It also refuses a token once the user's role changes or they are switched off or deleted, and while `mustChangePassword` is `true` every endpoint except the two marked `[AllowTemporaryPassword]` (`POST /api/auth/change-password` and `GET /api/auth/me`) answers `403`. Approvers can add, change and delete Submitters only; Decision Makers manage every role.
 
 Registering creates, in one transaction, the `business` (country `ZAF`), its "Whole company" `business_unit` (ZAR), the person as its `decision_maker` and the 4 default warning rules (`Services/DefaultRules.cs`: headline and core CPI above 6%, fuel and electricity above 10%). They add their Approver and Submitters under Users & business.
 
-Passwords are checked against BCrypt hashes in `app_user.password_hash`. Tokens are JWTs (HMAC-SHA256) that last `Jwt:ExpiryHours` (8) and carry the user id (`sub`), `email`, `name`, `role` and `unit_id`. The login and `/me` user also has `isAdmin`. Deleted users can't sign in. Demo sign-ins are listed in `../database/README.md`.
+Passwords are checked against BCrypt hashes in `app_user.password_hash`. Tokens are JWTs (HMAC-SHA256) that last `Jwt:ExpiryHours` (8) and carry the user id (`sub`), `email`, `name`, `role` and `unit_id`. The register, login, change-password and `/me` user also has `isAdmin`, `permissions` and `manageableRoles` (see Roles and permissions below). Deleted users can't sign in. Demo sign-ins are listed in `../database/README.md`.
 
 **Rate limits** (`Services/RateLimits.cs`, per client IP, sliding window): sign-in and change password 10 attempts per 5 minutes, register 5 per hour, forgot / reset password and support messages 5 per 15 minutes. Extra attempts get `429 { message }` with a `Retry-After` header (seconds) and never reach the controller, so they add no Activity log rows. Behind Docker every browser on the host shares one IP, so a wrong-password spree can briefly block other local sign-ins; restarting the API clears the counters.
 
 CORS allows the web app at `http://127.0.0.1:5500` and `http://localhost:5500` (`Cors:AllowedOrigins` in `appsettings.json`).
 
-**Every other endpoint needs a token** (`401` without one). `GET /api/indicators/...` is open to any signed-in user; `POST /api/ingestion/...` only to `approver` and `decision_maker` (`403` for a submitter). In Swagger, sign in with `POST /api/auth/login`, copy the `token`, click **Authorize** and paste it.
+**Every other endpoint needs a token** (`401` without one). `GET /api/indicators/...` is open to any signed-in user; `POST /api/ingestion/...` only to `approver`, `decision_maker` and admins (`403` for a submitter). In Swagger, sign in with `POST /api/auth/login`, copy the `token`, click **Authorize** and paste it.
+
+**Roles and permissions** (`Services/Permissions.cs`, the one rule for both the API and the web app): each guarded endpoint has `[RequirePermission(permission, message)]`, which answers `403 { message }` before the body is checked. An admin has every permission.
+
+| Permission | Roles |
+|---|---|
+| `viewStatement` | every role |
+| `upload` | `submitter` |
+| `decide` | `approver` |
+| `chooseBudget`, `editTargets`, `editBusiness`, `viewReports` | `decision_maker` |
+| `editRules`, `manageUsers`, `runIngestion` | `approver`, `decision_maker` |
+| `deleteAnyUser` | admin only |
+
+`manageableRoles` lists the roles the user may add, change or delete: Approvers only `submitter`, Decision Makers and admins every role, others none. The signed-in user is loaded once per request while the token is checked (`Services/CallerSession.cs`).
 
 **Errors** (`Services/ErrorResponses.cs`): every failed request answers with a readable `{ message }` the web app can show as is, with CORS headers kept.
 
@@ -89,7 +102,7 @@ Everything is limited to the signed-in user's own business (found from their acc
 | Endpoint | Who | Body | Returns |
 |---|---|---|---|
 | `GET /api/business` | Any signed-in user | | `{ name, industry, country, yearEndMonth, unitId, unitName, currency, hasApprovedHistory }` |
-| `PUT /api/business` | `decision_maker` | `{ legal_name, industry, year_end_month }` | The business as above; `400` missing name or month outside 1–12; `409` year-end changed once any upload is approved |
+| `PUT /api/business` | `decision_maker` | `{ legal_name, industry, year_end_month }` | The business as above; `400` missing name or month outside 1–12; `409` year-end changed once any upload (other than a rejected one) or KPI target exists |
 | `GET /api/users` | Any signed-in user | | `[{ id, fullName, email, role, active, isAdmin, mustChangePassword, deletable }]` |
 | `POST /api/users` | `approver`, `decision_maker` | `{ full_name, email, role, active_status, password }` | The new user; `400` invalid field or password under 8 characters; `409` email already used (not case-sensitive) |
 | `PUT /api/users/{id}` | `approver`, `decision_maker` | Same; `password` optional (empty keeps it, a new one becomes a temporary password; not for your own account) | The user; `409` duplicate email or it would remove the last active Approver / Decision Maker; `400` changing your own role or switching yourself off |
@@ -97,7 +110,7 @@ Everything is limited to the signed-in user's own business (found from their acc
 
 Rules: a change can't remove the business's last active `approver` or last active `decision_maker` (a newly registered business has no Approver until one is added). `deletable` is `true` when no `budget_submission`, `approval_action`, `import_mapping` or `budget_selection` row points to the user. Accounts are created for people by the owner or IT, who choose the first password and hand it over; passwords are stored as BCrypt hashes.
 
-**Admin** (`app_user.is_admin`, e.g. `admin@gmail.com`; `isAdmin` in the login, `/me` and user responses) keeps its normal role for every other check. Differences:
+**Admin** (`app_user.is_admin`, e.g. `admin@gmail.com`; `isAdmin` in the login, `/me` and user responses) has every permission whatever its role. Differences:
 
 - An admin can delete **any** user, including ones with history, after confirming with their own password (`400` missing, `403` wrong, so the web app doesn't sign them out). A user with history is kept as a deleted row (`deleted_at` set, switched off, password cleared) so their records stay; a user without history is removed. The safety rule above still applies.
 - Only an admin can change or delete an admin account (`403` for everyone else).
@@ -109,11 +122,14 @@ The web app sends the Excel or CSV file to `preview`, which reads it with [Close
 
 | Endpoint | Who | Body | Returns |
 |---|---|---|---|
-| `GET /api/submissions?status=` | Any signed-in user | | Every upload that isn't a draft, newest first (`status` optional: `submitted`, `approved`, `rejected`, `superseded`): `{ id, fileName, years: [first, last], periods, scale, rows, submittedBy, submittedOn, status, replacesId, decision, decidedBy, decidedOn, comment, supersededBy }` |
-| `POST /api/submissions/preview` | `submitter` | `multipart/form-data` with `file` (`.xlsx` or `.csv`, up to 5 MB) | Nothing is saved. `{ fileName, frequency: "annual", years, scale, scaleHint, rows: [{ id, label, key, values, kind, subtotal, status: "auto" \| "remembered" \| "cross" \| "unknown", mapping: { type: "single" \| "split" \| "ignore", category, parts }, candidates }], notes }`; `400` with a message for `.xls`, other file types, unreadable files, no year columns, monthly files, repeated years, more than 500 rows or no amounts |
+| `GET /api/submissions?status=` | Any signed-in user | | Every upload that isn't a draft, newest first (`status` optional: `submitted`, `approved`, `rejected`, `superseded`): `{ id, fileName, years: [first, last], periods, scale, rows, submittedBy, submittedOn, status, replacesId, decision, decidedBy, decidedOn, comment, supersededBy, statement }`; `statement` is the upload's statement table (below), `null` without rows |
+| `POST /api/submissions/preview` | `submitter` | `multipart/form-data` with `file` (`.xlsx` or `.csv`, up to 5 MB) | Nothing is saved. `{ fileName, frequency: "annual", years, scale, scaleHint, rows: [{ id, label, key, values, kind, subtotal, status: "auto" \| "remembered" \| "cross" \| "unknown", mapping: { type: "single" \| "split" \| "ignore", category, parts }, candidates }], notes, statement }`; `statement` is `null` while a line has no category; `400` with a message for `.xls`, other file types, unreadable files, no year columns, monthly files, repeated years, more than 500 rows or no amounts |
 | `GET /api/submissions/template` | Any signed-in user | | The standard Excel template (`Services/StatementTemplate.cs`): the 13 categories down, the last 5 completed financial years across (from the business's year-end), amounts in R'000, subtotal rows as formulas |
 | `POST /api/submissions` | `submitter` | `{ fileName, frequency: "annual", scale: 1 \| 1000 \| 1000000, years: ["FY2022", …], replacesSubmissionId?, rows: [{ kind: "heading" \| "line" \| "subtotal" \| "total", label, subtotal?, values: [one per year], mapping?: [{ category, percent }], remember }] }` (`remember` = mapped by hand) | `201` the upload; `400` invalid file content (1 to 5 years, up to 500 rows, a revenue line, split percents adding up to 100); `409` the replaced upload isn't rejected or was already fixed |
+| `POST /api/submissions/check` | `submitter` | Same as `POST /api/submissions` | Nothing is saved. The statement table the rows would give, while the submitter is still mapping; `400` invalid rows (as above, except a missing revenue line) |
 | `POST /api/submissions/{id}/decision` | `approver` | `{ decision: "approved" \| "rejected", comments }` | The upload; `400` a rejection without comments; `404`; `409` already decided |
+
+A **statement table** is `{ years, totals: { category: [one per year] }, subtotals: { gross_profit, operating_profit, profit_before_tax, net_profit }, totalExpenses, checks }` in rands. `checks` has one entry per subtotal row in the file, `{ matches, diffs }` (`diff` = worked out − file × scale; it matches when every diff is within one unit of the scale).
 
 On upload the API saves the rows exactly as in the file (`submission_row`), one `financial_line_item` per category per year (all 13 categories; amount = sum of the mapped lines × split % × scale, as a positive figure) and the submitter's choices as remembered mappings (`import_mapping`). `import_method` is `mapped_import` when any line was mapped by hand, otherwise `template`.
 
@@ -121,17 +137,17 @@ On approval the rejected upload it fixes becomes `superseded`, as does any appro
 
 ## Forecasts and budgets
 
-Forecasts run in the Python service (`ForecastService:BaseUrl`, `http://localhost:5090/` for `dotnet run`, `http://forecast:8000/` in Docker Compose); this API sends it the caller's unit and settings, then reads the saved runs back from the database. Runs come back in the Python service's shape (snake_case): `{ run_id, unit_id, forecasting_method, history_start, history_end, parameters, created_at, values: [{ category, display_name, forecast_period, baseline_amount, adjusted_amount }] }`, Moving Average first. Everything is limited to the caller's business unit; an admin may also choose and decide.
+Forecasts run in the Python service (`ForecastService:BaseUrl`, `http://localhost:5090/` for `dotnet run`, `http://forecast:8000/` in Docker Compose); the Python service only calculates. This API loads the unit's approved history, sends it with the settings, and saves the two `forecast_run` rows and their `forecast_value` rows itself, in the same save as the audit entry. Runs come back in snake_case: `{ run_id, unit_id, forecasting_method, history_start, history_end, parameters, created_at, values: [{ category, display_name, forecast_period, baseline_amount, adjusted_amount }] }`, Moving Average first. Everything is limited to the caller's business unit; an admin may also choose and decide.
 
 | Endpoint | Who | Body | Returns |
 |---|---|---|---|
-| `GET /api/forecasts/latest` | Any signed-in user | | The newest pair of runs `[MA, ES]`; `404` none yet |
-| `POST /api/forecasts` | Any signed-in user | `{ frequency: "annual", horizon: 1–3, window_size: 2–3, alpha: 0.1–0.9 }` (defaults 1, 3, 0.5) | The two new runs; `400` setting out of range; `422` the history can't be forecast (Python's message); `502` the forecasting service isn't responding |
-| `GET /api/budgets/latest` | Any signed-in user | | The newest budget that isn't `superseded`: `{ id, method, status, runIds, chosenBy, chosenOn, decision, decidedBy, decidedOn, comment, approvedBy, approvedOn, outOfDate, runs: [MA, ES] }`; `outOfDate` is `true` when the runs' `history_end` is not the latest approved period (a newer upload was approved since); `404` none yet |
+| `GET /api/forecasts/latest` | Any signed-in user | | The newest pair, `{ runs: [MA, ES], comparison }`; `comparison` is `{ years, methods: { moving_average, exponential_smoothing, combined } }`, each a statement table without `checks`; `404` none yet |
+| `POST /api/forecasts` | Any signed-in user | `{ frequency: "annual", horizon: 1–3, window_size: 2–3, alpha: 0.1–0.9 }` (defaults 1, 3, 0.5) | The two new runs, shaped as for `latest`; `400` setting out of range; `422` the history can't be forecast (Python's message); `502` the forecasting service isn't responding |
+| `GET /api/budgets/latest` | Any signed-in user | | The newest budget that isn't `superseded`: `{ id, method, status, runIds, chosenBy, chosenOn, decision, decidedBy, decidedOn, comment, approvedBy, approvedOn, outOfDate, runs: [MA, ES], comparison }` (`comparison` as for forecasts); `outOfDate` is `true` when the runs' `history_end` is not the latest approved period (a newer upload was approved since); `404` none yet |
 | `POST /api/budgets` | `decision_maker` | `{ method: "moving_average" \| "exponential_smoothing" \| "combined", run_ids: [MA run, ES run] }` | The budget (`submitted`); `400` bad method or runs not from one forecast; `404` runs gone; `409` the approved history changed since the runs, or this option is already the budget |
 | `POST /api/budgets/{id}/decision` | `approver` | `{ decision: "approved" \| "rejected", comments }` | The budget; `400` a rejection without comments; `404`; `409` already decided or replaced |
 
-A new choice replaces a budget that is still waiting (`superseded`); approving one replaces the previously approved budget. The figures are not stored twice: the web app builds the budget from the two runs (`combined` = (MA + ES) ÷ 2 per category).
+A new choice replaces a budget that is still waiting (`superseded`); approving one replaces the previously approved budget. The figures are not stored twice: the API builds the budget from the two runs (`combined` = (MA + ES) ÷ 2 per category, rounded half away from zero).
 
 ## KPI targets and warning rules
 
@@ -139,7 +155,7 @@ Targets belong to the caller's business unit, rules to the caller's business. Er
 
 | Endpoint | Who | Body | Returns |
 |---|---|---|---|
-| `GET /api/kpi-targets` | Any signed-in user | | `[{ id, metricName, targetValue, measurementUnit, targetPeriod }]` |
+| `GET /api/kpi-targets` | Any signed-in user | | `{ targets, figures }`: `targets` as for the dashboard (below); `figures` is every KPI's value per actual year, then per budget year after them, `[{ year, source: "actual" \| "budget", values: { kpi: value } }]` |
 | `POST /api/kpi-targets`, `PUT /api/kpi-targets/{id}` | `decision_maker` | `{ metric_name, target_value, measurement_unit: "rand" \| "percent", target_period }`; metric = a line category, `net_profit` / `operating_profit` / `gross_profit` / `profit_before_tax` (rand) or `net_margin` / `operating_margin` / `gross_margin` (percent); period = first day of a financial year | The target (rands rounded to whole rands, percentages to 1 decimal); `400` unknown KPI, wrong unit, negative rands, margin outside ±100 or a date that isn't a year start; `404`; `409` this KPI and year already has a target |
 | `DELETE /api/kpi-targets/{id}` | `decision_maker` | | `204`; `404` |
 | `GET /api/rules` | Any signed-in user | | `[{ id, name, indicatorCode, threshold, active, deletable }]`; `deletable` is `false` once the rule has raised an alert |
@@ -147,9 +163,17 @@ Targets belong to the caller's business unit, rules to the caller's business. Er
 | `DELETE /api/rules/{id}` | `approver`, `decision_maker` | | `204`; `404`; `409` the rule has raised alerts, so it can only be switched off |
 | `GET /api/indicators/series` | Any signed-in user | | Validated indicator values per code and calendar year, e.g. `{ "cpi_headline": { "2024": 4.36 } }`; the web app checks each rule against the latest year inside the business's history |
 
+## Income statement definitions
+
+`Services/IncomeStatement.cs` is the one place the statement's maths lives: the 13 categories' order and sides, the 4 subtotal formulas, the statement layout, the KPI list, category totals from mapped rows (each side's sign set by its overall sum, so a line signed against its side stays negative), subtotal checks and KPI values. The upload checks, template formulas, forecast comparison, budget, dashboard, reports and target checks all use it.
+
+| Endpoint | Who | Returns |
+|---|---|---|
+| `GET /api/statement/definitions` | Any signed-in user | `{ categories: [{ code, name, kind, teamManaged }], subtotals: [{ code, name }], layout: [{ category?, subtotal?, heading? }], kpis: [{ code, name, group, unit: "rand" \| "percent", higherIsBetter }], indicators: { indicator: [category, …] } }` |
+
 ## Dashboard and reports
 
-Figures come from `Services/StatementFigures.cs` (shared by both endpoints, along with the KPI target checks): the unit's approved history per financial year (latest 5 years; where uploads overlap, the newest submitted upload wins per category and year, as in the Python service), the 4 subtotals worked out from the 13 categories, and budget figures from a budget's two runs (MA, ES or their average per category, rounded to whole rands).
+Figures come from `Services/StatementFigures.cs` (shared by both endpoints, along with the KPI target checks): the unit's approved history per financial year (latest 5 years; where uploads overlap, the newest submitted upload wins per category and year; the same history is what forecasts are run on), the 4 subtotals worked out from the 13 categories, and budget figures from a budget's two runs (MA, ES or their average per category, rounded to whole rands).
 
 | Endpoint | Who | Query | Returns |
 |---|---|---|---|
@@ -214,14 +238,14 @@ Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/ingestion/run -Hea
 
 This API does **not** create tables or seed data. Tables come from `../database/init/01_schema.sql`; categories, indicator types and links come from `02_reference_data.sql`; demo data, including the demo business's warning rules, from `03_seed.sql` (see `../database/README.md`).
 
-It currently writes `data_source`, `external_indicator`, `rule_alert`, `rule_definition`, `kpi_target`, `business`, `app_user`, `budget_submission`, `submission_row`, `financial_line_item`, `import_mapping`, `budget_selection`, `approval_action`, `audit_log` and `password_reset`, and reads `indicator_type`, `indicator_category_link`, `line_category`, `business_unit`, `forecast_run` and `forecast_value` (the Python service writes those two).
+It currently writes `data_source`, `external_indicator`, `rule_alert`, `rule_definition`, `kpi_target`, `business`, `app_user`, `budget_submission`, `submission_row`, `financial_line_item`, `import_mapping`, `budget_selection`, `approval_action`, `forecast_run`, `forecast_value`, `audit_log` and `password_reset`, and reads `indicator_type`, `indicator_category_link`, `line_category` and `business_unit`. The Python service has no database access.
 
 ## Structure
 
 | Folder | Purpose |
 |---|---|
 | `BudgetApi/Models` | C# classes mapped to existing tables |
-| `BudgetApi/Data` | `BudgetDbContext` (EF Core table and column mapping) |
-| `BudgetApi/Services` | Business logic: API clients (World Bank, OECD, the forecasting service), ingestion, rule engine, sign-in tokens, statement figures (history, subtotals, budget figures, KPI values) |
-| `BudgetApi/Controllers` | HTTP endpoints |
-| `BudgetApi.Tests` | xUnit tests: reading a sample statement and the category totals saved with an upload (`dotnet test BudgetApi.Tests`) |
+| `BudgetApi/Data` | `BudgetDbContext` (EF Core keys, relations and column types; table and column names come from the snake_case naming convention, and `SchemaTests` checks the model against `database/init/01_schema.sql`) |
+| `BudgetApi/Services` | Business logic: API clients (World Bank, OECD, the forecasting service), forecast runs, ingestion, rule engine, sign-in tokens, the signed-in user (`CallerSession`), roles and permissions (`Permissions`), the income statement definitions and maths (`IncomeStatement`), statement figures (history, budget figures, target progress) |
+| `BudgetApi/Controllers` | HTTP endpoints; all derive from `ApiController` (the signed-in user as `Caller`, `Forbidden(message)`) |
+| `BudgetApi.Tests` | xUnit tests: reading a sample statement, the income statement maths (category totals, subtotals, checks, KPIs, target progress, template formulas), financial years, the EF model against the schema, and roles and permissions (`dotnet test BudgetApi.Tests`) |

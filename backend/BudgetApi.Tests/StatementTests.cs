@@ -1,15 +1,12 @@
-// Statement tests: reading the sample income statement and adding up category totals
-using BudgetApi.Controllers;
+// Statement tests: reading the sample income statement
 using BudgetApi.Services;
 
 namespace BudgetApi.Tests;
 
 public class StatementTests
 {
-    private static readonly string[] Categories = ["revenue", "cost_of_sales"];
-
     [Fact]
-    public void Read_SampleStatement_FindsEveryYearAndMatchesEveryLine()
+    public void Read_SampleStatement_FindsEveryYearMatchesEveryLineAndAddsUp()
     {
         using var file = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "samples", "Karoo_Outdoor_IS_FY2021-FY2025.xlsx"));
 
@@ -19,36 +16,8 @@ public class StatementTests
         var lines = preview.Rows.Where(r => r.Kind == "line").ToList();
         Assert.NotEmpty(lines);
         Assert.All(lines, line => Assert.NotNull(line.Mapping));
+        Assert.NotNull(preview.Statement);
+        Assert.NotEmpty(preview.Statement.Checks!);
+        Assert.All(preview.Statement.Checks!.Values, check => Assert.True(check.Matches));
     }
-
-    [Fact]
-    public void CategoryTotals_ContraLine_IsSubtracted()
-    {
-        SubmissionRowRequest[] rows =
-        [
-            Line("Sales", "revenue", 1000m),
-            Line("Less: returns", "revenue", -50m),
-        ];
-
-        var totals = SubmissionsController.CategoryTotals(rows, [0], 1, Categories);
-
-        Assert.Equal(950m, totals["revenue"][0]);
-    }
-
-    [Fact]
-    public void CategoryTotals_NegativeExpenses_BecomePositiveTotal()
-    {
-        SubmissionRowRequest[] rows =
-        [
-            Line("Purchases", "cost_of_sales", -200m),
-            Line("Freight in", "cost_of_sales", -10m),
-        ];
-
-        var totals = SubmissionsController.CategoryTotals(rows, [0], 1000, Categories);
-
-        Assert.Equal(210_000m, totals["cost_of_sales"][0]);
-    }
-
-    private static SubmissionRowRequest Line(string label, string category, decimal amount) =>
-        new(label, "line", null, [amount], [new MappingPart(category, 100m)], false);
 }

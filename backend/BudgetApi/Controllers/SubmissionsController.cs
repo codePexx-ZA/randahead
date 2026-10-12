@@ -54,20 +54,23 @@ public record SubmissionView(
     string? DecidedBy,
     string? DecidedOn,
     string? Comment,
-    string? SupersededBy
+    string? SupersededBy,
+    StatementTable? Statement
 );
 
 [ApiController]
 [Route("api/submissions")]
 [Authorize]
-public partial class SubmissionsController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ControllerBase
+public partial class SubmissionsController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ApiController
 {
     private const int MaxYears = StatementImporter.MaxYears;
     private const int MaxRows = StatementImporter.MaxRows;
     private const long MaxFileBytes = 5 * 1024 * 1024;
+    // Keeps the sum of up to MaxRows lines inside financial_line_item.amount NUMERIC(18,2)
+    private const decimal MaxRandAmount = 10_000_000_000_000m;
+    private const string UploadersOnly = "Only a Submitter can upload income statements.";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> RowKinds = ["heading", "line", "subtotal", "total"];
-    private static readonly HashSet<string> Subtotals = ["gross_profit", "operating_profit", "profit_before_tax", "net_profit"];
     private static readonly HashSet<int> Scales = [1, 1000, 1000000];
 
     [GeneratedRegex(@"^FY\d{4}$")]
@@ -79,10 +82,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] string? status, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var submissions = await LoadAsync(caller.UnitId, tracked: false, cancellationToken);
         var views = submissions.Select(s => View(s, submissions, caller.Unit!.Business!.YearEndMonth));
         return Ok(status is null ? views : views.Where(v => v.Status == status));
@@ -91,10 +91,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     [HttpGet("template")]
     public async Task<IActionResult> Template(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var names = await db.LineCategories.AsNoTracking().ToDictionaryAsync(c => c.CategoryCode, c => c.DisplayName, cancellationToken);
         var business = caller.Unit!.Business!;
         var file = StatementTemplate.Build(business.LegalName, business.YearEndMonth, names, DateOnly.FromDateTime(DateTime.Now));
@@ -103,16 +100,10 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
 
     [HttpPost("preview")]
     [RequestSizeLimit(MaxFileBytes + 64 * 1024)]
+    [RequirePermission(Permissions.Upload, UploadersOnly)]
     public async Task<IActionResult> Preview(IFormFile? file, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
-        if (caller.Role != "submitter" && !caller.IsAdmin)
-        {
-            return Forbidden("Only a Submitter can upload income statements.");
-        }
+        var caller = Caller;
         var extension = Path.GetExtension(file?.FileName ?? "").ToLowerInvariant();
         var problem = true switch
         {
@@ -141,23 +132,38 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         }
     }
 
+    // The statement an upload would give, with its subtotal checks, while the submitter is still mapping it
+    [HttpPost("check")]
+    [RequirePermission(Permissions.Upload, UploadersOnly)]
+    public IActionResult Check(SubmissionRequest request)
+    {
+        if (Problem(request) is { } problem)
+        {
+            return BadRequest(new { message = problem });
+        }
+        var rows = request.Rows!.Select(r => (r.Kind!, r.Subtotal, r.Values!, (IEnumerable<MappingPart>?)r.Mapping)).ToList();
+        return Ok(IncomeStatement.FromRows(request.Years!, rows, request.Scale));
+    }
+
+    private static (string, string?, decimal?[], IEnumerable<MappingPart>?) StatementRow(SubmissionRowView r) =>
+        (r.Kind, r.Subtotal, r.Values, r.Mapping);
+
     [HttpPost]
+    [RequirePermission(Permissions.Upload, UploadersOnly)]
     public async Task<IActionResult> Create(SubmissionRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
-        if (caller.Role != "submitter" && !caller.IsAdmin)
-        {
-            return Forbidden("Only a Submitter can upload income statements.");
-        }
-        var categories = await db.LineCategories.Select(c => c.CategoryCode).ToListAsync(cancellationToken);
-        if (Problem(request, categories.ToHashSet()) is { } problem)
+        var caller = Caller;
+        var problem = Problem(request)
+            ?? (request.Rows!.Any(r => r.Kind == "line" && r.Mapping!.Any(p => p.Category == IncomeStatement.Revenue))
+                ? null
+                : "No line is matched to Revenue. Every income statement needs sales or revenue.");
+        if (problem is not null)
         {
             return BadRequest(new { message = problem });
         }
 
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await scope.LockUnitAsync(caller.UnitId, cancellationToken);
         var submissions = await LoadAsync(caller.UnitId, tracked: false, cancellationToken);
         if (request.ReplacesSubmissionId is { } replacesId)
         {
@@ -208,7 +214,10 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             );
         }
 
-        foreach (var (category, amounts) in CategoryTotals(rows, order, request.Scale, categories))
+        var lines = rows
+            .Where(r => r.Kind == "line")
+            .Select(r => (order.Select(j => r.Values![j]).ToArray(), (IEnumerable<MappingPart>)(r.Mapping ?? [])));
+        foreach (var (category, amounts) in IncomeStatement.CategoryTotals(lines, order.Length, request.Scale))
         {
             for (var k = 0; k < starts.Length; k++)
             {
@@ -218,7 +227,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             }
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await RememberMappingsAsync(caller, rows, cancellationToken);
         db.BudgetSubmissions.Add(submission);
         var sorted = request.Years!.Order(StringComparer.Ordinal).ToArray();
@@ -231,17 +239,10 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     }
 
     [HttpPost("{id}/decision")]
+    [RequirePermission(Permissions.Decide, "Only an Approver can approve or reject uploads.")]
     public async Task<IActionResult> Decide(string id, DecisionRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
-        if (caller.Role != "approver" && !caller.IsAdmin)
-        {
-            return Forbidden("Only an Approver can approve or reject uploads.");
-        }
-
+        var caller = Caller;
         var comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments.Trim();
         var problem = (request.Decision, comments) switch
         {
@@ -256,6 +257,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await scope.LockUnitAsync(caller.UnitId, cancellationToken);
         var submissions = await LoadAsync(caller.UnitId, tracked: true, cancellationToken);
         if (submissions.FirstOrDefault(s => s.SubmissionId == id) is not { } target)
         {
@@ -357,35 +359,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         );
     }
 
-    internal static Dictionary<string, decimal[]> CategoryTotals(
-        SubmissionRowRequest[] rows,
-        int[] order,
-        int scale,
-        IEnumerable<string> categories
-    )
-    {
-        var totals = categories.ToDictionary(c => c, _ => new decimal[order.Length]);
-        foreach (var row in rows.Where(r => r.Kind == "line"))
-        {
-            foreach (var part in row.Mapping ?? [])
-            {
-                for (var k = 0; k < order.Length; k++)
-                {
-                    totals[part.Category][k] += (row.Values![order[k]] ?? 0) * part.Percent / 100m * scale;
-                }
-            }
-        }
-        // Only the category total loses its sign, so contra lines such as returns still subtract
-        foreach (var amounts in totals.Values)
-        {
-            for (var k = 0; k < amounts.Length; k++)
-            {
-                amounts[k] = Math.Abs(amounts[k]);
-            }
-        }
-        return totals;
-    }
-
     private static void SupersedeCovered(List<BudgetSubmission> newestFirst)
     {
         var approved = newestFirst.Where(s => s.Status == "approved").ToList();
@@ -432,7 +405,8 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             decision is null ? null : DisplayText.Person(decision.Actor),
             DisplayText.Day(decision?.ActedAt),
             decision?.Comments,
-            s.Status == "superseded" ? ReplacedBy(s, periods, all) : null
+            s.Status == "superseded" ? ReplacedBy(s, periods, all) : null,
+            rows is null ? null : IncomeStatement.FromRows(labels, [.. rows.Select(StatementRow)], s.SourceScale)
         );
     }
 
@@ -450,7 +424,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     private static List<DateOnly> Periods(BudgetSubmission s) =>
         s.LineItems.Select(i => i.PeriodStart).Distinct().Order().ToList();
 
-    private static string? Problem(SubmissionRequest request, HashSet<string> categories)
+    private static string? Problem(SubmissionRequest request)
     {
         var years = request.Years ?? [];
         var rows = request.Rows ?? [];
@@ -461,9 +435,11 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             _ when request.Frequency != "annual" => "Only yearly income statements can be uploaded for now.",
             _ when !Scales.Contains(request.Scale) => "The amounts must be in rand, R'000 or R million.",
             _ when years.Length is 0 or > MaxYears => $"Upload 1 to {MaxYears} financial years.",
-            _ when years.Any(y => !YearLabel().IsMatch(y)) => "Year headings must look like FY2025.",
+            _ when years.Any(y => y is null || !YearLabel().IsMatch(y) || int.Parse(y[2..]) is < 1990 or > 2100) =>
+                "Year headings must look like FY2025, between FY1990 and FY2100.",
             _ when years.Distinct().Count() != years.Length => "Each financial year can appear only once.",
             _ when rows.Length is 0 or > MaxRows => $"The statement needs 1 to {MaxRows} rows.",
+            _ when rows.Any(r => r is null) => "Every row needs a label and amounts.",
             _ => null,
         };
         if (general is not null)
@@ -479,7 +455,9 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
                 _ when row.Kind is null || !RowKinds.Contains(row.Kind) => "Every row must be a heading, line, subtotal or total.",
                 _ when label.Length is 0 or > 200 => "Every row needs a label of at most 200 characters.",
                 _ when row.Values?.Length != years.Length => $"\"{label}\" needs one amount per financial year.",
-                _ when row.Kind == "subtotal" && (row.Subtotal is null || !Subtotals.Contains(row.Subtotal)) => $"\"{label}\" is not a known subtotal.",
+                _ when row.Values!.Any(v => v is { } amount && Math.Abs(amount) > MaxRandAmount / request.Scale) =>
+                    $"\"{label}\" has an amount over R10 trillion. Check the figures and the scale.",
+                _ when row.Kind == "subtotal" && (row.Subtotal is null || !IncomeStatement.IsSubtotal(row.Subtotal)) => $"\"{label}\" is not a known subtotal.",
                 _ when row.Kind == "line" && row.Mapping is null => $"\"{label}\" needs a category.",
                 _ => null,
             };
@@ -487,22 +465,20 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             {
                 return rowProblem;
             }
-            if (row.Kind == "line" && MappingProblem(label, row.Mapping!, categories) is { } mappingProblem)
+            if (row.Kind == "line" && MappingProblem(label, row.Mapping!) is { } mappingProblem)
             {
                 return mappingProblem;
             }
         }
-
-        return rows.Any(r => r.Kind == "line" && r.Mapping!.Any(p => p.Category == "revenue"))
-            ? null
-            : "No line is matched to Revenue. Every income statement needs sales or revenue.";
+        return null;
     }
 
-    private static string? MappingProblem(string label, MappingPart[] parts, HashSet<string> categories) =>
+    private static string? MappingProblem(string label, MappingPart[] parts) =>
         true switch
         {
-            _ when parts.Any(p => !categories.Contains(p.Category)) => $"\"{label}\" is matched to an unknown category.",
+            _ when parts.Any(p => p is null || !IncomeStatement.Categories.Contains(p.Category)) => $"\"{label}\" is matched to an unknown category.",
             _ when parts.Any(p => p.Percent is <= 0 or > 100) => $"Each share of \"{label}\" must be above 0% and at most 100%.",
+            _ when parts.Any(p => p.Percent != Math.Round(p.Percent, 2)) => $"Each share of \"{label}\" can have at most 2 decimals.",
             _ when parts.Select(p => p.Category).Distinct().Count() != parts.Length => $"\"{label}\" lists a category twice.",
             _ when parts.Length > 0 && parts.Sum(p => p.Percent) != 100 => $"The shares of \"{label}\" must add up to 100%.",
             _ => null,
@@ -511,8 +487,4 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     private static string CleanLabel(string? label) => Spaces().Replace(label?.Trim() ?? "", " ");
 
     private static string LabelKey(string label) => StatementImporter.LabelKey(label);
-
-    private ObjectResult Forbidden(string message) => StatusCode(StatusCodes.Status403Forbidden, new { message });
-
-    private UnauthorizedObjectResult SessionEnded() => Unauthorized(new { message = "Your session has ended. Sign in again." });
 }

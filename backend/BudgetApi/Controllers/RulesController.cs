@@ -20,17 +20,12 @@ public record RuleRequest(
 [ApiController]
 [Route("api/rules")]
 [Authorize]
-public class RulesController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ControllerBase
+public class RulesController(BudgetDbContext db, AuditLog audit) : ApiController
 {
-    private const string RuleEditors = "approver,decision_maker";
-
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var rules = await BusinessRules(caller.Unit!.BusinessId)
             .AsNoTracking()
             .OrderBy(r => r.RuleName)
@@ -40,13 +35,10 @@ public class RulesController(BudgetDbContext db, BusinessScope scope, AuditLog a
     }
 
     [HttpPost]
-    [Authorize(Roles = RuleEditors)]
+    [RequirePermission(Permissions.EditRules)]
     public async Task<IActionResult> Create(RuleRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (await ProblemAsync(request, cancellationToken) is { } problem)
         {
             return BadRequest(new { message = problem });
@@ -78,13 +70,10 @@ public class RulesController(BudgetDbContext db, BusinessScope scope, AuditLog a
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = RuleEditors)]
+    [RequirePermission(Permissions.EditRules)]
     public async Task<IActionResult> Update(string id, RuleRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (await ProblemAsync(request, cancellationToken) is { } problem)
         {
             return BadRequest(new { message = problem });
@@ -122,13 +111,10 @@ public class RulesController(BudgetDbContext db, BusinessScope scope, AuditLog a
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = RuleEditors)]
+    [RequirePermission(Permissions.EditRules)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         if (await BusinessRules(caller.Unit!.BusinessId).FirstOrDefaultAsync(r => r.RuleId == id, cancellationToken) is not { } rule)
         {
             return RuleGone();
@@ -226,8 +212,6 @@ public class RulesController(BudgetDbContext db, BusinessScope scope, AuditLog a
             return OnRecordConflict();
         }
     }
-
-    private UnauthorizedObjectResult SessionEnded() => Unauthorized(new { message = "Your session has ended. Sign in again." });
 
     private NotFoundObjectResult RuleGone() => NotFound(new { message = "This rule no longer exists." });
 

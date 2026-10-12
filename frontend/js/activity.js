@@ -1,4 +1,9 @@
 // Activity log section: who did what and when; the admin sees the whole business, everyone else only their own actions
+import { getActivity } from "./api.js";
+import { state } from "./store.js";
+import { showToast } from "./toast.js";
+import { emptyRow, html, raw } from "./ui.js";
+
 const AC_AREAS = {
   account: { label: "Sign-ins and account", icon: "fa-right-to-bracket" },
   upload: { label: "Uploads", icon: "fa-file-arrow-up" },
@@ -30,31 +35,27 @@ function acFilters() {
 
 function acValueHtml(d) {
   if (d.before != null && d.after != null) {
-    return `<span class="ac-before">${escapeHtml(d.before)}</span><i class="fas fa-arrow-right"></i>${escapeHtml(d.after)}`;
+    return html`<span class="ac-before">${d.before}</span><i class="fas fa-arrow-right"></i>${d.after}`;
   }
-  return d.after != null ? escapeHtml(d.after) : `<span class="ac-before">${escapeHtml(d.before)}</span>`;
+  return d.after != null ? html`${d.after}` : html`<span class="ac-before">${d.before}</span>`;
 }
 
 function acDetailsHtml(details) {
   if (!details.length) return "";
-  const items = details
-    .map((d) => `<li><span class="ac-field">${escapeHtml(d.field)}:</span> ${acValueHtml(d)}</li>`)
-    .join("");
-  return `<ul class="ac-details">${items}</ul>`;
+  return html`<ul class="ac-details">${details.map((d) => html`<li><span class="ac-field">${d.field}:</span> ${acValueHtml(d)}</li>`)}</ul>`;
 }
 
 function acRowHtml(e) {
   const area = AC_AREAS[e.area] || { label: e.area, icon: "fa-circle" };
   const at = new Date(e.at);
   const alert = AC_ALERT_ACTIONS.includes(e.action) ? " ac-alert" : "";
-  const who = acIsAdmin() ? `<td class="ac-who">${escapeHtml(e.who)}</td>` : "";
-  return `<tr class="ac-row${alert}">
+  return html`<tr class="ac-row${alert}">
     <td class="ac-when">${acDateFormat.format(at)}<small>${acTimeFormat.format(at)}</small></td>
-    ${who}
+    ${acIsAdmin() ? html`<td class="ac-who">${e.who}</td>` : ""}
     <td>
       <div class="ac-entry">
-        <span class="ac-icon" title="${escapeHtml(area.label)}"><i class="fas ${area.icon}"></i></span>
-        <div><span class="ac-summary">${escapeHtml(e.summary)}</span>${acDetailsHtml(e.details)}</div>
+        <span class="ac-icon" title="${area.label}"><i class="fas ${area.icon}"></i></span>
+        <div><span class="ac-summary">${e.summary}</span>${acDetailsHtml(e.details)}</div>
       </div>
     </td>
   </tr>`;
@@ -63,9 +64,7 @@ function acRowHtml(e) {
 function renderPeople(people) {
   const select = document.getElementById("acPerson");
   const current = select.value;
-  select.innerHTML = '<option value="">Everyone</option>' + people
-    .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
-    .join("");
+  select.innerHTML = html`<option value="">Everyone</option>${people.map((p) => html`<option value="${p.id}">${p.name}</option>`)}`;
   select.value = current;
 }
 
@@ -84,13 +83,11 @@ function renderActivity() {
 
   const table = document.getElementById("acTable");
   if (!entries.length) {
-    const text = filtered ? "No activity matches these filters." : "No activity yet.";
-    table.innerHTML = `<tbody><tr class="row-empty"><td>${text}</td></tr></tbody>`;
+    table.innerHTML = emptyRow(filtered ? "No activity matches these filters." : "No activity yet.");
     return;
   }
-  const whoHead = acIsAdmin() ? "<th>Who</th>" : "";
-  table.innerHTML = `<thead><tr><th>When</th>${whoHead}<th>What happened</th></tr></thead>
-    <tbody>${entries.map(acRowHtml).join("")}</tbody>`;
+  table.innerHTML = html`<thead><tr><th>When</th>${acIsAdmin() ? raw("<th>Who</th>") : ""}<th>What happened</th></tr></thead>
+    <tbody>${entries.map(acRowHtml)}</tbody>`;
 }
 
 async function refreshActivity() {
@@ -104,17 +101,17 @@ async function refreshActivity() {
 
   const request = ++ac.request;
   try {
-    const data = await Api.getActivity(filters);
+    const data = await getActivity(filters);
     if (request !== ac.request) return;
     ac.data = data;
     renderActivity();
   } catch (err) {
     if (request !== ac.request) return;
-    showToast(err.message || "Could not load the activity log.", "error");
+    showToast(err.message, "error");
   }
 }
 
-function setupActivity() {
+export function setup() {
   const admin = acIsAdmin();
   document.getElementById("view-activity").dataset.subtitle = admin
     ? "Everything that happens in this business"
@@ -125,9 +122,8 @@ function setupActivity() {
     : "Your sign-ins, uploads, decisions and changes. Only the admin sees everyone's activity.";
   document.getElementById("acPersonField").hidden = !admin;
 
-  document.getElementById("acArea").innerHTML = '<option value="">All areas</option>' + Object.entries(AC_AREAS)
-    .map(([value, area]) => `<option value="${value}">${escapeHtml(area.label)}</option>`)
-    .join("");
+  document.getElementById("acArea").innerHTML = html`<option value="">All areas</option>${Object.entries(AC_AREAS)
+    .map(([value, area]) => html`<option value="${value}">${area.label}</option>`)}`;
 
   const form = document.getElementById("acFilters");
   form.addEventListener("change", refreshActivity);
@@ -138,3 +134,5 @@ function setupActivity() {
     refreshActivity();
   });
 }
+
+export const onShow = refreshActivity;

@@ -1,5 +1,5 @@
 // Toast messages: shows small pop-up notifications
-function showToast(message, type = "info", duration = 3500) {
+export function showToast(message, type = "info", duration = 3500) {
   const icons = {
     success: "fa-circle-check",
     error: "fa-circle-xmark",

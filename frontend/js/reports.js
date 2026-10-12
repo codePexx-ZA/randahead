@@ -1,4 +1,13 @@
 // Reports section: the Decision Maker's combined report of every approved year and the approved budget, with KPI targets, warnings, CSV download and print
+import { getReport } from "./api.js";
+import { formatKpiValue, numberFormat, yearsText } from "./format.js";
+import { METHOD_NAMES } from "./forecast.js";
+import { getCategory } from "./store.js";
+import { TG_STATUS } from "./ui.js";
+import { can, indicatorWarnings, state } from "./store.js";
+import { showToast } from "./toast.js";
+import { chip, emptyRow, headingRow, html, kpiFigureHtml, kpiGapHtml, pctCell, raw, setTargetBadge, teamTag } from "./ui.js";
+
 const rp = { data: null, warnings: [], request: 0 };
 
 const SOURCE_LABELS = { actual: "Actual", budget: "Budget" };
@@ -27,51 +36,39 @@ function rpPercent(value) {
 
 function rpStatementHtml() {
   const { columns, lines, ratios, changeFrom, changeTo } = rp.data;
-  const change = changeFrom ? `<th class="num">Change<small>${escapeHtml(changeFrom)}–${escapeHtml(changeTo)}</small></th>` : "";
-  const header = `<th>Category (R)</th>${columns
-    .map((c) => `<th class="num${rpColumnClass(c)}">${escapeHtml(c.year)}<small>${SOURCE_LABELS[c.source]}</small></th>`)
-    .join("")}${change}`;
+  const header = html`<th>Category (R)</th>${columns
+    .map((c) => html`<th class="num${rpColumnClass(c)}">${c.year}<small>${SOURCE_LABELS[c.source]}</small></th>`)}${changeFrom
+    ? html`<th class="num">Change<small>${changeFrom}–${changeTo}</small></th>`
+    : ""}`;
 
-  const lineRows = lines.map((line) => {
-    const team = line.teamManaged
-      ? `<span class="tag" title="Set by the business; no external indicator applies">Team-managed</span>`
-      : "";
-    const values = line.values.map((v, i) => `<td class="num${rpColumnClass(columns[i])}">${numberFormat.format(v)}</td>`).join("");
-    const changeCell = changeFrom
-      ? `<td class="num forecast-cell ${changeClass(line.change, line.kind)}">${pctText(line.change)}</td>`
-      : "";
-    return `<tr class="${line.subtotal ? "row-subtotal" : "row-line"}">
-      <td><span class="cat-name">${escapeHtml(line.name)}</span>${team}</td>${values}${changeCell}</tr>`;
-  });
+  const lineRows = lines.map((line) => html`<tr class="${line.subtotal ? "row-subtotal" : "row-line"}">
+      <td><span class="cat-name">${line.name}</span>${line.teamManaged ? teamTag() : ""}</td>${line.values
+    .map((v, i) => html`<td class="num${rpColumnClass(columns[i])}">${numberFormat.format(v)}</td>`)}${changeFrom
+    ? pctCell(line.change, line.kind)
+    : ""}</tr>`);
 
-  const ratioRows = ratios.map((ratio) => {
-    const values = ratio.values.map((v, i) => `<td class="num${rpColumnClass(columns[i])}">${rpPercent(v)}</td>`).join("");
-    return `<tr class="row-line rp-ratio"><td>${escapeHtml(ratio.name)}</td>${values}${changeFrom ? "<td></td>" : ""}</tr>`;
-  });
+  const ratioRows = ratios.map((ratio) => html`<tr class="row-line rp-ratio"><td>${ratio.name}</td>${ratio.values
+    .map((v, i) => html`<td class="num${rpColumnClass(columns[i])}">${rpPercent(v)}</td>`)}${changeFrom ? raw("<td></td>") : ""}</tr>`);
 
   const cols = columns.length + (changeFrom ? 2 : 1);
-  return `<thead><tr>${header}</tr></thead>
-    <tbody>${lineRows.join("")}${headingRow("Key ratios", cols)}${ratioRows.join("")}</tbody>`;
+  return html`<thead><tr>${header}</tr></thead>
+    <tbody>${lineRows}${headingRow("Key ratios", cols)}${ratioRows}</tbody>`;
 }
 
 function rpTargetsHtml() {
-  return `<thead><tr><th>KPI</th><th>Year</th><th class="num">Target</th><th class="num">Result</th><th class="num">Gap</th><th>Status</th></tr></thead>
+  return html`<thead><tr><th>KPI</th><th>Year</th><th class="num">Target</th><th class="num">Result</th><th class="num">Gap</th><th>Status</th></tr></thead>
     <tbody>${rp.data.targets.map((t) => {
       const status = TG_STATUS[t.status];
       const way = t.higherIsBetter ? "at least" : "at most";
-      const result = t.source
-        ? `${formatKpiValue(t.value, t.unit)}<small>${SOURCE_LABELS[t.source]}</small>`
-        : '<span class="tg-muted">–</span>';
-      const gap = t.source ? `<span class="tg-gap ${t.reached ? "good" : "bad"}">${formatGap(t.gap, t.unit)}</span>` : "–";
-      return `<tr class="row-line">
-        <td><span class="cat-name">${escapeHtml(t.name)}</span></td>
-        <td>${escapeHtml(t.year)}</td>
+      return html`<tr class="row-line">
+        <td><span class="cat-name">${t.name}</span></td>
+        <td>${t.year}</td>
         <td class="num">${way} ${formatKpiValue(t.targetValue, t.unit)}</td>
-        <td class="num">${result}</td>
-        <td class="num">${gap}</td>
+        <td class="num">${t.source ? kpiFigureHtml(t.value, t.unit, t.source) : raw('<span class="tg-muted">–</span>')}</td>
+        <td class="num">${t.source ? kpiGapHtml(t.gap, t.unit, t.reached) : "–"}</td>
         <td>${chip(status.cls, status.label, status.icon)}</td>
       </tr>`;
-    }).join("")}</tbody>`;
+    })}</tbody>`;
 }
 
 function renderReportTargets() {
@@ -81,17 +78,15 @@ function renderReportTargets() {
   if (!targets.length) {
     document.getElementById("rpTargetsMeta").textContent = "No targets set yet.";
     badge.hidden = true;
-    table.innerHTML = '<tbody><tr class="row-empty"><td>No KPI targets yet. Add them in Targets &amp; rules.</td></tr></tbody>';
+    table.innerHTML = emptyRow("No KPI targets yet. Add them in Targets & rules.");
     return;
   }
   const years = [...new Set(targets.map((t) => t.year))].reverse();
   const checked = targets.filter((t) => t.source);
-  const reached = checked.filter((t) => t.reached).length;
   document.getElementById("rpTargetsMeta").textContent =
     `${targets.length} target${targets.length === 1 ? "" : "s"} for ${yearsText(years)}`;
   badge.hidden = false;
-  badge.className = `badge ${checked.length && reached === checked.length ? "approved" : "warning"}`;
-  badge.textContent = checked.length ? `${reached} of ${checked.length} on target` : `${targets.length} set`;
+  setTargetBadge(badge, targets.length, checked.length, checked.filter((t) => t.reached).length);
   table.innerHTML = rpTargetsHtml();
 }
 
@@ -113,12 +108,12 @@ function renderReportWarnings() {
   badge.textContent = triggered.length ? `${triggered.length} warning${triggered.length === 1 ? "" : "s"}` : "No warnings";
 
   list.innerHTML = triggered.length
-    ? triggered.map((w) => `<li class="rp-warning"><i class="fas fa-triangle-exclamation"></i><span>${escapeHtml(rpWarningText(w))}</span></li>`).join("")
-    : `<li class="rp-warning ok"><i class="fas fa-circle-check"></i><span>${checked ? "Every active warning rule is within its threshold." : "No indicators were checked."}</span></li>`;
+    ? html`${triggered.map((w) => html`<li class="rp-warning"><i class="fas fa-triangle-exclamation"></i><span>${rpWarningText(w)}</span></li>`)}`
+    : html`<li class="rp-warning ok"><i class="fas fa-circle-check"></i><span>${checked ? "Every active warning rule is within its threshold." : "No indicators were checked."}</span></li>`;
 }
 
 function renderReport() {
-  const { business, unit, generatedOn, budget, columns } = rp.data;
+  const { business, unit, generatedOn, budget, columns, changeFrom, changeTo } = rp.data;
   const actual = rpRange("actual");
   const planned = rpRange("budget");
   document.getElementById("rpTitle").textContent = `Combined report · ${business}`;
@@ -130,11 +125,11 @@ function renderReport() {
       ? `Budget columns: ${METHOD_NAMES[budget.method]}, approved by ${budget.approvedBy} on ${budget.approvedOn}.`
       : `The approved budget (${METHOD_NAMES[budget.method]}) covers years that now have actual figures; compare them on the Dashboard.`
     : "No approved budget yet, so only actual years are shown.";
-  const changeNote = rp.data.changeFrom
-    ? ` Change compares ${escapeHtml(rp.data.changeTo)} with ${escapeHtml(rp.data.changeFrom)}. <strong class="note-good">Green</strong> is better for the business, <strong class="note-bad">red</strong> is worse.`
+  const changeNote = changeFrom
+    ? html` Change compares ${changeTo} with ${changeFrom}. <strong class="note-good">Green</strong> is better for the business, <strong class="note-bad">red</strong> is worse.`
     : "";
   document.getElementById("rpNote").innerHTML =
-    `Amounts in rands from the approved income statements. ${escapeHtml(budgetNote)}${changeNote}`;
+    html`Amounts in rands from the approved income statements. ${budgetNote}${changeNote}`;
 
   document.getElementById("rpStatement").innerHTML = columns.length ? rpStatementHtml() : "";
   renderReportTargets();
@@ -148,33 +143,10 @@ function renderReportEmpty() {
   document.getElementById("rpTitle").textContent = "Combined report";
   document.getElementById("rpMeta").textContent = "Nothing approved yet";
   document.getElementById("rpNote").textContent = "The report fills in once the first income statement upload is approved.";
-  document.getElementById("rpStatement").innerHTML =
-    '<tbody><tr class="row-empty"><td>No approved income statement yet.</td></tr></tbody>';
+  document.getElementById("rpStatement").innerHTML = emptyRow("No approved income statement yet.");
   ["rpTargets", "rpWarnings"].forEach((id) => (document.getElementById(id).innerHTML = ""));
   ["rpTargetsMeta", "rpWarningsMeta"].forEach((id) => (document.getElementById(id).textContent = "Checked once history is approved."));
   ["rpTargetsBadge", "rpWarningsBadge"].forEach((id) => (document.getElementById(id).hidden = true));
-}
-
-async function refreshReports() {
-  if (!can("viewReports") || !rpActive() || !state.business) return;
-  if (!state.processed) {
-    renderReportEmpty();
-    return;
-  }
-  const request = ++rp.request;
-  rpSetActions(false);
-  try {
-    const [data, warnings] = await Promise.all([
-      Api.getReport(),
-      Api.getIndicatorWarnings(historyYears(), state.business.yearEndMonth),
-    ]);
-    if (request !== rp.request) return;
-    rp.data = data;
-    rp.warnings = warnings;
-    renderReport();
-  } catch (err) {
-    if (request === rp.request) showToast(err.message || "Could not load the report.", "error");
-  }
 }
 
 function csvCell(value) {
@@ -214,7 +186,28 @@ function downloadReportCsv() {
   URL.revokeObjectURL(link.href);
 }
 
-function setupReports() {
+export function setup() {
   document.getElementById("rpCsv").addEventListener("click", downloadReportCsv);
   document.getElementById("rpPrint").addEventListener("click", () => window.print());
 }
+
+export async function refresh() {
+  if (!can("viewReports") || !rpActive() || !state.business) return;
+  if (!state.processed) {
+    renderReportEmpty();
+    return;
+  }
+  const request = ++rp.request;
+  rpSetActions(false);
+  try {
+    const data = await getReport();
+    if (request !== rp.request) return;
+    rp.data = data;
+    rp.warnings = indicatorWarnings(true);
+    renderReport();
+  } catch (err) {
+    if (request === rp.request) showToast(err.message, "error");
+  }
+}
+
+export const onShow = refresh;

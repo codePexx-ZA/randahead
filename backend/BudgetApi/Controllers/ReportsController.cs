@@ -10,21 +10,20 @@ namespace BudgetApi.Controllers;
 [ApiController]
 [Route("api/reports")]
 [Authorize]
-public class ReportsController(BudgetDbContext db, BusinessScope scope, StatementFigures figures) : ControllerBase
+public class ReportsController(BudgetDbContext db, StatementFigures figures) : ApiController
 {
-    private static readonly string[] RatioOrder = ["gross_margin", "operating_margin", "net_margin"];
+    private static readonly (string Code, string Name)[] Ratios =
+    [
+        ("gross_margin", "Gross margin"),
+        ("operating_margin", "Operating margin"),
+        ("net_margin", "Net margin"),
+    ];
 
     [HttpGet]
+    [RequirePermission(Permissions.ViewReports, "Reports are for the Decision Maker.")]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
-        if (caller.Role != "decision_maker" && !caller.IsAdmin)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Reports are for the Decision Maker." });
-        }
+        var caller = Caller;
         var unit = caller.Unit!;
         string Label(DateOnly start) => FinancialYear.Label(start, unit.Business!.YearEndMonth);
 
@@ -57,7 +56,7 @@ public class ReportsController(BudgetDbContext db, BusinessScope scope, Statemen
             change = first is null ? null : StatementFigures.PercentChange(last!.GetValueOrDefault(line.Code), first.GetValueOrDefault(line.Code)),
         });
 
-        var revenue = columns.Select(c => (decimal?)c.Figures.GetValueOrDefault("revenue")).ToList();
+        var revenue = columns.Select(c => (decimal?)c.Figures.GetValueOrDefault(IncomeStatement.Revenue)).ToList();
         var ratios = new[]
         {
             new
@@ -66,12 +65,12 @@ public class ReportsController(BudgetDbContext db, BusinessScope scope, Statemen
                 name = "Revenue growth",
                 values = revenue.Select((value, i) => i == 0 ? null : StatementFigures.PercentChange(value, revenue[i - 1])).ToList(),
             },
-        }.Concat(RatioOrder.Select(code => new
+        }.Concat(Ratios.Select(ratio => new
         {
-            code,
-            name = StatementFigures.Margins[code].Name,
+            code = ratio.Code,
+            name = ratio.Name,
             values = columns
-                .Select(c => StatementFigures.Kpi(code, c.Figures) is { } value ? Math.Round(value, 1) : (decimal?)null)
+                .Select(c => IncomeStatement.Kpi(ratio.Code, c.Figures) is { } value ? Math.Round(value, 1) : (decimal?)null)
                 .ToList(),
         }));
 

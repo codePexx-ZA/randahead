@@ -29,23 +29,21 @@ public record BudgetView(
     string? ApprovedBy,
     string? ApprovedOn,
     bool OutOfDate,
-    IReadOnlyList<ForecastRunView> Runs
+    IReadOnlyList<ForecastRunView> Runs,
+    ForecastComparison Comparison
 );
 
 [ApiController]
 [Route("api/budgets")]
 [Authorize]
-public class BudgetsController(BudgetDbContext db, BusinessScope scope, ForecastRuns runs, AuditLog audit) : ControllerBase
+public class BudgetsController(BudgetDbContext db, BusinessScope scope, ForecastRuns runs, AuditLog audit) : ApiController
 {
     private static readonly HashSet<string> Methods = [ForecastRuns.MovingAverage, ForecastRuns.ExponentialSmoothing, "combined"];
 
     [HttpGet("latest")]
     public async Task<IActionResult> Latest(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var latest = await Budgets(caller.UnitId)
             .AsNoTracking()
             .Where(b => b.Status != "superseded")
@@ -59,16 +57,10 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
     }
 
     [HttpPost]
+    [RequirePermission(Permissions.ChooseBudget, "Only a Decision Maker can choose the budget.")]
     public async Task<IActionResult> Choose(BudgetRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
-        if (caller.Role != "decision_maker" && !caller.IsAdmin)
-        {
-            return Forbidden("Only a Decision Maker can choose the budget.");
-        }
+        var caller = Caller;
         if (request.Method is null || !Methods.Contains(request.Method))
         {
             return BadRequest(new { message = "Choose Moving Average, Exponential Smoothing or both (average)." });
@@ -99,6 +91,7 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         var maRunId = pair.Single(r => r.ForecastingMethod == ForecastRuns.MovingAverage).RunId;
         var esRunId = pair.Single(r => r.ForecastingMethod == ForecastRuns.ExponentialSmoothing).RunId;
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await scope.LockUnitAsync(caller.UnitId, cancellationToken);
         var open = await Budgets(caller.UnitId).Where(b => b.Status == "submitted" || b.Status == "approved").ToListAsync(cancellationToken);
         if (open.Any(b => b.MaRunId == maRunId && b.BudgetMethod == request.Method))
         {
@@ -129,17 +122,10 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
     }
 
     [HttpPost("{id}/decision")]
+    [RequirePermission(Permissions.Decide, "Only an Approver can approve or reject budgets.")]
     public async Task<IActionResult> Decide(string id, DecisionRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
-        if (caller.Role != "approver" && !caller.IsAdmin)
-        {
-            return Forbidden("Only an Approver can approve or reject budgets.");
-        }
-
+        var caller = Caller;
         var comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments.Trim();
         var problem = (request.Decision, comments) switch
         {
@@ -154,6 +140,7 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await scope.LockUnitAsync(caller.UnitId, cancellationToken);
         var budgets = await Budgets(caller.UnitId).Where(b => b.BudgetId == id || b.Status == "approved").ToListAsync(cancellationToken);
         if (budgets.FirstOrDefault(b => b.BudgetId == id) is not { } target)
         {
@@ -222,7 +209,12 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
     {
         var decision = b.Approvals.OrderByDescending(a => a.ActedAt).FirstOrDefault();
         var approved = b.Status is "approved" or "superseded" && decision?.Decision == "approved";
-        var budgetRuns = await runs.LoadAsync(b.UnitId, [b.MaRunId, b.EsRunId], cancellationToken);
+        var (budgetRuns, comparison) = await runs.LoadPairAsync(
+            b.UnitId,
+            [b.MaRunId, b.EsRunId],
+            Caller.Unit!.Business!.YearEndMonth,
+            cancellationToken
+        );
         var latestPeriod = await runs.LatestApprovedPeriodAsync(b.UnitId, cancellationToken);
         return new BudgetView(
             b.BudgetId,
@@ -238,11 +230,8 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
             approved ? DisplayText.Person(decision!.Actor) : null,
             approved ? DisplayText.Day(decision!.ActedAt) : null,
             budgetRuns.Any(r => r.HistoryEnd != latestPeriod),
-            budgetRuns
+            budgetRuns,
+            comparison
         );
     }
-
-    private ObjectResult Forbidden(string message) => StatusCode(StatusCodes.Status403Forbidden, new { message });
-
-    private UnauthorizedObjectResult SessionEnded() => Unauthorized(new { message = "Your session has ended. Sign in again." });
 }

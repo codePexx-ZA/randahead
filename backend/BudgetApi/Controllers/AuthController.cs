@@ -40,7 +40,7 @@ public record ChangePasswordRequest(
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog audit, Mailer mailer) : ControllerBase
+public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog audit, Mailer mailer) : ApiController
 {
     private const int ResetMinutes = 30;
 
@@ -49,7 +49,7 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
     [EnableRateLimiting(RateLimits.Register)]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
     {
-        var businessName = request.BusinessName?.Trim() ?? "";
+        var businessName = AccountRules.CleanName(request.BusinessName);
         var industry = AccountRules.CleanIndustry(request.Industry);
         var fullName = AccountRules.CleanName(request.FullName);
         var problem =
@@ -79,7 +79,7 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
             Unit = unit,
             FullName = fullName,
             Email = email,
-            Role = "decision_maker",
+            Role = Roles.DecisionMaker,
             PasswordHash = AccountRules.HashPassword(request.Password!),
         };
 
@@ -130,10 +130,7 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
         {
             audit.Add(user, "account", "sign_in_failed", "Sign-in refused: the account is switched off");
             await db.SaveChangesAsync(cancellationToken);
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                new { message = "This account is switched off. Ask your Approver or Decision Maker to switch it back on." }
-            );
+            return Forbidden("This account is switched off. Ask your Approver or Decision Maker to switch it back on.");
         }
 
         audit.Add(user, "account", "signed_in", "Signed in");
@@ -157,9 +154,10 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
             message = $"If {email} has an account, we've emailed it a link to choose a new password. The link works for {ResetMinutes} minutes.",
         };
         var user = await db
-            .AppUsers.Include(u => u.Unit)
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email && u.DeletedAt == null, cancellationToken);
-        if (user is null || user.ActiveStatus != "active")
+            .AppUsers.Live()
+            .Include(u => u.Unit)
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, cancellationToken);
+        if (user is null)
         {
             return Ok(sent);
         }
@@ -189,7 +187,8 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
 
             If you didn't ask for this, ignore this email and your password stays the same.
             """;
-        await mailer.SendAsync(user.Email, "Reset your RandAhead password", body, cancellationToken);
+        // Not awaited, so the response takes the same time whether or not the account exists
+        _ = mailer.SendAsync(user.Email, "Reset your RandAhead password", body, CancellationToken.None);
         return Ok(sent);
     }
 
@@ -203,18 +202,12 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
             return BadRequest(new { message = problem });
         }
         var hash = TokenHash(request.Token?.Trim() ?? "");
-        var reset = await db
-            .PasswordResets.Include(r => r.User)
-            .ThenInclude(u => u!.Unit)
-            .FirstOrDefaultAsync(r => r.TokenHash == hash, cancellationToken);
+        var reset = await db.PasswordResets.FirstOrDefaultAsync(r => r.TokenHash == hash, cancellationToken);
+        var user = reset is null
+            ? null
+            : await db.AppUsers.Live().Include(u => u.Unit).FirstOrDefaultAsync(u => u.UserId == reset.UserId, cancellationToken);
         var now = DateTime.UtcNow;
-        if (
-            reset?.User is not { } user
-            || reset.UsedAt is not null
-            || reset.ExpiresAt <= now
-            || user.DeletedAt is not null
-            || user.ActiveStatus != "active"
-        )
+        if (reset is null || user is null || reset.UsedAt is not null || reset.ExpiresAt <= now)
         {
             return BadRequest(new { message = "This reset link has expired or was already used. Ask for a new one." });
         }
@@ -230,15 +223,11 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
 
     [HttpPost("change-password")]
     [Authorize]
+    [AllowTemporaryPassword]
     [EnableRateLimiting(RateLimits.Login)]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken cancellationToken)
     {
-        var userId = User.FindFirst("sub")?.Value;
-        var user = await db.AppUsers.Include(u => u.Unit).FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-        if (user is null || user.ActiveStatus != "active" || user.DeletedAt is not null)
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
+        var user = Caller;
         if (string.IsNullOrEmpty(request.CurrentPassword))
         {
             return BadRequest(new { message = "Type your current password." });
@@ -267,16 +256,8 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<IActionResult> Me(CancellationToken cancellationToken)
-    {
-        var userId = User.FindFirst("sub")?.Value;
-        var user = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-        if (user is null || user.ActiveStatus != "active")
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
-        return Ok(UserView(user));
-    }
+    [AllowTemporaryPassword]
+    public IActionResult Me() => Ok(UserView(Caller));
 
     private ConflictObjectResult EmailConflict(string email) =>
         Conflict(new { message = $"{email} already has an account. Sign in instead, or use another email address." });
@@ -291,6 +272,8 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
             user.UnitId,
             user.IsAdmin,
             user.MustChangePassword,
+            permissions = Permissions.For(user),
+            manageableRoles = Permissions.ManageableRoles(user),
         };
 
     private static string TokenHash(string token) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));

@@ -10,7 +10,7 @@ namespace BudgetApi.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class IndicatorsController(BudgetDbContext db, BusinessScope scope) : ControllerBase
+public class IndicatorsController(BudgetDbContext db) : ApiController
 {
     [HttpGet("series")]
     public async Task<IActionResult> GetSeries(CancellationToken cancellationToken)
@@ -67,10 +67,7 @@ public class IndicatorsController(BudgetDbContext db, BusinessScope scope) : Con
     [HttpGet("catalog")]
     public async Task<IActionResult> GetCatalog(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
+        var caller = Caller;
         var businessId = caller.Unit!.BusinessId;
 
         var types = await db
@@ -127,10 +124,7 @@ public class IndicatorsController(BudgetDbContext db, BusinessScope scope) : Con
         CancellationToken cancellationToken = default
     )
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
+        var caller = Caller;
         take = Math.Clamp(take, 1, 100);
 
         var alerts = await db

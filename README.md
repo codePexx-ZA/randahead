@@ -80,7 +80,7 @@ graph LR
 
 **Design rules**
 
-- **The database owns the schema.** Tables are created only by `database/init/*.sql`. The API and the forecasting service read and write existing tables; they never create or alter them.
+- **The database owns the schema.** Tables are created only by `database/init/*.sql`. The API reads and writes existing tables and never creates or alters them; the forecasting service has no database access at all (the API sends it the history and saves the results).
 - **One entry point.** The browser talks only to the C# API, which checks the user's role and then calls the forecasting service internally.
 - **Transparent processing.** Forecasts use only Moving Average and Exponential Smoothing. External indicators raise visible warnings; nothing changes a figure without showing why.
 - **Controlled external data.** Indicators come from reliable APIs (World Bank, OECD), are validated, and stored with their source, period, unit and validation status. No web scraping.
@@ -143,7 +143,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | Job | Checks |
 |---|---|
 | Database | Runs `database/init/*.sql` in order on a fresh PostgreSQL 16 |
-| C# API | `dotnet build` in Release, warnings treated as errors; `dotnet test` on `backend/BudgetApi.Tests` (statement reading and category totals) |
+| C# API | `dotnet build` in Release, warnings treated as errors; `dotnet test` on `backend/BudgetApi.Tests` (statement reading, income statement maths, EF model vs schema, permissions) |
 | Forecasting | Algorithm doctests and that the FastAPI app imports |
 | Frontend | `node --check` on every JS file; no hex colours outside `base.css`; no inline styles or scripts in HTML |
 

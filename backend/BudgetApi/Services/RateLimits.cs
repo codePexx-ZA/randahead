@@ -10,6 +10,7 @@ public static class RateLimits
     public const string Register = "register";
     public const string PasswordReset = "password-reset";
     public const string Support = "support";
+    public const string Ingestion = "ingestion";
     private const int Segments = 5;
 
     private static readonly Dictionary<string, (int Limit, TimeSpan Window)> Policies = new()
@@ -18,6 +19,7 @@ public static class RateLimits
         [Register] = (5, TimeSpan.FromHours(1)),
         [PasswordReset] = (5, TimeSpan.FromMinutes(15)),
         [Support] = (5, TimeSpan.FromMinutes(15)),
+        [Ingestion] = (5, TimeSpan.FromMinutes(15)),
     };
 
     public static IServiceCollection AddAuthRateLimits(this IServiceCollection services) =>

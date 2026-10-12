@@ -1,5 +1,14 @@
 // Forecast and budget section: runs forecasts and chooses the budget
+import { chooseBudget as saveBudgetChoice, getLatestForecast, runForecasts } from "./api.js";
+import { changeClass, numberFormat, percentChange, randFormat, yearsText } from "./format.js";
+import { METHOD_NAMES, compareRuns, describeMethod, fyStartDate } from "./forecast.js";
+import { describeSources } from "./importer.js";
+import { can, getCategory, indicatorWarnings, on, reloadBudget, showRoleNote, state, subtotalName } from "./store.js";
+import { showToast } from "./toast.js";
+import { categoryChips, changeCell, checksHtml, columnHead, figureItem, headingRow, html, raw, teamTag } from "./ui.js";
+
 const CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js";
+const CHART_JS_INTEGRITY = "sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4";
 const METHOD_ORDER = ["moving_average", "exponential_smoothing"];
 const BUDGET_OPTIONS = [...METHOD_ORDER, "combined"];
 const METHOD_CLASS = { moving_average: "ma", exponential_smoothing: "es", combined: "avg" };
@@ -21,33 +30,12 @@ function compactRand(value) {
   return `R${Math.round(value)}`;
 }
 
-function percentChange(value, base) {
-  return base === 0 ? null : ((value - base) / Math.abs(base)) * 100;
-}
-
-function changeClass(pct, kind) {
-  const rounded = pct === null ? 0 : Math.round(pct * 10) / 10;
-  if (rounded === 0) return "neutral";
-  const up = rounded > 0;
-  return (kind === "expense" ? !up : up) ? "good" : "bad";
-}
-
-function pctText(pct) {
-  if (pct === null) return "–";
-  const rounded = Math.round(pct * 10) / 10;
-  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(1)}%`;
-}
-
-function yearsText(years) {
-  return years.length > 1 ? `${years[0]}–${years[years.length - 1]}` : years[0];
-}
-
 function seriesFor(key) {
   const [type, code] = key.split(":");
   const category = type === "cat" ? getCategory(code) : null;
   const pick = (source) => (category ? source.totals[code] : source.subtotals[code]);
   return {
-    name: category ? category.name : SUBTOTAL_NAMES[code],
+    name: category ? category.name : subtotalName(code),
     kind: category ? category.kind : "total",
     history: pick(state.processed),
     forecasts: Object.fromEntries(BUDGET_OPTIONS.map((m) => [m, pick(fc.comparison.methods[m])])),
@@ -122,27 +110,26 @@ async function runForecast(announce = true) {
   if (fc.running || !state.processed) return;
   setRunning(true);
   try {
-    const runs = await Api.runForecasts(readSettings());
-    applyRuns(runs);
+    applyRuns(await runForecasts(readSettings()));
     if (announce) showToast(`Forecasts updated: both methods ran on ${yearsText(state.processed.years)}.`, "success");
   } catch (err) {
-    showToast(err.message || "Could not run the forecast.", "error", 6000);
+    showToast(err.message, "error", 6000);
   } finally {
     setRunning(false);
   }
 }
 
-function applyRuns(runs) {
-  fc.comparison = compareRuns(runs, state.business.yearEndMonth);
+function applyRuns(pair) {
+  fc.comparison = compareRuns(pair);
   writeSettings(settingsOfComparison());
   if (!fc.chosen && state.budget) fc.chosen = state.budget.method;
   renderAll();
 }
 
-function runsMatchHistory(runs) {
+function runsMatchHistory(pair) {
   const years = state.processed.years;
-  return Array.isArray(runs) && runs.length === 2 &&
-    runs[0].history_end === fyStartDate(years[years.length - 1], state.business.yearEndMonth);
+  return Array.isArray(pair?.runs) && pair.runs.length === 2 &&
+    pair.runs[0].history_end === fyStartDate(years[years.length - 1], state.business.yearEndMonth);
 }
 
 function renderAll() {
@@ -182,11 +169,12 @@ function renderFlatNote() {
   const repeat = c.horizon > 1
     ? `${c.years.slice(1).join(" and ")} repeat the ${c.years[0]} figure`
     : "if you forecast 2 or 3 years, the later years repeat the first";
-  const below = LINE_CATEGORIES.filter((cat) =>
+  const { categories } = state.definitions;
+  const below = categories.filter((cat) =>
     METHOD_ORDER.every((m) => c.methods[m].totals[cat.code][0] < p.totals[cat.code][lastIndex])
   ).length;
   const lag = below
-    ? ` When figures have been rising, both methods lag behind: ${below} of ${LINE_CATEGORIES.length} categories forecast below ${lastYear}.`
+    ? ` When figures have been rising, both methods lag behind: ${below} of ${categories.length} categories forecast below ${lastYear}.`
     : "";
 
   document.getElementById("fcFlatNote").textContent =
@@ -207,62 +195,57 @@ function renderWarnings() {
     return;
   }
 
-  list.innerHTML = fc.warnings.map((w) => {
-    const cats = w.categories.map((code) => `<span class="cat-chip">${escapeHtml(getCategory(code).name)}</span>`).join("");
+  list.innerHTML = html`${fc.warnings.map((w) => {
     const status = w.value === null
       ? "No data for your history years"
       : `${w.value.toFixed(1)}% in ${w.period}, ${w.triggered ? "above" : "within"} the ${w.threshold}% threshold`;
 
-    return `<li class="indicator ${w.triggered ? "warn" : "ok"}">
+    return html`<li class="indicator ${w.triggered ? "warn" : "ok"}">
       <div class="indicator-head">
         <i class="fas ${w.triggered ? "fa-triangle-exclamation" : "fa-circle-check"}"></i>
-        <strong>${escapeHtml(w.indicatorName)}</strong>
+        <strong>${w.indicatorName}</strong>
       </div>
-      <p class="indicator-value">${escapeHtml(status)}</p>
-      <div class="indicator-cats"><span>${w.triggered ? "Review:" : "Affects:"}</span>${cats}</div>
+      <p class="indicator-value">${status}</p>
+      <div class="indicator-cats"><span>${w.triggered ? "Review:" : "Affects:"}</span>${categoryChips(w.categories)}</div>
     </li>`;
-  }).join("");
+  })}`;
 }
 
 function renderDataChecks() {
   const list = document.getElementById("fcDataChecks");
   const items = fc.comparison?.warnings ?? [];
   list.hidden = items.length === 0;
-  list.innerHTML = items
-    .map((text) => `<li class="check warning"><i class="fas fa-triangle-exclamation"></i><span>${escapeHtml(text)}</span></li>`)
-    .join("");
+  list.innerHTML = checksHtml(items.map((text) => ({ level: "warning", text })));
 }
 
 function forecastCell(value, base, kind, method) {
   const pct = percentChange(value, base);
   const chosen = method === fc.chosen ? " col-chosen" : "";
-  return `<td class="num forecast-cell ${changeClass(pct, kind)}${chosen}">
-    <span class="fc-value">${numberFormat.format(value)}</span>
-    <small class="fc-change">(${pctText(pct)})</small></td>`;
+  return changeCell(numberFormat.format(value), pct, `${changeClass(pct, kind)}${chosen}`);
 }
 
 function comparisonRow(label, kind, history, forecasts, extra = "") {
   const last = history[history.length - 1];
-  return `<td>${label}${extra}</td>
+  return html`<td>${label}${extra}</td>
     <td class="num col-actual">${numberFormat.format(last)}</td>
-    ${BUDGET_OPTIONS.map((m) => forecastCell(forecasts[m][0], last, kind, m)).join("")}`;
+    ${BUDGET_OPTIONS.map((m) => forecastCell(forecasts[m][0], last, kind, m))}`;
 }
 
 function renderTable() {
   const c = fc.comparison;
   const p = state.processed;
   const lastYear = p.years[p.years.length - 1];
-  const forecastYears = `${escapeHtml(yearsText(c.years))}${c.horizon > 1 ? " · each year" : ""}`;
+  const forecastYears = `${yearsText(c.years)}${c.horizon > 1 ? " · each year" : ""}`;
 
-  const header = `<thead><tr>
+  const header = html`<thead><tr>
     <th>Category (R)</th>
-    <th class="num col-actual">${escapeHtml(lastYear)}<small>Actual</small></th>
-    <th class="num"><span class="swatch swatch-ma"></span>Moving Average<small>${forecastYears}</small></th>
-    <th class="num"><span class="swatch swatch-es"></span>Exp. Smoothing<small>${forecastYears}</small></th>
-    <th class="num"><span class="swatch swatch-avg"></span>Both (average)<small>(MA + ES) ÷ 2</small></th>
+    ${columnHead(lastYear, "Actual", "col-actual")}
+    ${columnHead(raw('<span class="swatch swatch-ma"></span>Moving Average'), forecastYears)}
+    ${columnHead(raw('<span class="swatch swatch-es"></span>Exp. Smoothing'), forecastYears)}
+    ${columnHead(raw('<span class="swatch swatch-avg"></span>Both (average)'), "(MA + ES) ÷ 2")}
   </tr></thead>`;
 
-  const rows = PROCESSED_LAYOUT.map((item) => {
+  const rows = state.definitions.layout.map((item) => {
     if (item.heading) return headingRow(item.heading, 5);
 
     const key = item.subtotal ? `sub:${item.subtotal}` : `cat:${item.category}`;
@@ -270,29 +253,22 @@ function renderTable() {
     const selected = key === fc.chartKey ? " row-selected" : "";
 
     if (item.subtotal) {
-      return `<tr class="row-subtotal${selected}" data-key="${key}" tabindex="0">
-        ${comparisonRow(escapeHtml(s.name), "total", s.history, s.forecasts)}</tr>`;
+      return html`<tr class="row-subtotal${selected}" data-key="${key}" tabindex="0">
+        ${comparisonRow(s.name, "total", s.history, s.forecasts)}</tr>`;
     }
 
     const category = getCategory(item.category);
-    const team = category.teamManaged
-      ? '<span class="tag" title="Set by the business itself; no external indicator applies">Team-managed</span>'
-      : "";
-    const warns = warningsFor(item.category)
-      .map((w) => `<span class="fc-warn" title="${escapeHtml(`${w.indicatorName}: ${w.value.toFixed(1)}% in ${w.period} (threshold ${w.threshold}%). The figures are not changed.`)}">
-        <i class="fas fa-triangle-exclamation"></i>${escapeHtml(w.indicatorName)} ${w.value.toFixed(1)}%</span>`)
-      .join("");
-    const label = `<span class="cat-name">${escapeHtml(category.name)}</span>${team}`;
+    const team = category.teamManaged ? teamTag("Set by the business itself; no external indicator applies") : "";
+    const warns = warningsFor(item.category).map((w) => html`<span class="fc-warn" title="${`${w.indicatorName}: ${w.value.toFixed(1)}% in ${w.period} (threshold ${w.threshold}%). The figures are not changed.`}">
+        <i class="fas fa-triangle-exclamation"></i>${w.indicatorName} ${w.value.toFixed(1)}%</span>`);
+    const label = html`<span class="cat-name">${category.name}</span>${team}`;
+    const extra = warns.length ? html`<span class="fc-warns">${warns}</span>` : "";
 
-    return `<tr class="row-line${warns ? " row-warned" : ""}${selected}" data-key="${key}" tabindex="0">
-      ${comparisonRow(label, category.kind, s.history, s.forecasts, warns ? `<span class="fc-warns">${warns}</span>` : "")}</tr>`;
-  }).join("");
+    return html`<tr class="row-line${warns.length ? " row-warned" : ""}${selected}" data-key="${key}" tabindex="0">
+      ${comparisonRow(label, category.kind, s.history, s.forecasts, extra)}</tr>`;
+  });
 
-  document.getElementById("fcTable").innerHTML = `${header}<tbody>${rows}</tbody>`;
-}
-
-function totalExpenses(totals, index = 0) {
-  return LINE_CATEGORIES.filter((c) => c.kind === "expense").reduce((sum, c) => sum + totals[c.code][index], 0);
+  document.getElementById("fcTable").innerHTML = html`${header}<tbody>${rows}</tbody>`;
 }
 
 function isCurrentBudget(m) {
@@ -334,25 +310,21 @@ function renderChoices() {
   const last = p.years.length - 1;
   renderCurrentBudget();
 
-  const figure = (label, value, base, kind) => {
-    const pct = percentChange(value, base);
-    return `<div><dt>${label}</dt><dd class="${changeClass(pct, kind)}">${randFormat.format(value)}<small>${pctText(pct)}</small></dd></div>`;
-  };
-  const actualExpenses = totalExpenses(p.totals, last);
+  const actualExpenses = p.totalExpenses[last];
 
-  document.getElementById("fcChoices").innerHTML = BUDGET_OPTIONS.map((method) => {
+  document.getElementById("fcChoices").innerHTML = html`${BUDGET_OPTIONS.map((method) => {
     const m = c.methods[method];
     const selected = fc.chosen === method;
     let current = "";
     if (isCurrentBudget(m)) {
       current = state.budget.status === "rejected"
-        ? '<span class="badge rejected">Rejected</span>'
-        : '<span class="badge approved">Current budget</span>';
+        ? raw('<span class="badge rejected">Rejected</span>')
+        : raw('<span class="badge approved">Current budget</span>');
     }
     const setting = method === "combined"
       ? "(MA + ES) ÷ 2, one number from both"
       : describeMethod(m).replace(`${METHOD_NAMES[method]} (`, "").replace(/\)$/, "");
-    return `<label class="choice-card ${METHOD_CLASS[method]}${selected ? " selected" : ""}">
+    return html`<label class="choice-card ${METHOD_CLASS[method]}${selected ? " selected" : ""}">
       <input type="radio" name="fcMethod" value="${method}"${selected ? " checked" : ""} />
       <span class="choice-head">
         <span class="swatch swatch-${METHOD_CLASS[method]}"></span>
@@ -360,14 +332,14 @@ function renderChoices() {
         ${current}
         <i class="fas fa-circle-check choice-tick"></i>
       </span>
-      <span class="choice-setting">${setting} · ${escapeHtml(yearsText(c.years))}${c.horizon > 1 ? " (same each year)" : ""}</span>
+      <span class="choice-setting">${setting} · ${yearsText(c.years)}${c.horizon > 1 ? " (same each year)" : ""}</span>
       <dl class="choice-figures">
-        ${figure("Revenue", m.totals.revenue[0], p.totals.revenue[last], "income")}
-        ${figure("Total expenses", totalExpenses(m.totals), actualExpenses, "expense")}
-        ${figure("Net profit", m.subtotals.net_profit[0], p.subtotals.net_profit[last], "total")}
+        ${figureItem("Revenue", m.totals.revenue[0], p.totals.revenue[last], "income")}
+        ${figureItem("Total expenses", m.totalExpenses[0], actualExpenses, "expense")}
+        ${figureItem("Net profit", m.subtotals.net_profit[0], p.subtotals.net_profit[last], "total")}
       </dl>
     </label>`;
-  }).join("");
+  })}`;
 
   updateChooseState();
 }
@@ -396,6 +368,8 @@ function loadChartJs() {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = CHART_JS_URL;
+    script.integrity = CHART_JS_INTEGRITY;
+    script.crossOrigin = "anonymous";
     script.onload = () => resolve(window.Chart);
     script.onerror = () => reject(new Error("Chart.js could not load"));
     document.head.appendChild(script);
@@ -403,11 +377,10 @@ function loadChartJs() {
 }
 
 function renderChartSelect() {
-  const option = (value, label) =>
-    `<option value="${value}"${value === fc.chartKey ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  const option = (value, label) => html`<option value="${value}"${value === fc.chartKey ? " selected" : ""}>${label}</option>`;
   document.getElementById("fcChartSelect").innerHTML =
-    `<optgroup label="Categories">${LINE_CATEGORIES.map((c) => option(`cat:${c.code}`, c.name)).join("")}</optgroup>` +
-    `<optgroup label="Totals">${Object.entries(SUBTOTAL_NAMES).map(([k, n]) => option(`sub:${k}`, n)).join("")}</optgroup>`;
+    html`<optgroup label="Categories">${state.definitions.categories.map((c) => option(`cat:${c.code}`, c.name))}</optgroup>` +
+    html`<optgroup label="Totals">${state.definitions.subtotals.map((s) => option(`sub:${s.code}`, s.name))}</optgroup>`;
 }
 
 async function renderChart() {
@@ -521,34 +494,42 @@ function showOnChart(key, scroll) {
 
 async function chooseBudget() {
   if (!can("chooseBudget")) return;
-  const m = fc.comparison.methods[fc.chosen];
+  const { methods } = fc.comparison;
+  const m = methods[fc.chosen];
   const btn = document.getElementById("fcChooseBtn");
   btn.disabled = true;
   btn.classList.add("busy");
   btn.querySelector("i").className = "fas fa-spinner fa-spin";
 
   try {
-    await Api.chooseBudget(fc.comparison, fc.chosen);
-    state.budget = await Api.getLatestBudget(state.business);
-    renderProcessed();
-    refreshApprovals();
+    await saveBudgetChoice(fc.chosen, [methods.moving_average.runId, methods.exponential_smoothing.runId]);
+    await reloadBudget();
     btn.classList.remove("busy");
     renderChoices();
     showToast(`${describeMethod(m)} is now your budget for ${yearsText(fc.comparison.years)}. Sent for approval.`, "success", 5000);
   } catch (err) {
     btn.classList.remove("busy");
-    showToast(err.message || "Could not save the budget.", "error");
+    showToast(err.message, "error");
     updateChooseState();
   } finally {
     btn.querySelector("i").className = "fas fa-check";
   }
 }
 
-function setupForecast() {
+function onRulesChanged() {
+  if (!state.processed) return;
+  fc.warnings = indicatorWarnings(true);
+  renderWarnings();
+  if (fc.comparison) renderTable();
+}
+
+export function setup() {
   showRoleNote("fcRoleNote", "chooseBudget", "you can run and compare forecasts, but only a Decision Maker can choose the budget.");
   writeSettings(DEFAULT_FORECAST_SETTINGS);
   renderExplanations();
   renderChartSelect();
+  on("rules", onRulesChanged);
+  on("budget", () => fc.comparison && renderChoices());
 
   const form = document.getElementById("fcSettings");
   form.addEventListener("input", () => {
@@ -589,18 +570,7 @@ function setupForecast() {
   document.getElementById("fcChooseBtn").addEventListener("click", chooseBudget);
 }
 
-async function reloadWarnings() {
-  if (!state.processed) return;
-  try {
-    fc.warnings = await Api.getIndicatorWarnings(state.processed.years, state.business.yearEndMonth);
-    renderWarnings();
-    if (fc.comparison) renderTable();
-  } catch (err) {
-    showToast(err.message || "Could not load the economic warnings.", "error");
-  }
-}
-
-async function loadForecast() {
+export async function refresh() {
   refreshStale();
   if (!state.processed) {
     document.getElementById("fcHistoryMeta").textContent =
@@ -608,17 +578,13 @@ async function loadForecast() {
     return;
   }
   renderMeta();
+  fc.warnings = indicatorWarnings(true);
+  renderWarnings();
   try {
-    const [runs, warnings] = await Promise.all([
-      Api.getLatestForecast(),
-      Api.getIndicatorWarnings(state.processed.years, state.business.yearEndMonth),
-    ]);
-    fc.warnings = warnings;
-    renderWarnings();
-
-    if (runsMatchHistory(runs)) applyRuns(runs);
+    const pair = await getLatestForecast();
+    if (runsMatchHistory(pair)) applyRuns(pair);
     else await runForecast(false);
   } catch (err) {
-    showToast(err.message || "Could not load the forecasts.", "error");
+    showToast(err.message, "error");
   }
 }

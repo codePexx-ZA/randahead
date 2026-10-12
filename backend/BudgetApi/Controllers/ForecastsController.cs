@@ -1,4 +1,4 @@
-// Forecasts API: runs both forecasting methods through the Python service and returns the business's latest pair of runs
+// Forecasts API: runs both forecasting methods through the Python service, saves them and returns the business's latest pair of runs with their comparison
 using System.Globalization;
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
@@ -18,31 +18,24 @@ public record ForecastRequest(
 [ApiController]
 [Route("api/forecasts")]
 [Authorize]
-public class ForecastsController(BudgetDbContext db, BusinessScope scope, ForecastRuns runs, ForecastClient client, AuditLog audit)
-    : ControllerBase
+public class ForecastsController(BudgetDbContext db, ForecastRuns runs, AuditLog audit) : ApiController
 {
     [HttpGet("latest")]
     public async Task<IActionResult> Latest(CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var ids = await runs.LatestPairAsync(caller.UnitId, cancellationToken);
         if (ids.Count == 0)
         {
             return NotFound(new { message = "No forecasts have been run yet." });
         }
-        return Ok(await runs.LoadAsync(caller.UnitId, ids, cancellationToken));
+        return Ok(await runs.LoadPairAsync(caller.UnitId, ids, caller.Unit!.Business!.YearEndMonth, cancellationToken));
     }
 
     [HttpPost]
     public async Task<IActionResult> Run(ForecastRequest request, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return SessionEnded();
-        }
+        var caller = Caller;
         var horizon = request.Horizon ?? 1;
         var windowSize = request.WindowSize ?? 3;
         var alpha = request.Alpha ?? 0.5;
@@ -62,10 +55,7 @@ public class ForecastsController(BudgetDbContext db, BusinessScope scope, Foreca
         try
         {
             var roundedAlpha = Math.Round(alpha, 2);
-            var ids = await client.RunAsync(
-                new ForecastServiceRequest(caller.UnitId, "annual", horizon, windowSize, roundedAlpha),
-                cancellationToken
-            );
+            var created = await runs.CreateAsync(caller.UnitId, horizon, windowSize, roundedAlpha, cancellationToken);
             audit.Add(
                 caller,
                 "forecast",
@@ -77,13 +67,12 @@ public class ForecastsController(BudgetDbContext db, BusinessScope scope, Foreca
                 ]
             );
             await db.SaveChangesAsync(cancellationToken);
-            return Ok(await runs.LoadAsync(caller.UnitId, ids, cancellationToken));
+            var ids = created.Select(r => r.RunId).ToList();
+            return Ok(await runs.LoadPairAsync(caller.UnitId, ids, caller.Unit!.Business!.YearEndMonth, cancellationToken));
         }
         catch (ForecastServiceException error)
         {
             return StatusCode(error.StatusCode, new { message = error.Message });
         }
     }
-
-    private UnauthorizedObjectResult SessionEnded() => Unauthorized(new { message = "Your session has ended. Sign in again." });
 }

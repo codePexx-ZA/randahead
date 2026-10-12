@@ -1,48 +1,16 @@
 // Password page: emails a reset link, sets a new password from that link, or changes the signed-in user's password
-const wrapper = document.querySelector(".wrapper");
+import { changePassword, forgotPassword, resetPassword } from "./api.js";
+import { rejectInput, setLoading, setupAuthForm, shakeCard } from "./auth-form.js";
+import { EMAIL_PATTERN, MIN_PASSWORD_LENGTH } from "./config.js";
+import { Session } from "./session.js";
+import { showToast } from "./toast.js";
+
 const params = new URLSearchParams(window.location.search);
 const resetToken = params.get("token");
 const session = Session.get();
 
 document.querySelectorAll(".pw-min").forEach((el) => (el.textContent = MIN_PASSWORD_LENGTH));
-
-document.querySelectorAll(".input-box input").forEach((input) => {
-  const update = () => {
-    input.parentElement.classList.toggle("filled", input.value !== "");
-    input.parentElement.classList.remove("invalid");
-  };
-  input.addEventListener("input", update);
-  update();
-});
-
-document.querySelectorAll(".toggle-password").forEach((btn) =>
-  btn.addEventListener("click", () => {
-    const inputs = btn.closest("form").querySelectorAll(".input-box input");
-    const show = inputs[0].type === "password";
-    inputs.forEach((input) => (input.type = show ? "text" : "password"));
-    btn.querySelector("i").className = show ? "fas fa-eye-slash" : "fas fa-eye";
-    btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
-  })
-);
-
-function shakeCard() {
-  wrapper.classList.remove("shake");
-  void wrapper.offsetWidth;
-  wrapper.classList.add("shake");
-}
-
-function setLoading(form, loading) {
-  const btn = form.querySelector(".btn");
-  btn.disabled = loading;
-  btn.classList.toggle("loading", loading);
-}
-
-function rejectInput(input, message) {
-  input.parentElement.classList.add("invalid");
-  input.focus();
-  showToast(message, "error");
-  shakeCard();
-}
+setupAuthForm();
 
 function newPasswordProblem(passwordInput, confirmInput) {
   if (passwordInput.value.length < MIN_PASSWORD_LENGTH) {
@@ -53,13 +21,14 @@ function newPasswordProblem(passwordInput, confirmInput) {
 }
 
 async function submitForm(form, action) {
-  setLoading(form, true);
+  const btn = form.querySelector(".btn");
+  setLoading(btn, true);
   try {
     await action();
   } catch (err) {
     showToast(err.message, "error");
     shakeCard();
-    setLoading(form, false);
+    setLoading(btn, false);
   }
 }
 
@@ -74,7 +43,7 @@ function setupForgot() {
     const email = emailInput.value.trim();
     if (!EMAIL_PATTERN.test(email)) return rejectInput(emailInput, "Type a valid email address, e.g. name@business.co.za.");
     submitForm(form, async () => {
-      const result = await Api.forgotPassword(email);
+      const result = await forgotPassword(email);
       document.getElementById("sentText").textContent = result.message;
       form.hidden = true;
       document.getElementById("sentPanel").hidden = false;
@@ -95,7 +64,7 @@ function setupReset() {
     const problem = newPasswordProblem(passwordInput, confirmInput);
     if (problem) return rejectInput(...problem);
     submitForm(form, async () => {
-      const result = await Api.resetPassword(resetToken, passwordInput.value);
+      const result = await resetPassword(resetToken, passwordInput.value);
       showToast(result.message, "success");
       setTimeout(() => (window.location.href = "index.html"), 1500);
     });
@@ -131,7 +100,7 @@ function setupChange() {
       return rejectInput(passwordInput, "Choose a new password that's different from the current one.");
     }
     submitForm(form, async () => {
-      const result = await Api.changePassword(currentInput.value, passwordInput.value);
+      const result = await changePassword(currentInput.value, passwordInput.value);
       Session.save(result, Boolean(localStorage.getItem("session")));
       showToast("Your password is changed.", "success");
       setTimeout(() => (window.location.href = "dashboard.html"), 1100);

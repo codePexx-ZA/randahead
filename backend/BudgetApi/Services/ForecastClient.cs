@@ -1,4 +1,4 @@
-// Forecast client: asks the Python forecasting service to run Moving Average and Exponential Smoothing for a unit
+// Forecast client: sends a unit's approved history to the Python forecasting service and gets back Moving Average and Exponential Smoothing forecasts
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -6,12 +6,24 @@ using System.Text.Json.Serialization;
 
 namespace BudgetApi.Services;
 
-public record ForecastServiceRequest(
-    [property: JsonPropertyName("unit_id")] string UnitId,
-    [property: JsonPropertyName("frequency")] string Frequency,
+public record ForecastPoint(
+    [property: JsonPropertyName("period")] DateOnly Period,
+    [property: JsonPropertyName("amount")] decimal Amount
+);
+
+public record ForecastInput(
+    [property: JsonPropertyName("history")] Dictionary<string, ForecastPoint[]> History,
     [property: JsonPropertyName("horizon")] int Horizon,
     [property: JsonPropertyName("window_size")] int WindowSize,
     [property: JsonPropertyName("alpha")] double Alpha
+);
+
+public record ForecastOutput(
+    [property: JsonPropertyName("history_start")] DateOnly HistoryStart,
+    [property: JsonPropertyName("history_end")] DateOnly HistoryEnd,
+    [property: JsonPropertyName("periods")] DateOnly[] Periods,
+    [property: JsonPropertyName("forecasts")] Dictionary<string, Dictionary<string, decimal[]>> Forecasts,
+    [property: JsonPropertyName("warnings")] string[] Warnings
 );
 
 public class ForecastServiceException(int statusCode, string message) : Exception(message)
@@ -21,14 +33,12 @@ public class ForecastServiceException(int statusCode, string message) : Exceptio
 
 public class ForecastClient(HttpClient http)
 {
-    private record RunCreated([property: JsonPropertyName("run_id")] string RunId);
-
-    public async Task<string[]> RunAsync(ForecastServiceRequest request, CancellationToken cancellationToken)
+    public async Task<ForecastOutput> ForecastAsync(ForecastInput input, CancellationToken cancellationToken)
     {
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("api/forecasts", request, cancellationToken);
+            response = await http.PostAsJsonAsync("api/forecasts", input, cancellationToken);
         }
         catch (Exception error) when (error is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
@@ -45,8 +55,7 @@ public class ForecastClient(HttpClient http)
             {
                 throw Unavailable();
             }
-            var runs = await response.Content.ReadFromJsonAsync<RunCreated[]>(cancellationToken) ?? [];
-            return runs.Select(r => r.RunId).ToArray();
+            return await response.Content.ReadFromJsonAsync<ForecastOutput>(cancellationToken) ?? throw Unavailable();
         }
     }
 

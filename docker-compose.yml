@@ -33,7 +33,7 @@ services:
       Mail__Host: mailpit
       Mail__Port: 1025
     ports:
-      - "5080:8080"
+      - "127.0.0.1:5080:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,20 +44,15 @@ services:
     image: axllent/mailpit:latest
     container_name: sme-budget-mailpit
     ports:
-      - "8025:8025"
-      - "1025:1025"
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
 
   forecast:
     build:
       context: ./forecasting
     container_name: sme-budget-forecast
-    environment:
-      DATABASE_URL: postgresql://budget:${POSTGRES_PASSWORD}@postgres:5432/sme_budget
     ports:
       - "127.0.0.1:5090:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
 
 volumes:
   sme_budget_pgdata:

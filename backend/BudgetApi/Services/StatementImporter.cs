@@ -1,5 +1,6 @@
 // Statement importer: reads an uploaded Excel or CSV income statement and suggests a category for every line
 using System.Globalization;
+using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
@@ -29,7 +30,8 @@ public record StatementPreview(
     int Scale,
     string? ScaleHint,
     PreviewRow[] Rows,
-    string[] Notes
+    string[] Notes,
+    StatementTable? Statement
 );
 
 public class StatementImportException(string message) : Exception(message);
@@ -40,6 +42,7 @@ public static partial class StatementImporter
     public const int MaxRows = 500;
     private const int MaxGridRows = 2000;
     private const int MaxGridColumns = 60;
+    private const long MaxUnzippedBytes = 20 * 1024 * 1024;
     private const int HeaderSearchRows = 40;
 
     private static readonly string[] Months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -63,10 +66,10 @@ public static partial class StatementImporter
 
     private static readonly (string Subtotal, Regex Pattern)[] SubtotalPatterns =
     [
-        ("profit_before_tax", new Regex(@"\b(profit|loss)\b.*\bbefore (income )?tax")),
-        ("gross_profit", new Regex(@"^gross (profit|loss|margin)")),
-        ("operating_profit", new Regex(@"^(operating (profit|loss|income)|(profit|loss) from operations|ebit)\b")),
-        ("net_profit", new Regex(@"^(net (profit|loss|income)|(profit|loss)( loss)? (for the (year|period)|after tax))")),
+        (IncomeStatement.ProfitBeforeTax, new Regex(@"\b(profit|loss)\b.*\bbefore (income )?tax")),
+        (IncomeStatement.GrossProfit, new Regex(@"^gross (profit|loss|margin)")),
+        (IncomeStatement.OperatingProfit, new Regex(@"^(operating (profit|loss|income)|(profit|loss) from operations|ebit)\b")),
+        (IncomeStatement.NetProfit, new Regex(@"^(net (profit|loss|income)|(profit|loss)( loss)? (for the (year|period)|after tax))")),
     ];
 
     private readonly record struct Cell(string Text, double? Number);
@@ -133,6 +136,22 @@ public static partial class StatementImporter
 
     private static List<List<Cell[]>> ReadWorkbook(Stream stream)
     {
+        const string unreadable = "We couldn't open this Excel file. Save it again as .xlsx (or .csv) and try again.";
+        // ClosedXML loads the whole unzipped workbook into memory, so a small compressed file can still exhaust it
+        try
+        {
+            using var zip = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+            if (zip.Entries.Sum(e => e.Length) > MaxUnzippedBytes)
+            {
+                throw new StatementImportException("This workbook is too large once opened. Keep only the income statement in it and try again.");
+            }
+        }
+        catch (InvalidDataException)
+        {
+            throw new StatementImportException(unreadable);
+        }
+        stream.Position = 0;
+
         XLWorkbook workbook;
         try
         {
@@ -140,7 +159,7 @@ public static partial class StatementImporter
         }
         catch (Exception)
         {
-            throw new StatementImportException("We couldn't open this Excel file. Save it again as .xlsx (or .csv) and try again.");
+            throw new StatementImportException(unreadable);
         }
         using (workbook)
         {
@@ -234,7 +253,10 @@ public static partial class StatementImporter
             }
             else if (ch == delimiter)
             {
-                row.Add(new Cell(cell.ToString(), null));
+                if (row.Count < MaxGridColumns)
+                {
+                    row.Add(new Cell(cell.ToString(), null));
+                }
                 cell.Clear();
             }
             else if (ch is '\n' or '\r')
@@ -243,7 +265,10 @@ public static partial class StatementImporter
                 {
                     i++;
                 }
-                row.Add(new Cell(cell.ToString(), null));
+                if (row.Count < MaxGridColumns)
+                {
+                    row.Add(new Cell(cell.ToString(), null));
+                }
                 rows.Add([.. row]);
                 row.Clear();
                 cell.Clear();
@@ -259,7 +284,10 @@ public static partial class StatementImporter
         }
         if (cell.Length > 0 || row.Count > 0)
         {
-            row.Add(new Cell(cell.ToString(), null));
+            if (row.Count < MaxGridColumns)
+            {
+                row.Add(new Cell(cell.ToString(), null));
+            }
             rows.Add([.. row]);
         }
         return rows;
@@ -476,6 +504,15 @@ public static partial class StatementImporter
             _ => new PreviewMapping("split", Parts: parts),
         };
 
+    private static IEnumerable<MappingPart>? PartsOf(PreviewMapping? mapping) =>
+        mapping?.Type switch
+        {
+            null => null,
+            "single" => [new MappingPart(mapping.Category!, 100)],
+            "split" => mapping.Parts!,
+            _ => [],
+        };
+
     private static PreviewRow ClassifyRow(int id, string label, decimal?[] values, IReadOnlyDictionary<string, MappingPart[]> remembered)
     {
         var key = LabelKey(label);
@@ -572,6 +609,10 @@ public static partial class StatementImporter
         }
 
         var (scale, hint) = DetectScale(grid, header.Row);
-        return new StatementPreview(fileName, "annual", cols.Select(c => $"FY{c.Year}").ToArray(), scale, hint, [.. rows], [.. notes]);
+        var years = cols.Select(c => $"FY{c.Year}").ToArray();
+        var statement = rows.Any(r => r.Kind == "line" && r.Mapping is null)
+            ? null
+            : IncomeStatement.FromRows(years, [.. rows.Select(r => (r.Kind, r.Subtotal, r.Values, PartsOf(r.Mapping)))], scale);
+        return new StatementPreview(fileName, "annual", years, scale, hint, [.. rows], [.. notes], statement);
     }
 }

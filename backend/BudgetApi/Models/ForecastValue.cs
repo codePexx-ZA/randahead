@@ -3,7 +3,7 @@ namespace BudgetApi.Models;
 
 public class ForecastValue
 {
-    public string ValueId { get; set; } = string.Empty;
+    public string ValueId { get; set; } = Guid.NewGuid().ToString("N");
     public string RunId { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public DateOnly ForecastPeriod { get; set; }

@@ -11,7 +11,7 @@ namespace BudgetApi.Controllers;
 [ApiController]
 [Route("api/audit")]
 [Authorize]
-public class AuditController(BudgetDbContext db, BusinessScope scope) : ControllerBase
+public class AuditController(BudgetDbContext db) : ApiController
 {
     private const int PageSize = 200;
     private static readonly TimeSpan SouthAfrica = TimeSpan.FromHours(2);
@@ -26,10 +26,7 @@ public class AuditController(BudgetDbContext db, BusinessScope scope) : Controll
         CancellationToken cancellationToken
     )
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
+        var caller = Caller;
         if (area is not null && !Areas.Contains(area))
         {
             return BadRequest(new { message = "Choose one of the listed areas." });
@@ -53,7 +50,7 @@ public class AuditController(BudgetDbContext db, BusinessScope scope) : Controll
             var since = StartOfDay(start);
             query = query.Where(e => e.OccurredAt >= since);
         }
-        if (to is { } end)
+        if (to is { } end && end < DateOnly.MaxValue)
         {
             var until = StartOfDay(end.AddDays(1));
             query = query.Where(e => e.OccurredAt < until);

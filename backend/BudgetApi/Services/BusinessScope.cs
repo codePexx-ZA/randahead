@@ -1,24 +1,14 @@
-// Business scope: finds the signed-in user's account and business, and what that business has on record
-using System.Security.Claims;
+// Business scope: locks a business unit and checks what a business has on record
 using BudgetApi.Data;
-using BudgetApi.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace BudgetApi.Services;
 
 public class BusinessScope(BudgetDbContext db)
 {
-    public Task<AppUser?> CallerAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
-    {
-        var userId = principal.FindFirst("sub")?.Value;
-        return db
-            .AppUsers.Include(u => u.Unit!)
-            .ThenInclude(unit => unit.Business)
-            .FirstOrDefaultAsync(
-                u => u.UserId == userId && u.ActiveStatus == "active" && u.DeletedAt == null,
-                cancellationToken
-            );
-    }
+    // Holds a row lock until the surrounding transaction ends, so uploads and decisions for one unit run one at a time
+    public Task LockUnitAsync(string unitId, CancellationToken cancellationToken) =>
+        db.Database.ExecuteSqlAsync($"SELECT 1 FROM business_unit WHERE unit_id = {unitId} FOR UPDATE", cancellationToken);
 
     public Task<bool> HasApprovedHistoryAsync(string businessId, CancellationToken cancellationToken) =>
         db
@@ -28,6 +18,23 @@ public class BusinessScope(BudgetDbContext db)
                     SELECT 1 FROM budget_submission s
                     JOIN business_unit bu ON bu.unit_id = s.unit_id
                     WHERE bu.business_id = {businessId} AND s.status IN ('approved', 'superseded')
+                ) AS "Value"
+                """
+            )
+            .SingleAsync(cancellationToken);
+
+    public Task<bool> HasYearDatedDataAsync(string businessId, CancellationToken cancellationToken) =>
+        db
+            .Database.SqlQuery<bool>(
+                $"""
+                SELECT EXISTS (
+                    SELECT 1 FROM budget_submission s
+                    JOIN business_unit bu ON bu.unit_id = s.unit_id
+                    WHERE bu.business_id = {businessId} AND s.status <> 'rejected'
+                ) OR EXISTS (
+                    SELECT 1 FROM kpi_target k
+                    JOIN business_unit bu ON bu.unit_id = k.unit_id
+                    WHERE bu.business_id = {businessId}
                 ) AS "Value"
                 """
             )

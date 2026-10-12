@@ -1,4 +1,14 @@
 // Upload statement section: upload, map and send for approval
+import { checkUpload, downloadTemplate as fetchTemplate, previewUpload, submitUpload as sendUpload } from "./api.js";
+import { formatDate, randFormat } from "./format.js";
+import {
+  MAX_HISTORY_YEARS, SCALE_LABELS, buildSubmissionPayload, checkPreview, describeChange, fileExtension, historyChange,
+  isResolved, planHistory, uploadPeriods, yearList,
+} from "./importer.js";
+import { can, on, reloadUploads, showRoleNote, state, subtotalName } from "./store.js";
+import { showToast } from "./toast.js";
+import { checksHtml, chip, commentRow, emptyRow, headingRow, html, raw, sheetCells, withBusy } from "./ui.js";
+
 const UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
 const UPLOAD_TYPES = [".xlsx", ".csv"];
 const TEMPLATE_FILE_NAME = "RandAhead_income_statement_template.xlsx";
@@ -10,30 +20,16 @@ const UPLOAD_STATUS = {
   rejected: "Rejected",
   superseded: "Replaced",
 };
-const CHECK_ICONS = { ok: "fa-circle-check", info: "fa-circle-info", warning: "fa-triangle-exclamation", error: "fa-circle-xmark" };
 const NEW_UPLOAD_ID = "new";
-
-const dateFormat = new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short", year: "numeric" });
 
 const upload = {
   preview: null,
+  statement: null,
+  statementToken: 0,
   check: null,
   replacesId: null,
-  uploads: [],
+  highlightId: null,
 };
-
-function formatDate(iso) {
-  return dateFormat.format(new Date(`${iso}T00:00:00`));
-}
-
-function chip(type, text, icon, title = "") {
-  const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
-  return `<span class="chip ${type}"${titleAttr}><i class="fas ${icon}"></i>${escapeHtml(text)}</span>`;
-}
-
-function commentRow(cols, decision, by, comment) {
-  return `<tr class="row-comment"><td colspan="${cols}"><div class="comment-box ${decision}"><i class="fas fa-comment-dots"></i><span><strong>${escapeHtml(by)}:</strong> ${escapeHtml(comment)}</span></div></td></tr>`;
-}
 
 function goToStep(step) {
   [1, 2, 3].forEach((n) => (document.getElementById(`uploadStep${n}`).hidden = n !== step));
@@ -69,32 +65,32 @@ async function handleFile(file) {
   const zone = document.getElementById("dropzone");
   zone.classList.add("loading");
   try {
-    upload.preview = await Api.previewUpload(file);
+    upload.preview = await previewUpload(file);
+    upload.statement = upload.preview.statement;
+    upload.statementToken++;
     renderPreview();
     goToStep(2);
   } catch (err) {
-    showToast(err.message || "Could not read the file.", "error", 6000);
+    showToast(err.message, "error", 6000);
   } finally {
     zone.classList.remove("loading");
     document.getElementById("fileInput").value = "";
   }
 }
 
-async function downloadTemplate(e) {
-  const btn = e.currentTarget;
-  btn.disabled = true;
-  try {
-    const url = URL.createObjectURL(await Api.downloadTemplate());
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = TEMPLATE_FILE_NAME;
-    link.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    showToast(err.message || "Could not download the template.", "error");
-  } finally {
-    btn.disabled = false;
-  }
+function downloadTemplate(e) {
+  return withBusy(e.currentTarget, async () => {
+    try {
+      const url = URL.createObjectURL(await fetchTemplate());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = TEMPLATE_FILE_NAME;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  });
 }
 
 function setReplaces(item) {
@@ -142,9 +138,8 @@ function renderPreview() {
   document.getElementById("previewFile").textContent = p.fileName;
   document.getElementById("previewMeta").textContent = `${yearList(p.years)} · ${lineCount} lines · ${scaleNote}`;
 
-  document.getElementById("scaleSelect").innerHTML = Object.entries(SCALE_LABELS)
-    .map(([value, label]) => `<option value="${value}"${Number(value) === p.scale ? " selected" : ""}>${label}</option>`)
-    .join("");
+  document.getElementById("scaleSelect").innerHTML = html`${Object.entries(SCALE_LABELS)
+    .map(([value, label]) => html`<option value="${value}"${Number(value) === p.scale ? " selected" : ""}>${label}</option>`)}`;
 
   document.getElementById("confirmCheck").checked = false;
   renderMapTable();
@@ -152,11 +147,11 @@ function renderPreview() {
 }
 
 function option(value, label, selected) {
-  return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  return html`<option value="${value}"${selected ? " selected" : ""}>${label}</option>`;
 }
 
 function categoryOptions(selected) {
-  return LINE_CATEGORIES.map((c) => option(c.code, c.name, c.code === selected)).join("");
+  return html`${state.definitions.categories.map((c) => option(c.code, c.name, c.code === selected))}`;
 }
 
 function mappingControls(row) {
@@ -171,8 +166,8 @@ function mappingControls(row) {
   const blank = { category: "", percent: "" };
   const [first = blank, second = blank] = parts;
 
-  return `
-    <select class="map-select" aria-label="Category for ${escapeHtml(row.label)}">
+  return html`
+    <select class="map-select" aria-label="Category for ${row.label}">
       ${option("", "Choose a category…", choice === "")}
       <optgroup label="Categories">${categoryOptions(choice)}</optgroup>
       <optgroup label="Other">
@@ -194,42 +189,32 @@ function mappingControls(row) {
     </div>`;
 }
 
-function valueCellsFor(row) {
-  return row.values
-    .map((v) => (v === null
-      ? '<td class="num cell-blank">blank</td>'
-      : `<td class="num">${formatSheet(v)}</td>`))
-    .join("");
-}
-
 function renderMapTable() {
   const p = upload.preview;
   const cols = p.years.length + 3;
 
-  const head = `<thead><tr>
+  const head = html`<thead><tr>
     <th>Line (as in file)</th>
-    ${p.years.map((y) => `<th class="num">${escapeHtml(y)}</th>`).join("")}
+    ${p.years.map((y) => html`<th class="num">${y}</th>`)}
     <th>Category</th><th>Status</th></tr></thead>`;
 
-  const dataRow = (row, map, status = "") => `<tr class="row-${row.kind}" data-id="${row.id}"><td>${escapeHtml(row.label)}</td>${valueCellsFor(row)}
+  const dataRow = (row, map, status = "") => html`<tr class="row-${row.kind}" data-id="${row.id}"><td>${row.label}</td>${sheetCells(row.values)}
       <td class="map-cell">${map}</td>
       <td class="status-cell">${status}</td></tr>`;
 
   const body = p.rows.map((row) => {
-    if (row.kind === "heading") {
-      return `<tr class="row-heading"><td colspan="${cols}"><span class="heading-text">${escapeHtml(row.label)}</span></td></tr>`;
-    }
+    if (row.kind === "heading") return headingRow(row.label, cols);
     if (row.kind === "subtotal") {
-      return dataRow(row, `<span class="map-fixed"><i class="fas fa-calculator"></i> Checks ${escapeHtml(SUBTOTAL_NAMES[row.subtotal].toLowerCase())}</span>`);
+      return dataRow(row, html`<span class="map-fixed"><i class="fas fa-calculator"></i> Checks ${subtotalName(row.subtotal).toLowerCase()}</span>`);
     }
     if (row.kind === "total") {
-      return dataRow(row, '<span class="map-fixed">Total line, not needed</span>', chip("muted", "Skipped", "fa-minus", "RandAhead recalculates totals itself"));
+      return dataRow(row, raw('<span class="map-fixed">Total line, not needed</span>'), chip("muted", "Skipped", "fa-minus", "RandAhead recalculates totals itself"));
     }
     return dataRow(row, mappingControls(row));
-  }).join("");
+  });
 
   const table = document.getElementById("mapTable");
-  table.innerHTML = `${head}<tbody>${body}</tbody>`;
+  table.innerHTML = html`${head}<tbody>${body}</tbody>`;
   table.querySelectorAll("tr.row-line").forEach(updateRowStatus);
 }
 
@@ -276,12 +261,28 @@ function onMappingEdit(e) {
   row.mapping = readMapping(cell);
   row.changed = true;
   updateRowStatus(tr);
+  refreshStatement();
+}
+
+async function refreshStatement() {
+  const p = upload.preview;
+  const token = ++upload.statementToken;
+  upload.statement = null;
   refreshChecks();
+  if (!p.rows.every((r) => r.kind !== "line" || isResolved(r.mapping))) return;
+  try {
+    const statement = await checkUpload(buildSubmissionPayload(p, null));
+    if (token !== upload.statementToken) return;
+    upload.statement = statement;
+    refreshChecks();
+  } catch (err) {
+    if (token === upload.statementToken) showToast(err.message, "error");
+  }
 }
 
 function previewChange() {
   const p = upload.preview;
-  return historyChange(upload.uploads, { id: NEW_UPLOAD_ID, fileName: p.fileName, periods: p.years, status: "new" });
+  return historyChange(state.uploads ?? [], { id: NEW_UPLOAD_ID, fileName: p.fileName, periods: p.years, status: "new" });
 }
 
 function renderHistoryPlan(change) {
@@ -291,16 +292,16 @@ function renderHistoryPlan(change) {
     const source = sourceOf[y];
     if (source.id === NEW_UPLOAD_ID) {
       const note = replaced[y] ? `replaces ${replaced[y].fileName}` : "new year";
-      return `<td class="plan-new">This file<small>${escapeHtml(note)}</small></td>`;
+      return html`<td class="plan-new">This file<small>${note}</small></td>`;
     }
-    return `<td>${escapeHtml(source.fileName)}<small>already approved</small></td>`;
-  }).join("");
+    return html`<td>${source.fileName}<small>already approved</small></td>`;
+  });
 
-  document.getElementById("historyPlan").innerHTML = `
+  document.getElementById("historyPlan").innerHTML = html`
     <p class="plan-title">Your history once this file is approved</p>
     <div class="table-wrap">
       <table class="plan-table">
-        <thead><tr>${years.map((y) => `<th>${escapeHtml(y)}</th>`).join("")}</tr></thead>
+        <thead><tr>${years.map((y) => html`<th>${y}</th>`)}</tr></thead>
         <tbody><tr>${cells}</tr></tbody>
       </table>
     </div>`;
@@ -309,7 +310,7 @@ function renderHistoryPlan(change) {
 function refreshChecks() {
   const p = upload.preview;
   const change = previewChange();
-  const result = checkPreview(p, change);
+  const result = checkPreview(p, change, upload.statement);
   upload.check = result;
   renderHistoryPlan(change);
 
@@ -345,8 +346,8 @@ async function submitUpload() {
 
   try {
     const change = previewChange();
-    const created = await Api.submitUpload(buildSubmissionPayload(p, upload.replacesId));
-    const fixed = upload.uploads.find((u) => u.id === created.replacesId);
+    const created = await sendUpload(buildSubmissionPayload(p, upload.replacesId));
+    const fixed = state.uploads?.find((u) => u.id === created.replacesId);
     document.getElementById("doneText").textContent =
       `${yearList(p.years)} from ${p.fileName} is waiting for an approver.` +
       (fixed ? ` It's the corrected version of ${fixed.fileName}.` : "") +
@@ -357,33 +358,36 @@ async function submitUpload() {
     upload.preview = null;
     goToStep(3);
     showToast("Sent for approval.", "success");
-    refreshApprovals();
-    await loadUploads(created.id);
+    upload.highlightId = created.id;
+    await reloadUploads().catch((err) => showToast(err.message, "error"));
   } catch (err) {
-    showToast(err.message || "Could not send the upload.", "error");
+    showToast(err.message, "error");
     updateSubmitState();
   } finally {
     btn.classList.remove("busy");
   }
 }
 
-function renderUploads(highlightId) {
+function renderUploads() {
+  const highlightId = upload.highlightId;
+  upload.highlightId = null;
+  const uploads = state.uploads;
   const table = document.getElementById("uploadsTable");
-  if (!upload.uploads.length) {
-    table.innerHTML = '<tbody><tr class="row-empty"><td>No uploads yet. Your first upload will appear here.</td></tr></tbody>';
+  if (!uploads.length) {
+    table.innerHTML = emptyRow("No uploads yet. Your first upload will appear here.");
     return;
   }
 
-  const fixed = new Set(upload.uploads.map((u) => u.replacesId).filter(Boolean));
-  const plan = planHistory(upload.uploads.filter((u) => u.status === "approved"));
+  const fixed = new Set(uploads.map((u) => u.replacesId).filter(Boolean));
+  const plan = planHistory(uploads.filter((u) => u.status === "approved"));
   const usage = (u) => {
     const used = plan.years.filter((y) => plan.sourceOf[y] === u);
     return used.length ? `Used for ${yearList(used)}` : `Not used: only the latest ${MAX_HISTORY_YEARS} years are kept`;
   };
 
-  const rows = upload.uploads.map((u) => {
+  const rows = uploads.map((u) => {
     const decided = u.decision || (u.status === "rejected" ? "rejected" : "approved");
-    const replacer = u.status === "superseded" && upload.uploads.find((x) => x.id === u.supersededBy);
+    const replacer = u.status === "superseded" && uploads.find((x) => x.id === u.supersededBy);
     let decision = "";
     if (u.status === "rejected") decision = `by ${u.decidedBy}, ${formatDate(u.decidedOn)}`;
     else if (u.decidedOn) decision = `${decided} by ${u.decidedBy}, ${formatDate(u.decidedOn)}`;
@@ -392,38 +396,31 @@ function renderUploads(highlightId) {
 
     const canFix = u.status === "rejected" && !fixed.has(u.id) && can("upload");
     const action = canFix
-      ? `<button type="button" class="btn-outline btn-small" data-fix="${escapeHtml(u.id)}"><i class="fas fa-wrench"></i><span>Fix &amp; re-upload</span></button>`
+      ? html`<button type="button" class="btn-outline btn-small" data-fix="${u.id}"><i class="fas fa-wrench"></i><span>Fix &amp; re-upload</span></button>`
       : "";
 
-    const main = `<tr class="${u.id === highlightId ? "row-new" : ""}">
-      <td><i class="fas fa-file-lines file-icon"></i>${escapeHtml(u.fileName)}</td>
-      <td>${escapeHtml(yearList(uploadPeriods(u)))}</td>
-      <td>${formatDate(u.submittedOn)}<small>${escapeHtml(u.submittedBy)}</small></td>
-      <td><span class="badge ${u.status}">${UPLOAD_STATUS[u.status] || u.status}</span><small>${escapeHtml(decision)}</small></td>
-      <td class="action-cell">${action}</td></tr>`;
+    return html`<tr class="${u.id === highlightId ? "row-new" : ""}">
+      <td><i class="fas fa-file-lines file-icon"></i>${u.fileName}</td>
+      <td>${yearList(uploadPeriods(u))}</td>
+      <td>${formatDate(u.submittedOn)}<small>${u.submittedBy}</small></td>
+      <td><span class="badge ${u.status}">${UPLOAD_STATUS[u.status] || u.status}</span><small>${decision}</small></td>
+      <td class="action-cell">${action}</td></tr>${u.comment ? commentRow(5, decided, u.decidedBy, u.comment) : ""}`;
+  });
 
-    return main + (u.comment ? commentRow(5, decided, u.decidedBy, u.comment) : "");
-  }).join("");
-
-  table.innerHTML = `<thead><tr><th>File</th><th>Years</th><th>Uploaded</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+  table.innerHTML = html`<thead><tr><th>File</th><th>Years</th><th>Uploaded</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody>`;
 }
 
-async function loadUploads(highlightId) {
-  try {
-    upload.uploads = await Api.getSubmissions();
-    renderUploads(highlightId);
-  } catch (err) {
-    showToast(err.message || "Could not load your uploads.", "error");
-  }
+function renderUploadsIfLoaded() {
+  if (state.uploads) renderUploads();
 }
 
-function setupUpload() {
+export function setup() {
   ["dragover", "drop"].forEach((type) => window.addEventListener(type, (e) => e.preventDefault()));
+  on("uploads", renderUploadsIfLoaded);
 
   if (!can("upload")) {
     showRoleNote("uploadRoleNote", "upload", "you can see the uploads and their decisions, but only a Submitter can upload or fix a statement.");
     document.getElementById("uploadFlow").hidden = true;
-    loadUploads();
     return;
   }
 
@@ -439,7 +436,7 @@ function setupUpload() {
 
   document.getElementById("scaleSelect").addEventListener("change", (e) => {
     upload.preview.scale = Number(e.target.value);
-    refreshChecks();
+    refreshStatement();
   });
   document.getElementById("confirmCheck").addEventListener("change", updateSubmitState);
   document.getElementById("submitUploadBtn").addEventListener("click", submitUpload);
@@ -449,11 +446,11 @@ function setupUpload() {
   document.getElementById("uploadsTable").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-fix]");
     if (!btn) return;
-    setReplaces(upload.uploads.find((u) => u.id === btn.dataset.fix));
+    setReplaces(state.uploads.find((u) => u.id === btn.dataset.fix));
     goToStep(1);
     document.getElementById("view-upload").scrollIntoView({ behavior: "smooth" });
     showToast("Choose the corrected file. It will replace the rejected upload.", "info");
   });
-
-  loadUploads();
 }
+
+export const refresh = renderUploadsIfLoaded;

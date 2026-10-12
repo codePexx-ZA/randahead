@@ -17,9 +17,9 @@ public class AuditLog(BudgetDbContext db)
 {
     public static readonly Dictionary<string, string> RoleNames = new()
     {
-        ["submitter"] = "Submitter",
-        ["approver"] = "Approver",
-        ["decision_maker"] = "Decision Maker",
+        [Roles.Submitter] = "Submitter",
+        [Roles.Approver] = "Approver",
+        [Roles.DecisionMaker] = "Decision Maker",
     };
 
     public static readonly Dictionary<string, string> MethodNames = new()

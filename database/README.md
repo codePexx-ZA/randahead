@@ -3,7 +3,7 @@
 This folder owns **all 22 tables**: the 14 from the original design plus 3 reference tables, `import_mapping`, `submission_row`, `budget_selection`, `audit_log` and `password_reset`. No service creates or changes tables itself:
 
 - The C# API (EF Core) only **reads and writes** tables that already exist.
-- The Python forecasting service does the same.
+- The Python forecasting service has no database access; the C# API sends it the history and saves its results.
 
 ## Data design (ERD)
 
@@ -402,7 +402,7 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 
 ## Forecasts and the chosen budget (`forecast_run`, `budget_selection`)
 
-- Every forecast runs **both** methods: the Python service saves one `forecast_run` per method (same `created_at`), each with a `forecast_value` per category and future period.
+- Every forecast runs **both** methods: the C# API saves one `forecast_run` per method from the Python service's results (same `created_at`), each with a `forecast_value` per category and future period.
 - **Choosing the budget** saves a `budget_selection`: the Moving Average run (`ma_run_id`), the Exponential Smoothing run (`es_run_id`), the `budget_method` (one of the two, or `combined` = (MA + ES) ÷ 2 per category, worked out when shown) and who chose it. It starts as `submitted`; a newer choice makes a waiting one `superseded`.
 - **Approving or rejecting** it adds an `approval_action` with `budget_id` set. Approving makes the unit's previous approved budget `superseded`. Runs used by a budget can't be deleted (foreign key).
 
@@ -482,7 +482,7 @@ Thresholds are starting values to confirm with the business. Users change them i
 
 ## Column types the existing C# code expects
 
-The C# API maps these tables. Keep these names and types so EF Core can read and write them:
+The C# API maps these tables. EF Core derives every table and column name from the C# names with the snake_case naming convention, and `SchemaTests` in `backend/BudgetApi.Tests` fails when the model and `init/01_schema.sql` disagree on a table or column. Keep these names and types so EF Core can read and write them:
 
 | Table | Column | PostgreSQL type |
 |---|---|---|

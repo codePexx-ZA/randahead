@@ -1,26 +1,29 @@
 // Approvals section: approve or reject uploads and budgets
+import { decideBudget, decideSubmission, getPendingSubmissions } from "./api.js";
+import { formatDate, yearsText } from "./format.js";
+import { describeMethod } from "./forecast.js";
+import { SCALE_LABELS, historyChange, reviewUpload, uploadPeriods, yearList } from "./importer.js";
+import {
+  can, emit, getCategory, indicatorWarnings, on, reloadBudget, reloadUploads, showRoleNote, state, subtotalName,
+} from "./store.js";
+import { showToast } from "./toast.js";
+import {
+  budgetCells, checksHtml, chip, columnHead, commentRow, emptyNote, emptyRow, figureItem, headingRow, html, raw, sheetCells,
+  teamTag,
+} from "./ui.js";
+
 const AP_HISTORY_SIZE = 6;
 
-const ap = {
-  pending: [],
-  uploads: [],
-  warnings: [],
-};
-
-function checksHtml(items) {
-  return items
-    .map((i) => `<li class="check ${i.level}"><i class="fas ${CHECK_ICONS[i.level]}"></i><span>${escapeHtml(i.text)}</span></li>`)
-    .join("");
-}
+const ap = { pending: null };
 
 function decisionHtml(id, placeholder) {
   if (!can("decide")) {
-    return `<p class="ap-locked"><i class="fas fa-lock"></i>Only an approver can approve or reject this.</p>`;
+    return raw('<p class="ap-locked"><i class="fas fa-lock"></i>Only an approver can approve or reject this.</p>');
   }
-  const fieldId = `apComment-${escapeHtml(id)}`;
-  return `<div class="ap-decision">
+  const fieldId = `apComment-${id}`;
+  return html`<div class="ap-decision">
     <label class="ap-comment-label" for="${fieldId}">Comment <small>needed to reject, optional to approve</small></label>
-    <textarea id="${fieldId}" class="ap-comment" rows="2" maxlength="1000" placeholder="${escapeHtml(placeholder)}"></textarea>
+    <textarea id="${fieldId}" class="ap-comment" rows="2" maxlength="1000" placeholder="${placeholder}"></textarea>
     <div class="ap-buttons">
       <button type="button" class="btn-reject" data-decision="rejected"><i class="fas fa-xmark"></i><span>Reject</span></button>
       <button type="button" class="btn-primary btn-approve" data-decision="approved"><i class="fas fa-check"></i><span>Approve</span></button>
@@ -28,43 +31,38 @@ function decisionHtml(id, placeholder) {
   </div>`;
 }
 
-function emptyHtml(text) {
-  return `<p class="ap-empty"><i class="fas fa-circle-check"></i><span>${escapeHtml(text)}</span></p>`;
-}
-
 function mappingText(parts) {
-  if (!parts.length) return '<span class="map-fixed">Not used</span>';
-  if (parts.length === 1) return escapeHtml(getCategory(parts[0].category).name);
-  return parts.map((p) => `${escapeHtml(getCategory(p.category).name)} <strong>${p.percent}%</strong>`).join(" · ");
+  if (!parts.length) return raw('<span class="map-fixed">Not used</span>');
+  if (parts.length === 1) return getCategory(parts[0].category).name;
+  return raw(parts.map((p) => html`${getCategory(p.category).name} <strong>${p.percent}%</strong>`).join(" · "));
 }
 
 function uploadTableHtml(u, subtotals) {
   const cols = u.periods.length + 2;
-  const head = `<thead><tr><th>Line (as in file)</th>${u.periods.map((y) => `<th class="num">${escapeHtml(y)}</th>`).join("")}<th>Category</th></tr></thead>`;
+  const head = html`<thead><tr><th>Line (as in file)</th>${u.periods.map((y) => html`<th class="num">${y}</th>`)}<th>Category</th></tr></thead>`;
   const body = u.rows.map((r) => {
-    const cells = `<td>${escapeHtml(r.label)}</td>${valueCellsFor(r)}`;
-    if (r.kind === "heading") {
-      return `<tr class="row-heading"><td colspan="${cols}"><span class="heading-text">${escapeHtml(r.label)}</span></td></tr>`;
-    }
+    const cells = html`<td>${r.label}</td>${sheetCells(r.values)}`;
+    if (r.kind === "heading") return headingRow(r.label, cols);
     if (r.kind === "subtotal") {
       const status = subtotals[r.subtotal]?.matches
         ? chip("ok", "Matches", "fa-check")
         : chip("bad", "Doesn't match", "fa-xmark", "Our recalculation from the categories differs from the file");
-      return `<tr class="row-subtotal">${cells}<td>${status}</td></tr>`;
+      return html`<tr class="row-subtotal">${cells}<td>${status}</td></tr>`;
     }
     if (r.kind === "total") {
-      return `<tr class="row-total">${cells}<td><span class="map-fixed">Total line, skipped</span></td></tr>`;
+      return html`<tr class="row-total">${cells}<td><span class="map-fixed">Total line, skipped</span></td></tr>`;
     }
-    return `<tr class="row-line">${cells}<td class="ap-map">${mappingText(r.mapping || [])}</td></tr>`;
-  }).join("");
+    return html`<tr class="row-line">${cells}<td class="ap-map">${mappingText(r.mapping || [])}</td></tr>`;
+  });
 
-  return `<table class="statement ap-table">${head}<tbody>${body}</tbody></table>`;
+  return html`<table class="statement ap-table">${head}<tbody>${body}</tbody></table>`;
 }
 
 function uploadItemHtml(u) {
-  const change = historyChange(ap.uploads, u);
+  const uploads = state.uploads ?? [];
+  const change = historyChange(uploads, u);
   const review = reviewUpload(u, change);
-  const fixes = ap.uploads.find((x) => x.id === u.replacesId && x.status === "rejected");
+  const fixes = uploads.find((x) => x.id === u.replacesId && x.status === "rejected");
   const lineCount = u.rows.filter((r) => r.kind === "line").length;
 
   let effect = change.before.years.length
@@ -72,16 +70,16 @@ function uploadItemHtml(u) {
     : "Once approved, it becomes the history behind the forecasts and the dashboard.";
   if (fixes) effect = `Corrected version of ${fixes.fileName}, which was rejected. ${effect}`;
 
-  return `<div class="ap-item" data-kind="upload" data-id="${escapeHtml(u.id)}">
+  return html`<div class="ap-item" data-kind="upload" data-id="${u.id}">
     <div class="ap-item-head">
       <span class="ap-icon"><i class="fas fa-file-lines"></i></span>
       <div class="ap-item-title">
-        <strong>${escapeHtml(u.fileName)}</strong>
-        <small>${escapeHtml(yearList(u.periods))} · ${lineCount} lines · ${escapeHtml(SCALE_LABELS[u.scale])} · uploaded by ${escapeHtml(u.submittedBy)}, ${formatDate(u.submittedOn)}</small>
+        <strong>${u.fileName}</strong>
+        <small>${yearList(u.periods)} · ${lineCount} lines · ${SCALE_LABELS[u.scale]} · uploaded by ${u.submittedBy}, ${formatDate(u.submittedOn)}</small>
       </div>
       <span class="badge submitted">Waiting for approval</span>
     </div>
-    <p class="ap-effect"><i class="fas fa-rotate"></i><span>${escapeHtml(effect)}</span></p>
+    <p class="ap-effect"><i class="fas fa-rotate"></i><span>${effect}</span></p>
     <ul class="checks ap-checks">${checksHtml(review.items)}</ul>
     <details class="ap-details">
       <summary><i class="fas fa-chevron-right"></i>Show the statement and its categories</summary>
@@ -92,7 +90,8 @@ function uploadItemHtml(u) {
 }
 
 function budgetChecks(b) {
-  const triggered = ap.warnings.filter((w) => w.triggered);
+  const warnings = indicatorWarnings(true);
+  const triggered = warnings.filter((w) => w.triggered);
   const items = triggered.map((w) => {
     const names = w.categories.map((code) => getCategory(code).name).join(", ");
     return {
@@ -106,15 +105,15 @@ function budgetChecks(b) {
       text: `Out of date: the approved history now runs to ${state.processed.years.at(-1)}. Reject it so the decision maker chooses a new budget.`,
     });
   }
-  if (ap.warnings.length && triggered.length < ap.warnings.length) {
-    const n = ap.warnings.length;
+  if (warnings.length && triggered.length < warnings.length) {
+    const n = warnings.length;
     items.push({
       level: "ok",
       text: triggered.length
         ? "The other warning rules are within their thresholds."
         : `All ${n} active warning rule${n === 1 ? " is" : "s are"} within ${n === 1 ? "its threshold" : "their thresholds"}.`,
     });
-  } else if (!ap.warnings.length) {
+  } else if (!warnings.length) {
     items.push({ level: "info", text: "Every economic warning rule is switched off, so no indicators were checked." });
   }
   items.push({
@@ -129,58 +128,49 @@ function budgetChecks(b) {
 
 function budgetTableHtml() {
   const p = state.processed;
+  const b = state.budget;
   const lastYear = p.years[p.years.length - 1];
-  const span = yearsText(state.budget.years);
+  const span = yearsText(b.years);
 
-  const rows = PROCESSED_LAYOUT.map((item) => {
-    if (item.heading) {
-      return `<tr class="row-heading"><td colspan="5"><span class="heading-text">${escapeHtml(item.heading)}</span></td></tr>`;
-    }
+  const rows = state.definitions.layout.map((item) => {
+    if (item.heading) return headingRow(item.heading, 5);
     if (item.subtotal) {
-      return `<tr class="row-subtotal"><td>${escapeHtml(SUBTOTAL_NAMES[item.subtotal])}</td>
-        ${budgetCells(p.subtotals[item.subtotal], (f) => f.subtotals[item.subtotal], "total")}</tr>`;
+      return html`<tr class="row-subtotal"><td>${subtotalName(item.subtotal)}</td>
+        ${budgetCells(b, p.subtotals[item.subtotal], (f) => f.subtotals[item.subtotal], "total")}</tr>`;
     }
     const category = getCategory(item.category);
-    const team = category.teamManaged ? '<span class="tag">Team-managed</span>' : "";
-    return `<tr class="row-line"><td><span class="cat-name">${escapeHtml(category.name)}</span>${team}</td>
-      ${budgetCells(p.totals[item.category], (f) => f.totals[item.category], category.kind)}</tr>`;
-  }).join("");
+    return html`<tr class="row-line"><td><span class="cat-name">${category.name}</span>${category.teamManaged ? teamTag("") : ""}</td>
+      ${budgetCells(b, p.totals[item.category], (f) => f.totals[item.category], category.kind)}</tr>`;
+  });
 
-  return `<table class="statement ap-table"><thead><tr>
+  return html`<table class="statement ap-table"><thead><tr>
       <th>Category (R)</th>
-      <th class="num col-actual">${escapeHtml(lastYear)}<small>Actual</small></th>
-      <th class="num col-method">MA<small>${escapeHtml(span)}</small></th>
-      <th class="num col-method">ES<small>${escapeHtml(span)}</small></th>
-      <th class="num col-budget">Budget<small>${escapeHtml(span)}</small></th>
+      ${columnHead(lastYear, "Actual", "col-actual")}
+      ${columnHead("MA", span, "col-method")}
+      ${columnHead("ES", span, "col-method")}
+      ${columnHead("Budget", span, "col-budget")}
     </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function budgetItemHtml(b) {
   const p = state.processed;
   const last = p.years.length - 1;
-  const actualExpenses = totalExpenses(Object.fromEntries(
-    LINE_CATEGORIES.map((c) => [c.code, [p.totals[c.code][last]]])
-  ));
-  const figure = (label, value, base, kind) => {
-    const pct = percentChange(value, base);
-    return `<div><dt>${label}</dt><dd class="${changeClass(pct, kind)}">${randFormat.format(value)}<small>${pctText(pct)}</small></dd></div>`;
-  };
 
-  return `<div class="ap-item" data-kind="budget" data-id="${escapeHtml(b.id)}">
+  return html`<div class="ap-item" data-kind="budget" data-id="${b.id}">
     <div class="ap-item-head">
       <span class="ap-icon"><i class="fas fa-scale-balanced"></i></span>
       <div class="ap-item-title">
-        <strong>${escapeHtml(describeMethod(b))}</strong>
-        <small>Budget ${escapeHtml(yearsText(b.years))} · chosen by ${escapeHtml(b.chosenBy || "a decision maker")}${b.chosenOn ? `, ${formatDate(b.chosenOn)}` : ""}</small>
+        <strong>${describeMethod(b)}</strong>
+        <small>Budget ${yearsText(b.years)} · chosen by ${b.chosenBy || "a decision maker"}${b.chosenOn ? `, ${formatDate(b.chosenOn)}` : ""}</small>
       </div>
       <span class="badge submitted">Waiting for approval</span>
     </div>
     <dl class="ap-figures">
-      ${figure("Revenue", b.totals.revenue[0], p.totals.revenue[last], "income")}
-      ${figure("Total expenses", totalExpenses(b.totals), actualExpenses, "expense")}
-      ${figure("Net profit", b.subtotals.net_profit[0], p.subtotals.net_profit[last], "total")}
+      ${figureItem("Revenue", b.totals.revenue[0], p.totals.revenue[last], "income")}
+      ${figureItem("Total expenses", b.totalExpenses[0], p.totalExpenses[last], "expense")}
+      ${figureItem("Net profit", b.subtotals.net_profit[0], p.subtotals.net_profit[last], "total")}
     </dl>
-    <p class="ap-figures-note">% change from ${escapeHtml(p.years[last])}'s actual. Green is better for the business, red is worse.</p>
+    <p class="ap-figures-note">% change from ${p.years[last]}'s actual. Green is better for the business, red is worse.</p>
     <ul class="checks ap-checks">${checksHtml(budgetChecks(b))}</ul>
     <details class="ap-details">
       <summary><i class="fas fa-chevron-right"></i>Show every category</summary>
@@ -191,7 +181,7 @@ function budgetItemHtml(b) {
 }
 
 function historyEntries() {
-  const entries = ap.uploads
+  const entries = (state.uploads ?? [])
     .filter((u) => u.decidedOn)
     .map((u) => ({
       icon: "fa-file-lines",
@@ -224,33 +214,29 @@ function renderHistory() {
   const table = document.getElementById("apHistory");
   const entries = historyEntries();
   if (!entries.length) {
-    table.innerHTML = '<tbody><tr class="row-empty"><td>No decisions yet.</td></tr></tbody>';
+    table.innerHTML = emptyRow("No decisions yet.");
     return;
   }
 
-  const rows = entries.map((e) => {
-    const label = e.decision === "rejected" ? "Rejected" : "Approved";
-    const replaced = e.replaced ? "<small>Replaced since</small>" : "";
-    const comment = e.comment ? commentRow(3, e.decision, e.by, e.comment) : "";
-    return `<tr>
-      <td><i class="fas ${e.icon} file-icon"></i>${escapeHtml(e.name)}<small>${escapeHtml(e.detail)}</small></td>
-      <td><span class="badge ${e.decision}">${label}</span>${replaced}</td>
-      <td>${formatDate(e.on)}<small>${escapeHtml(e.by)}</small></td>
-    </tr>${comment}`;
-  }).join("");
+  const rows = entries.map((e) => html`<tr>
+      <td><i class="fas ${e.icon} file-icon"></i>${e.name}<small>${e.detail}</small></td>
+      <td><span class="badge ${e.decision}">${e.decision === "rejected" ? "Rejected" : "Approved"}</span>${e.replaced ? raw("<small>Replaced since</small>") : ""}</td>
+      <td>${formatDate(e.on)}<small>${e.by}</small></td>
+    </tr>${e.comment ? commentRow(3, e.decision, e.by, e.comment) : ""}`);
 
-  table.innerHTML = `<thead><tr><th>Item</th><th>Decision</th><th>Decided</th></tr></thead><tbody>${rows}</tbody>`;
+  table.innerHTML = html`<thead><tr><th>Item</th><th>Decision</th><th>Decided</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function renderApprovals() {
+  if (!ap.pending) return;
   const budget = state.budget?.status === "submitted" ? state.budget : null;
 
   document.getElementById("apUploads").innerHTML = ap.pending.length
-    ? ap.pending.map(uploadItemHtml).join("")
-    : emptyHtml("No uploads waiting. New uploads appear here when a submitter sends them.");
+    ? html`${ap.pending.map(uploadItemHtml)}`
+    : emptyNote("No uploads waiting. New uploads appear here when a submitter sends them.", "fa-circle-check");
   document.getElementById("apBudgets").innerHTML = budget
     ? budgetItemHtml(budget)
-    : emptyHtml("No budget waiting. A budget appears here when a decision maker chooses one in Forecast & budget.");
+    : emptyNote("No budget waiting. A budget appears here when a decision maker chooses one in Forecast & budget.", "fa-circle-check");
   renderHistory();
 
   document.getElementById("apUploadCount").textContent = ap.pending.length;
@@ -260,20 +246,6 @@ function renderApprovals() {
   navCount.hidden = waiting === 0;
   navCount.textContent = waiting;
   navCount.title = `${waiting} waiting for approval`;
-}
-
-async function refreshApprovals() {
-  if (!state.business) return;
-  try {
-    [ap.pending, ap.uploads, ap.warnings] = await Promise.all([
-      Api.getPendingSubmissions(),
-      Api.getSubmissions(),
-      Api.getIndicatorWarnings(historyYears(), state.business.yearEndMonth),
-    ]);
-    renderApprovals();
-  } catch (err) {
-    showToast(err.message || "Could not load the approval queue.", "error");
-  }
 }
 
 function setItemBusy(item, busy, decision) {
@@ -297,37 +269,36 @@ async function decide(item, decision) {
 
   setItemBusy(item, true, decision);
   try {
-    if (kind === "upload") await Api.decideSubmission(id, decision, comments);
-    else await Api.decideBudget(id, decision, comments);
+    if (kind === "upload") await decideSubmission(id, decision, comments);
+    else await decideBudget(id, decision, comments);
 
     item.classList.add("leaving");
     await new Promise((r) => setTimeout(r, 300));
 
     if (kind === "upload" && decision === "approved") {
-      await loadData();
+      await emit("reload");
       showToast("Upload approved. The dashboard and forecasts now use it.", "success", 5000);
     } else if (kind === "upload") {
-      await refreshApprovals();
+      await reloadUploads().catch((err) => showToast(err.message, "error"));
       showToast("Upload rejected. The submitter sees your comment and can fix it.", "success", 5000);
     } else {
-      state.budget = await Api.getLatestBudget(state.business);
-      renderProcessed();
-      if (fc.comparison) renderChoices();
-      await refreshApprovals();
+      await reloadBudget();
       showToast(decision === "approved" ? "Budget approved." : "Budget rejected. A new choice is needed in Forecast & budget.", "success", 5000);
     }
-    loadUploads();
   } catch (err) {
-    showToast(err.message || "Could not save the decision.", "error");
+    showToast(err.message, "error");
     item.classList.remove("leaving");
     setItemBusy(item, false, decision);
   }
 }
 
-function setupApprovals() {
+export function setup() {
   const view = document.getElementById("view-approvals");
 
   showRoleNote("apRoleNote", "decide", "you can see what's waiting, but only an Approver can approve or reject.");
+  on("uploads", refresh);
+  on("budget", renderApprovals);
+  on("rules", renderApprovals);
 
   view.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-decision]");
@@ -336,4 +307,14 @@ function setupApprovals() {
   view.addEventListener("input", (e) => {
     if (e.target.classList.contains("ap-comment")) e.target.classList.remove("invalid");
   });
+}
+
+export async function refresh() {
+  if (!state.business) return;
+  try {
+    ap.pending = await getPendingSubmissions();
+    renderApprovals();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
 }

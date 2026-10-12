@@ -11,15 +11,12 @@ namespace BudgetApi.Controllers;
 [ApiController]
 [Route("api/dashboard")]
 [Authorize]
-public class DashboardController(BudgetDbContext db, BusinessScope scope, StatementFigures figures) : ControllerBase
+public class DashboardController(BudgetDbContext db, StatementFigures figures) : ApiController
 {
     [HttpGet]
     public async Task<IActionResult> Get([FromQuery] string? year, CancellationToken cancellationToken)
     {
-        if (await scope.CallerAsync(User, cancellationToken) is not { } caller)
-        {
-            return Unauthorized(new { message = "Your session has ended. Sign in again." });
-        }
+        var caller = Caller;
         var yearEndMonth = caller.Unit!.Business!.YearEndMonth;
         string Label(DateOnly start) => FinancialYear.Label(start, yearEndMonth);
 
