@@ -198,6 +198,7 @@ erDiagram
         varchar forecasting_method
         date history_start
         date history_end
+        timestamptz history_approved_at
         jsonb parameters
         timestamptz created_at
     }
@@ -402,7 +403,7 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 
 ## Forecasts and the chosen budget (`forecast_run`, `budget_selection`)
 
-- Every forecast runs **both** methods: the C# API saves one `forecast_run` per method from the Python service's results (same `created_at`), each with a `forecast_value` per category and future period.
+- Every forecast runs **both** methods: the C# API saves one `forecast_run` per method from the Python service's results (same `created_at`), each with a `forecast_value` per category and future period. `history_approved_at` is the latest `acted_at` of the unit's approved uploads at that moment. A budget built on the run is out of date when a later upload is approved, even if the newest year is unchanged.
 - **Choosing the budget** saves a `budget_selection`: the Moving Average run (`ma_run_id`), the Exponential Smoothing run (`es_run_id`), the `budget_method` (one of the two, or `combined` = (MA + ES) ÷ 2 per category, worked out when shown) and who chose it. It starts as `submitted`; a newer choice makes a waiting one `superseded`.
 - **Approving or rejecting** it adds an `approval_action` with `budget_id` set. Approving makes the unit's previous approved budget `superseded`. Runs used by a budget can't be deleted (foreign key).
 
@@ -509,7 +510,7 @@ The C# API maps these tables. EF Core derives every table and column name from t
 | `approval_action` | `approval_id` (PK), `submission_id` (FK, nullable), `budget_id` (FK, nullable), `acted_by`, `decision`, `comments` | `VARCHAR` |
 | | `acted_at` | `TIMESTAMPTZ` |
 | `forecast_run` | `run_id` (PK), `unit_id`, `forecasting_method` | `VARCHAR` |
-| | `history_start` / `history_end` / `parameters` / `created_at` | `DATE` / `DATE` / `JSONB` / `TIMESTAMPTZ` |
+| | `history_start` / `history_end` / `history_approved_at` / `parameters` / `created_at` | `DATE` / `DATE` / `TIMESTAMPTZ` / `JSONB` / `TIMESTAMPTZ` |
 | `forecast_value` | `value_id` (PK), `run_id` (FK, cascade delete), `category` | `VARCHAR` |
 | | `forecast_period` / `baseline_amount` / `adjusted_amount` | `DATE` / `NUMERIC(18,2)` / `NUMERIC(18,2)` |
 | `budget_selection` | `budget_id` (PK), `unit_id`, `ma_run_id`, `es_run_id` (FKs → `forecast_run`), `budget_method`, `status`, `chosen_by` | `VARCHAR` |
