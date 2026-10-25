@@ -1,16 +1,14 @@
 // Reports API: the combined report for Decision Makers, every approved year and the approved budget's years side by side, with key ratios and KPI target results
-using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace BudgetApi.Controllers;
 
 [ApiController]
 [Route("api/reports")]
 [Authorize]
-public class ReportsController(BudgetDbContext db, StatementFigures figures) : ApiController
+public class ReportsController(StatementFigures figures) : ApiController
 {
     private static readonly (string Code, string Name)[] Ratios =
     [
@@ -28,12 +26,7 @@ public class ReportsController(BudgetDbContext db, StatementFigures figures) : A
         string Label(DateOnly start) => FinancialYear.Label(start, unit.Business!.YearEndMonth);
 
         var history = await figures.ApprovedHistoryAsync(caller.UnitId, cancellationToken);
-        var approved = await db
-            .BudgetSelections.AsNoTracking()
-            .Where(b => b.UnitId == caller.UnitId && b.Status == "approved")
-            .Include(b => b.Approvals)
-            .ThenInclude(a => a.Actor)
-            .FirstOrDefaultAsync(cancellationToken);
+        var approved = await figures.ApprovedBudgetAsync(caller.UnitId, cancellationToken);
         var budget = approved is null ? null : await figures.BudgetAsync(approved, cancellationToken);
 
         var lastActual = history.Count > 0 ? history.Keys.Last() : DateOnly.MinValue;
@@ -74,7 +67,6 @@ public class ReportsController(BudgetDbContext db, StatementFigures figures) : A
                 .ToList(),
         }));
 
-        var latestFigures = await figures.LatestBudgetAsync(caller.UnitId, cancellationToken);
         return Ok(new
         {
             business = unit.Business!.LegalName,
@@ -86,7 +78,7 @@ public class ReportsController(BudgetDbContext db, StatementFigures figures) : A
             budget = approved is null ? null : StatementFigures.ApprovedBudgetSummary(approved),
             lines = columns.Count == 0 ? [] : lines,
             ratios = columns.Count == 0 ? [] : ratios,
-            targets = await figures.TargetsAsync(caller.UnitId, history, latestFigures, Label, cancellationToken),
+            targets = await figures.TargetsAsync(caller.UnitId, history, budget, Label, cancellationToken),
         });
     }
 }

@@ -1,7 +1,7 @@
 // Forecast and budget section: runs forecasts and chooses the budget
 import { chooseBudget as saveBudgetChoice, getLatestForecast, runForecasts } from "./api.js";
 import { changeClass, numberFormat, percentChange, randFormat, yearsText } from "./format.js";
-import { METHOD_NAMES, compareRuns, describeMethod, fyStartDate } from "./forecast.js";
+import { METHOD_NAMES, compareRuns, describeMethod } from "./forecast.js";
 import { describeSources } from "./importer.js";
 import { can, getCategory, indicatorWarnings, on, reloadBudget, showRoleNote, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
@@ -127,9 +127,7 @@ function applyRuns(pair) {
 }
 
 function runsMatchHistory(pair) {
-  const years = state.processed.years;
-  return Array.isArray(pair?.runs) && pair.runs.length === 2 &&
-    pair.runs[0].history_end === fyStartDate(years[years.length - 1], state.business.yearEndMonth);
+  return Array.isArray(pair?.runs) && pair.runs.length === 2 && pair.matchesHistory;
 }
 
 function renderAll() {

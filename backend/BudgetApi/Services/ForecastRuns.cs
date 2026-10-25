@@ -28,7 +28,7 @@ public record ForecastRunView(
 
 public record ForecastComparison(string[] Years, Dictionary<string, StatementTable> Methods);
 
-public record ForecastPair(IReadOnlyList<ForecastRunView> Runs, ForecastComparison Comparison);
+public record ForecastPair(IReadOnlyList<ForecastRunView> Runs, ForecastComparison Comparison, bool MatchesHistory);
 
 public class ForecastRuns(BudgetDbContext db, StatementFigures figures, ForecastClient client)
 {
@@ -44,6 +44,7 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
         CancellationToken cancellationToken
     )
     {
+        var approvedAt = await HistoryApprovedAtAsync(unitId, cancellationToken);
         var amounts = await figures.ApprovedAmountsAsync(unitId, cancellationToken);
         var history = amounts
             .SelectMany(year => year.Value.Select(category => (category.Key, Point: new ForecastPoint(year.Key, category.Value))))
@@ -59,6 +60,7 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
                 ForecastingMethod = method.Key,
                 HistoryStart = output.HistoryStart,
                 HistoryEnd = output.HistoryEnd,
+                HistoryApprovedAt = approvedAt,
                 Parameters = JsonSerializer.Serialize(
                     new Dictionary<string, object>
                     {
@@ -127,8 +129,28 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
     )
     {
         var pair = await LoadAsync(unitId, runIds, cancellationToken);
-        return new ForecastPair(pair, Compare(pair, yearEndMonth));
+        return new ForecastPair(pair, Compare(pair, yearEndMonth), await MatchesHistoryAsync(unitId, runIds, cancellationToken));
     }
+
+    public async Task<bool> MatchesHistoryAsync(string unitId, IReadOnlyCollection<string> runIds, CancellationToken cancellationToken)
+    {
+        var current = await HistoryApprovedAtAsync(unitId, cancellationToken);
+        var stored = await db
+            .ForecastRuns.AsNoTracking()
+            .Where(r => r.UnitId == unitId && runIds.Contains(r.RunId))
+            .Select(r => r.HistoryApprovedAt)
+            .ToListAsync(cancellationToken);
+        return current is not null && stored.Count == 2 && runIds.Count == 2 && stored.All(t => t == current);
+    }
+
+    public Task<DateTime?> HistoryApprovedAtAsync(string unitId, CancellationToken cancellationToken) =>
+        db
+            .ApprovalActions.AsNoTracking()
+            .Where(a => a.Decision == "approved" && a.SubmissionId != null)
+            .Where(a =>
+                db.BudgetSubmissions.Any(s => s.SubmissionId == a.SubmissionId && s.UnitId == unitId && s.Status == "approved")
+            )
+            .MaxAsync(a => (DateTime?)a.ActedAt, cancellationToken);
 
     public async Task<List<string>> LatestPairAsync(string unitId, CancellationToken cancellationToken)
     {
@@ -147,13 +169,6 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
             .ToListAsync(cancellationToken);
         return IsPair(pair.Select(r => r.ForecastingMethod)) ? pair.Select(r => r.RunId).ToList() : [];
     }
-
-    public Task<DateOnly?> LatestApprovedPeriodAsync(string unitId, CancellationToken cancellationToken) =>
-        db
-            .FinancialLineItems.Where(i =>
-                db.BudgetSubmissions.Any(s => s.SubmissionId == i.SubmissionId && s.UnitId == unitId && s.Status == "approved")
-            )
-            .MaxAsync(i => (DateOnly?)i.PeriodStart, cancellationToken);
 
     public static bool IsPair(IEnumerable<string> methods) =>
         methods.Order().SequenceEqual([ExponentialSmoothing, MovingAverage]);

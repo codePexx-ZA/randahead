@@ -73,7 +73,7 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         var pair = await db
             .ForecastRuns.AsNoTracking()
             .Where(r => r.UnitId == caller.UnitId && runIds.Contains(r.RunId))
-            .Select(r => new { r.RunId, r.ForecastingMethod, r.CreatedAt, r.HistoryEnd })
+            .Select(r => new { r.RunId, r.ForecastingMethod, r.CreatedAt })
             .ToListAsync(cancellationToken);
         if (pair.Count != 2)
         {
@@ -83,15 +83,15 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         {
             return BadRequest(new { message = "Both forecasts must come from the same run." });
         }
-        if (pair[0].HistoryEnd != await runs.LatestApprovedPeriodAsync(caller.UnitId, cancellationToken))
-        {
-            return Conflict(new { message = "The approved history has changed since these forecasts ran. Run the forecasts again first." });
-        }
 
         var maRunId = pair.Single(r => r.ForecastingMethod == ForecastRuns.MovingAverage).RunId;
         var esRunId = pair.Single(r => r.ForecastingMethod == ForecastRuns.ExponentialSmoothing).RunId;
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await scope.LockUnitAsync(caller.UnitId, cancellationToken);
+        if (!await runs.MatchesHistoryAsync(caller.UnitId, [maRunId, esRunId], cancellationToken))
+        {
+            return Conflict(new { message = "The approved history has changed since these forecasts ran. Run the forecasts again first." });
+        }
         var open = await Budgets(caller.UnitId).Where(b => b.Status == "submitted" || b.Status == "approved").ToListAsync(cancellationToken);
         if (open.Any(b => b.MaRunId == maRunId && b.BudgetMethod == request.Method))
         {
@@ -150,9 +150,12 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         {
             return Conflict(new { message = "This budget has already been decided." });
         }
-
         if (request.Decision == "approved")
         {
+            if (!await runs.MatchesHistoryAsync(caller.UnitId, [target.MaRunId, target.EsRunId], cancellationToken))
+            {
+                return Conflict(new { message = "The approved history has changed since these forecasts ran. Reject this budget and ask for a new forecast." });
+            }
             foreach (var previous in budgets.Where(b => b.Status == "approved"))
             {
                 previous.Status = "superseded";
@@ -209,13 +212,12 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
     {
         var decision = b.Approvals.OrderByDescending(a => a.ActedAt).FirstOrDefault();
         var approved = b.Status is "approved" or "superseded" && decision?.Decision == "approved";
-        var (budgetRuns, comparison) = await runs.LoadPairAsync(
+        var (budgetRuns, comparison, matchesHistory) = await runs.LoadPairAsync(
             b.UnitId,
             [b.MaRunId, b.EsRunId],
             Caller.Unit!.Business!.YearEndMonth,
             cancellationToken
         );
-        var latestPeriod = await runs.LatestApprovedPeriodAsync(b.UnitId, cancellationToken);
         return new BudgetView(
             b.BudgetId,
             b.BudgetMethod,
@@ -229,7 +231,7 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
             decision?.Comments,
             approved ? DisplayText.Person(decision!.Actor) : null,
             approved ? DisplayText.Day(decision!.ActedAt) : null,
-            budgetRuns.Any(r => r.HistoryEnd != latestPeriod),
+            !matchesHistory,
             budgetRuns,
             comparison
         );

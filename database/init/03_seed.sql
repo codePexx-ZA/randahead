@@ -163,11 +163,11 @@ INSERT INTO import_mapping (business_id, source_label, label_key, category_code,
     ('b0000000000000000000000000000001', 'Water & electricity', 'water & electricity', 'other_utilities', 30, 'c0000000000000000000000000000001'),
     ('b0000000000000000000000000000001', 'Franchise levy',      'franchise levy',      'other_operating', 100, 'c0000000000000000000000000000001');
 
-INSERT INTO forecast_run (run_id, unit_id, forecasting_method, history_start, history_end, parameters, created_at) VALUES
+INSERT INTO forecast_run (run_id, unit_id, forecasting_method, history_start, history_end, history_approved_at, parameters, created_at) VALUES
     ('e0000000000000000000000000000001', 'a0000000000000000000000000000001', 'moving_average', '2020-03-01', '2024-03-01',
-     '{"window_size": 3, "frequency": "annual", "horizon": 1, "warnings": []}', '2026-10-01 14:55+02'),
+     '2026-09-28 10:00+02', '{"window_size": 3, "frequency": "annual", "horizon": 1, "warnings": []}', '2026-10-01 14:55+02'),
     ('e0000000000000000000000000000002', 'a0000000000000000000000000000001', 'exponential_smoothing', '2020-03-01', '2024-03-01',
-     '{"alpha": 0.5, "frequency": "annual", "horizon": 1, "warnings": []}', '2026-10-01 14:55+02');
+     '2026-09-28 10:00+02', '{"alpha": 0.5, "frequency": "annual", "horizon": 1, "warnings": []}', '2026-10-01 14:55+02');
 
 INSERT INTO forecast_value (run_id, category, forecast_period, baseline_amount)
 SELECT 'e0000000000000000000000000000001', category, DATE '2025-03-01', round(avg(amount), 2)

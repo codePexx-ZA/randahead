@@ -124,18 +124,12 @@ public class StatementFigures(BudgetDbContext db)
         return figures;
     }
 
-    public async Task<SortedDictionary<DateOnly, Dictionary<string, decimal>>?> LatestBudgetAsync(
-        string unitId,
-        CancellationToken cancellationToken
-    )
-    {
-        var latest = await db
-            .BudgetSelections.AsNoTracking()
-            .Where(b => b.UnitId == unitId && b.Status != "superseded")
-            .OrderByDescending(b => b.ChosenAt)
+    public Task<BudgetSelection?> ApprovedBudgetAsync(string unitId, CancellationToken cancellationToken) =>
+        db.BudgetSelections.AsNoTracking()
+            .Where(b => b.UnitId == unitId && b.Status == "approved")
+            .Include(b => b.Approvals)
+            .ThenInclude(a => a.Actor)
             .FirstOrDefaultAsync(cancellationToken);
-        return latest is null ? null : await BudgetAsync(latest, cancellationToken);
-    }
 
     public async Task<List<TargetProgress>> TargetsAsync(
         string unitId,

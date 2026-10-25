@@ -62,7 +62,8 @@ public class DashboardController(BudgetDbContext db, StatementFigures figures) :
                 };
             }).ToList<object>();
 
-        var latestFigures = await figures.LatestBudgetAsync(caller.UnitId, cancellationToken);
+        var approved = await figures.ApprovedBudgetAsync(caller.UnitId, cancellationToken);
+        var approvedFigures = approved is null ? null : await figures.BudgetAsync(approved, cancellationToken);
         return Ok(new
         {
             years = periods.Select(Label),
@@ -70,7 +71,7 @@ public class DashboardController(BudgetDbContext db, StatementFigures figures) :
             previousYear = index > 0 ? Label(periods[index - 1]) : null,
             budget = yearBudget is null ? null : StatementFigures.ApprovedBudgetSummary(yearBudget),
             lines,
-            targets = await figures.TargetsAsync(caller.UnitId, history, latestFigures, Label, cancellationToken),
+            targets = await figures.TargetsAsync(caller.UnitId, history, approvedFigures, Label, cancellationToken),
         });
     }
 

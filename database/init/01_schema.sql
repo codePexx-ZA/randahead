@@ -160,10 +160,11 @@ CREATE TABLE forecast_run (
     submission_id      VARCHAR(32) REFERENCES budget_submission (submission_id) ON DELETE RESTRICT,
     forecasting_method VARCHAR(30) NOT NULL
                        CHECK (forecasting_method IN ('moving_average', 'exponential_smoothing')),
-    history_start      DATE        NOT NULL,
-    history_end        DATE        NOT NULL,
-    parameters         JSONB       NOT NULL DEFAULT '{}'::jsonb,
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    history_start       DATE        NOT NULL,
+    history_end         DATE        NOT NULL,
+    history_approved_at TIMESTAMPTZ,
+    parameters          JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (history_end >= history_start)
 );
 
