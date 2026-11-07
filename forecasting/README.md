@@ -22,7 +22,7 @@ Both forecasts are **flat**: every future year (1–3, `horizon`) gets the same 
 `app/algorithms.py` is adapted from [TheAlgorithms/Python](https://github.com/TheAlgorithms/Python) (MIT):
 [`simple_moving_average.py`](https://github.com/TheAlgorithms/Python/blob/master/financial/simple_moving_average.py) and
 [`exponential_moving_average.py`](https://github.com/TheAlgorithms/Python/blob/master/financial/exponential_moving_average.py).
-Changes: forecast step added, α set directly by the user, cleaner start for short histories. Details in the file header.
+Changes: forecast step added, α passed in with the request, cleaner start for short histories. The web app does not ask for α. It sends one of three predictions (Steady 0.3, Balanced 0.5, Recent 0.7) and the matching window. Details in the file header.
 
 ## Run it
 

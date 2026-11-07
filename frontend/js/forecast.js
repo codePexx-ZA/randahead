@@ -5,6 +5,17 @@ export const METHOD_NAMES = {
   combined: "Both (average)",
 };
 
+export const FORECAST_PRESETS = {
+  steady: { windowSize: 3, alpha: 0.3, name: "Steady", line: "Older years still count" },
+  balanced: { windowSize: 3, alpha: 0.5, name: "Balanced", line: "The usual choice" },
+  recent: { windowSize: 2, alpha: 0.7, name: "Recent", line: "Follows the latest years" },
+};
+
+export function presetFor(windowSize, alpha) {
+  const found = Object.entries(FORECAST_PRESETS).find(([, p]) => p.windowSize === windowSize && p.alpha === alpha);
+  return found ? { id: found[0], ...found[1] } : null;
+}
+
 // Shorter than the indicator_type names, to fit the rule list and warnings
 export const INDICATOR_NAMES = {
   cpi_headline: "Consumer inflation (headline CPI)",
@@ -23,9 +34,12 @@ export function nextYearLabels(lastYear, horizon) {
 }
 
 export function describeMethod(budget) {
-  const window = `${budget.parameters.window_size}-year window`;
-  const alpha = `α ${budget.parameters.alpha}`;
-  const setting = { moving_average: window, exponential_smoothing: alpha, combined: `${window} + ${alpha}` }[budget.method];
+  const preset = presetFor(budget.parameters.window_size, budget.parameters.alpha);
+  const window = `last ${budget.parameters.window_size} years`;
+  const weight = `weight ${Number(budget.parameters.alpha).toFixed(1)}`;
+  const setting = preset
+    ? preset.name
+    : { moving_average: window, exponential_smoothing: weight, combined: `${window}, ${weight}` }[budget.method];
   return `${METHOD_NAMES[budget.method]} (${setting})`;
 }
 

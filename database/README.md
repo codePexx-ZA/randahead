@@ -339,7 +339,7 @@ Passwords are stored as BCrypt hashes. The admin password is a development place
 
 The last two also have their file rows (`submission_row`) so the web app can show and combine them; "Franchise levy" in the waiting upload was mapped by hand. Plus the remembered label mappings for that last upload and 5 KPI targets.
 
-**Approved budget.** One forecast pair on the approved FY2021–FY2025 history (Moving Average, 3-year window, and Exponential Smoothing, α 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget by Johan van Wyk and approved by Anika Pillay.
+**Approved budget.** One forecast pair on the approved FY2021–FY2025 history, the **Balanced** prediction (Moving Average over the last 3 years, Exponential Smoothing weight 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget by Johan van Wyk and approved by Anika Pillay.
 
 The scripts only run on an **empty** volume. After changing a script, reset the database:
 
@@ -356,7 +356,7 @@ docker compose up -d
 - **IDs.** Every primary key is `VARCHAR(32)`, a UUID without dashes (C# `Guid.ToString("N")`). Services may supply their own ID; if they don't, Postgres generates one. Reference tables use readable codes instead (`category_code`, `indicator_code`).
 - **Money.** `NUMERIC(18,2)`. **Indicator values / rule thresholds.** `NUMERIC(18,6)`.
 - **Timestamps.** `TIMESTAMPTZ` (UTC). **Calendar periods.** `DATE` (first day of the period), except `external_indicator.relevant_period`, which stays text (`"2024"`) for the C# API.
-- **Forecast parameters.** `forecast_run.parameters` is `JSONB`, e.g. `{"window_size": 3}` or `{"alpha": 0.5}`.
+- **Forecast parameters.** `forecast_run.parameters` is `JSONB`. A Moving Average run stores `{"window_size": 3}`; an Exponential Smoothing run stores `{"alpha": 0.5}`. The web app's three predictions are Steady (window 3, weight 0.3), Balanced (window 3, weight 0.5) and Recent (window 2, weight 0.7). A run of one of those also records the name on the activity log.
 
 ## Allowed status values (enforced by `CHECK` constraints)
 
@@ -383,7 +383,7 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 | `rule_alert.severity` | `info`, `warning`, `critical` |
 | `rule_alert.resolution_status` | `open`, `acknowledged`, `resolved` |
 | `audit_log.area` | `account`, `upload`, `forecast`, `budget`, `target`, `rule`, `business`, `user` |
-| `audit_log.action` | `registered`, `signed_in`, `sign_in_failed`, `uploaded`, `approved`, `rejected`, `ran`, `chosen`, `added`, `changed`, `switched_off`, `switched_on`, `deleted`, `reset_requested` |
+| `audit_log.action` | `registered`, `uploaded`, `approved`, `rejected`, `ran`, `chosen`, `added`, `changed`, `switched_off`, `switched_on`, `deleted`, `reset_requested` |
 
 `external_indicator.indicator_code` and `rule_definition.indicator_code` must exist in `indicator_type` (foreign key). `financial_line_item.category`, `forecast_value.category` and `import_mapping.category_code` must exist in `line_category`.
 
@@ -408,7 +408,7 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 
 ## Activity log (`audit_log`)
 
-- The API writes one row for every sign-in (including failed ones on a known email), registration, upload, decision, forecast run, budget choice and every change to KPI targets, warning rules, business details and users, in the same save as the change itself.
+- The API writes one row for every registration, upload, decision, forecast run, budget choice and every change to KPI targets, warning rules, business details and users, in the same save as the change itself. Sign-in, a failed sign-in and sign-out are not recorded.
 - `summary` is one readable line ("Approved upload Karoo_FY2025.xlsx"); `details` is a `JSONB` list of `{ field, before, after }` (e.g. a threshold change, a rejection comment). Passwords are never stored, only "Temporary password set".
 - `user_name` keeps the person's name at the time, so a hard-deleted user's rows survive with `user_id` set to `NULL`. Rows are kept for good: nothing in the app edits or deletes them.
 - The admin (`app_user.is_admin`) reads every row of the business; everyone else reads only their own.

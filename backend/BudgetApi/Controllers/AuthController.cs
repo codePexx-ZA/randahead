@@ -1,4 +1,4 @@
-// Auth API: registers a new business with its first user, signs users in (logging each attempt), resets and changes passwords and returns who is signed in
+// Auth API: registers a new business with its first user, signs users in, resets and changes passwords and returns who is signed in
 using System.Buffers.Text;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
@@ -112,29 +112,19 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await db
             .AppUsers.AsNoTracking()
-            .Include(u => u.Unit)
             .FirstOrDefaultAsync(u => u.Email.ToLower() == email && u.DeletedAt == null, cancellationToken);
 
         var passwordOk = BCrypt.Net.BCrypt.Verify(request.Password, user?.PasswordHash ?? DummyHash.Value);
         if (user?.PasswordHash is null || !passwordOk)
         {
-            if (user is not null)
-            {
-                audit.Add(user, "account", "sign_in_failed", "Sign-in failed: wrong password");
-                await db.SaveChangesAsync(cancellationToken);
-            }
             return Unauthorized(new { message = "Incorrect email or password." });
         }
 
         if (user.ActiveStatus != "active")
         {
-            audit.Add(user, "account", "sign_in_failed", "Sign-in refused: the account is switched off");
-            await db.SaveChangesAsync(cancellationToken);
             return Forbidden("This account is switched off. Ask your Approver or Decision Maker to switch it back on.");
         }
 
-        audit.Add(user, "account", "signed_in", "Signed in");
-        await db.SaveChangesAsync(cancellationToken);
         var (token, expiresAt) = tokens.Create(user);
         return Ok(new { token, expiresAt, user = UserView(user) });
     }

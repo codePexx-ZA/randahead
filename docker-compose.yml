@@ -1,10 +1,10 @@
 # Docker Compose: runs the database, C# API, forecasting service and Mailpit (catches emails in development)
-name: sme-budget
+name: randahead
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: sme-budget-postgres
+    container_name: randahead-postgres
     environment:
       POSTGRES_DB: sme_budget
       POSTGRES_USER: budget
@@ -24,7 +24,7 @@ services:
     build:
       context: ./backend
       dockerfile: BudgetApi/Dockerfile
-    container_name: sme-budget-api
+    container_name: randahead-api
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=sme_budget;Username=budget;Password=${POSTGRES_PASSWORD}
@@ -42,7 +42,7 @@ services:
 
   mailpit:
     image: axllent/mailpit:latest
-    container_name: sme-budget-mailpit
+    container_name: randahead-mailpit
     ports:
       - "127.0.0.1:8025:8025"
       - "127.0.0.1:1025:1025"
@@ -50,9 +50,11 @@ services:
   forecast:
     build:
       context: ./forecasting
-    container_name: sme-budget-forecast
+    container_name: randahead-forecast
     ports:
       - "127.0.0.1:5090:8000"
 
 volumes:
   sme_budget_pgdata:
+    name: sme-budget_sme_budget_pgdata
+    external: true

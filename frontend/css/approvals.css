@@ -265,7 +265,6 @@
   font-family: inherit;
   font-size: 0.88em;
   resize: vertical;
-  outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 

@@ -15,7 +15,7 @@
   flex-direction: column;
   padding: 22px 16px;
   background: var(--surface);
-  box-shadow: 6px 0 18px var(--neu-dark);
+  border-right: 1px solid var(--border);
   z-index: 50;
   transition: transform var(--transition);
 }
@@ -127,8 +127,8 @@
   align-items: center;
   gap: 16px;
   padding: 16px 28px;
-  background: var(--bg-glass);
-  backdrop-filter: blur(10px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .menu-toggle {
@@ -184,7 +184,6 @@
   box-shadow: var(--neu-inset-sm);
   color: var(--text);
   font-size: 0.95em;
-  outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
@@ -261,11 +260,10 @@
   width: 100%;
   padding: 14px 18px 14px 48px;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
   font-size: 0.95em;
-  outline: none;
   box-shadow: var(--neu-inset);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
@@ -311,16 +309,12 @@
 .metric-card:nth-child(3) { animation-delay: 0.14s; }
 .metric-card:nth-child(4) { animation-delay: 0.21s; }
 
-.metric-card:hover {
-  box-shadow: var(--neu-raised-lg);
-}
-
 .metric-card.pulse {
   animation: pulse 0.4s ease;
 }
 
 @keyframes pulse {
-  50% { transform: scale(1.025); }
+  50% { background: var(--blue-tint); }
 }
 
 .select-wrap {
@@ -353,7 +347,6 @@
   font-size: 0.85em;
   font-weight: 600;
   cursor: pointer;
-  outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 

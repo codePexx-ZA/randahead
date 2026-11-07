@@ -1,4 +1,4 @@
-/* Base styles: colours, neumorphic shadows, reset and toasts */
+/* Base styles: brand colours, flat edges, reset and toasts */
 :root {
   --blue: #3368a0;
   --sky: #66a3bf;
@@ -6,9 +6,9 @@
   --cream: #f2efe7;
 
   --bg: var(--cream);
-  --surface: var(--cream);
+  --surface: #f7f4ee;
   --surface-hover: #ebe7dd;
-  --border: rgba(166, 156, 132, 0.28);
+  --border: #d4cdb8;
   --text: #1f3550;
   --text-muted: #5f7f96;
   --accent: var(--blue);
@@ -23,28 +23,40 @@
   --danger-tint: rgba(201, 74, 84, 0.1);
   --success-tint: rgba(47, 143, 111, 0.12);
   --warning-tint: rgba(217, 154, 43, 0.14);
-  --bg-glass: rgba(242, 239, 231, 0.85);
+  --bg-glass: var(--surface);
   --overlay: rgba(31, 53, 80, 0.35);
-  --radius: 18px;
-  --radius-sm: 12px;
-  --neu-light: rgba(255, 255, 255, 0.9);
-  --neu-dark: rgba(166, 156, 132, 0.45);
-  --neu-raised: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
-  --neu-raised-sm: 4px 4px 10px var(--neu-dark), -4px -4px 10px var(--neu-light);
-  --neu-raised-lg: 14px 14px 30px var(--neu-dark), -14px -14px 30px var(--neu-light);
-  --neu-inset: inset 4px 4px 9px var(--neu-dark), inset -4px -4px 9px var(--neu-light);
-  --neu-inset-sm: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
-  --focus-ring: 0 0 0 3px var(--sky-tint);
-  --shadow: var(--neu-raised-lg);
-  --shadow-sm: var(--neu-raised-sm);
-  --transition: 0.3s ease;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --line: 0 0 0 1px var(--border);
+  --neu-raised: var(--line);
+  --neu-raised-sm: var(--line);
+  --neu-raised-lg: var(--line);
+  --neu-inset: var(--line);
+  --neu-inset-sm: var(--line);
+  --focus-ring: none;
+  --shadow: var(--line);
+  --shadow-sm: var(--line);
+  --transition: 150ms ease-in-out;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: "Poppins", sans-serif;
+  font-family: var(--font);
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.num,
+.metric-value {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 body {
@@ -111,6 +123,11 @@ a {
   .toast {
     max-width: none;
   }
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {

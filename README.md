@@ -98,10 +98,10 @@ graph LR
 | Passwords | Done: "Forgot password?" emails a one-time link (30 minutes; caught by Mailpit in development), managers set temporary passwords that must be changed at the next sign-in, and everyone can change their own password (`password.html`) |
 | Users & business (API) | Done: `/api/business` and `/api/users` (add, edit, switch off, delete), scoped to the signed-in user's business; the Users & business screen uses them |
 | Submissions, approvals (API) | Done: `/api/submissions` (upload, approve / reject, versioning); the Upload statement and Approvals screens use it |
-| Forecasts and budget (API) | Done: `/api/forecasts` (C# asks the Python service) and `/api/budgets` (choose MA, ES or their average, approve / reject); Forecast & budget, the dashboard budget and budget approvals use them |
+| Forecasts and budget (API) | Done: `/api/forecasts` (C# asks the Python service) and `/api/budgets` (choose MA, ES or their average, approve / reject). The web app offers three predictions, Steady (3-year average, weight 0.3), Balanced (3-year average, weight 0.5) and Recent (2-year average, weight 0.7), plus how far ahead (1–3 years). Forecast & budget, the dashboard budget and budget approvals use them |
 | Excel income statement importer | Done: C# + ClosedXML reads `.xlsx` / `.csv` on the server, standard template download |
 | API error handling | Done: every failed request (bad input, missing permission, database down, unexpected error) answers with a readable `{ message }` the web app can show; server errors are logged with a trace id |
-| Activity log | Done: every sign-in, upload, decision and change is logged (`audit_log`, `GET /api/audit`); the admin sees the whole business, everyone else their own actions |
+| Activity log | Done: every registration, upload, decision and change is logged (`audit_log`, `GET /api/audit`); sign-in and sign-out are not. The admin sees the whole business, everyone else their own actions |
 | KPI targets, dashboard, reports | Done: `/api/kpi-targets`, and `GET /api/dashboard` (a year's figures vs the year before, budget vs actual once a budgeted year is approved, KPI target progress) behind the dashboard's KPI cards and Budget vs actual panel, and `GET /api/reports` (every approved year and the approved budget side by side, key ratios, targets; CSV download and print / PDF) for the Decision Maker |
 | Web app screens | Login, dashboard (incl. KPI targets), reports (Decision Maker), upload (incl. combining uploads into one history), forecast & budget, approvals, targets & rules (KPI targets, warning thresholds), and users & business (users management, business details) done, each action limited to its role, plus an Admin account (database flag, for senior IT management) that can do everything and delete users while keeping their history |
 
@@ -113,6 +113,8 @@ Needs **Docker Desktop** (running). From the repo root:
 Copy-Item .env.example .env      # first time only, then set JWT_KEY to a long random string
 docker compose up -d --build
 ```
+
+The compose project is `randahead`. The containers are `randahead-postgres`, `randahead-api`, `randahead-forecast` and `randahead-mailpit`.
 
 The database starts with a fictional business (Karoo Outdoor Supplies) and demo users; sign-ins are listed in `database/README.md`.
 

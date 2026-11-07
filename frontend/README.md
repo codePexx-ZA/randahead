@@ -133,7 +133,7 @@ For the Decision Maker: one combined report of every approved year (up to 5) fol
 | Approvals | See below |
 | Targets & rules | See below |
 | Users & business | See below |
-| Activity log | Who did what and when: sign-ins (and failed ones), uploads, decisions, forecast runs, budget choices and every change to targets, rules, business details and users, newest first, with before → after values. The **admin** sees everyone in the business and can filter by person; everyone else sees only their own actions. Filters: area, person (admin), from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
+| Activity log | Who did what and when: registrations, uploads, decisions, forecast runs, budget choices and every change to targets, rules, business details and users, newest first, with before → after values. Sign-in and sign-out are not listed. The **admin** sees everyone in the business and can filter by person; everyone else sees only their own actions. Filters: area, person (admin), from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
 | Contact support | "Get in touch" form (name and email filled in from the signed-in user, topic, message) sent through `POST /api/support`, which emails the support inbox (Mailpit at http://localhost:8025 in development) |
 
 ## Upload statement
@@ -168,8 +168,8 @@ Runs **Moving Average** and **Exponential Smoothing** side by side for each of t
 
 | Part | What it does |
 |---|---|
-| Forecast settings | Moving Average window (2 or 3 years, default 3), smoothing weight α (0.1–0.9, default 0.5), horizon (1–3 years). **Run forecasts** runs both methods once (one saved run each). Changing a setting shows "Settings changed" until you run again |
-| How the two methods work | Plain-language explanation of each method, updated live with the chosen window and α (e.g. "the latest year counts about 50%, the year before 25%…"). An honest note says forecasts are **flat** (years 2–3 repeat year 1, no growth or inflation added) and how many categories come out below last year |
+| Forecast settings | Three predictions: **Steady** (last 3 years, smoothing weight 0.3), **Balanced** (last 3 years, weight 0.5, the default) and **Recent** (last 2 years, weight 0.7). How far ahead is still 1, 2 or 3 years. **Run forecasts** runs both methods once (one saved run each). Changing a setting shows "Settings changed" until you run again. The exact window and weight are shown under the prediction and stored on the activity log |
+| How the two methods work | Moving Average says it adds the last 2 or 3 years and divides, each year counting the same. Exponential Smoothing follows the prediction: **Steady** keeps older years in the picture, **Balanced** lets recent years count more without following only the latest year, **Recent** follows the latest years. An honest note says forecasts are **flat** (years 2–3 repeat year 1, no growth or inflation added) and how many categories come out below last year |
 | Economic warnings | Each active warning rule (starting with one per external indicator: headline CPI, core CPI, electricity price, fuel price at 6 / 6 / 10 / 10%; set in Targets & rules) checked against the latest indicator year inside the history. A warning lists the categories to review and is also shown on those rows of the table. **Warnings never change the figures** |
 | History vs forecasts | Line chart for one category or total: actual figures (navy, solid), Moving Average (blue, dashed), Exponential Smoothing (sky, dashed) and their average (muted, dotted) starting from the last actual year. Pick it from the dropdown or click a table row |
 | Side-by-side comparison | Every category and subtotal: last actual year, both forecasts and their average, each with the % change (green = better for the business, red = worse). Team-managed categories (revenue, employee costs) are tagged |
@@ -225,22 +225,15 @@ Used across the whole app (and charts, logo, screenshots). Defined once as CSS v
 | Variable | Hex | Use |
 |---|---|---|
 | `--blue` / `--accent` | `#3368A0` | Buttons, links, brand name, main chart series |
-| `--sky` / `--accent-light` | `#66A3BF` | Highlights, hover glow, second chart series |
+| `--sky` / `--accent-light` | `#66A3BF` | Highlights, second chart series |
 | `--mint` | `#C8DFDB` | Avatars, tags, subtle highlights |
-| `--cream` / `--bg` / `--surface` | `#F2EFE7` | Page background and cards (same colour) |
+| `--cream` / `--bg` | `#F2EFE7` | Page background |
+| `--surface` | `#F7F4EE` | Cards, panels and the top bar |
 
-Supporting: text `#1F3550`, muted text `#5F7F96`, sunken cream `--surface-hover` `#EBE7DD` (subtotal rows, disabled inputs), danger `#C94A54`, warning `#D99A2B`, success `#2F8F6F`, plus see-through tints (`--blue-tint`, `--sky-tint`, `--warning-tint`, …) for hovers and highlights. `--border` is a faint see-through line used only for dividers inside panels.
+Supporting: text `#1F3550`, muted text `#5F7F96`, `--surface-hover` `#EBE7DD` (subtotal rows), danger `#C94A54`, warning `#D99A2B`, success `#2F8F6F`, plus see-through tints (`--blue-tint`, `--sky-tint`, `--warning-tint`, …) for hovers and highlights. `--border` is `#D4CDB8`, the 1px edge on panels, fields and buttons.
 
-## Look: neumorphism (soft UI)
+Text uses the system UI font (`--font`). Amounts, statement figures and metric values use a monospace face (`--font-num`) with `tabular-nums`, so columns of rands line up.
 
-Cards, inputs and buttons are the same cream as the page and are shaped only by two soft shadows (light top-left, dark bottom-right), defined once in `base.css`:
+## Look
 
-| Variable | Use |
-|---|---|
-| `--neu-raised`, `--neu-raised-sm`, `--neu-raised-lg` | Raised: panels, cards, buttons, toasts |
-| `--neu-inset`, `--neu-inset-sm` | Pressed in: inputs, selects, search, drop zone, progress bars, switched-off rules, selected choice cards, pressed buttons |
-| `--focus-ring` | Sky ring added to the inset shadow on focus |
-
-No outlines around cards and no coloured accent strips on card edges (removed on purpose); status is shown by badges, icons, bar colours and tints instead.
-
-The login card design started from an open-source login page and was reworked for this app.
+Panels, fields and buttons sit on the cream page with a 1px border (`--line` in `base.css`, and the old `--neu-*` names now point at that same line). Corners are 8px on panels and 6px on buttons and fields. Keyboard focus draws a 2px accent outline. Colour on a figure means something: green is better for the business, red is worse, amber is waiting. The login card uses the same border.

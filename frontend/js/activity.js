@@ -5,7 +5,7 @@ import { showToast } from "./toast.js";
 import { emptyRow, html, raw } from "./ui.js";
 
 const AC_AREAS = {
-  account: { label: "Sign-ins and account", icon: "fa-right-to-bracket" },
+  account: { label: "Account", icon: "fa-key" },
   upload: { label: "Uploads", icon: "fa-file-arrow-up" },
   forecast: { label: "Forecasts", icon: "fa-chart-line" },
   budget: { label: "Budgets", icon: "fa-scale-balanced" },
@@ -14,7 +14,7 @@ const AC_AREAS = {
   business: { label: "Business details", icon: "fa-building" },
   user: { label: "Users", icon: "fa-user" },
 };
-const AC_ALERT_ACTIONS = ["sign_in_failed", "rejected", "deleted", "switched_off"];
+const AC_ALERT_ACTIONS = ["rejected", "deleted", "switched_off"];
 const ac = { data: null, request: 0 };
 
 const acDateFormat = new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short", year: "numeric" });
@@ -118,8 +118,8 @@ export function setup() {
     : "What you've done in RandAhead";
   document.getElementById("acHeading").textContent = admin ? "All activity" : "Your activity";
   document.getElementById("acMeta").textContent = admin
-    ? "Sign-ins, uploads, decisions and every change, by everyone in the business."
-    : "Your sign-ins, uploads, decisions and changes. Only the admin sees everyone's activity.";
+    ? "Uploads, decisions and every change, by everyone in the business."
+    : "Your uploads, decisions and changes. Only the admin sees everyone's activity.";
   document.getElementById("acPersonField").hidden = !admin;
 
   document.getElementById("acArea").innerHTML = html`<option value="">All areas</option>${Object.entries(AC_AREAS)

@@ -12,10 +12,9 @@
   width: 400px;
   padding: 40px 45px 30px;
   background: var(--surface);
-  border-radius: calc(var(--radius) + 10px);
-  box-shadow: var(--neu-raised-lg);
-  transition: box-shadow var(--transition), transform var(--transition);
-  animation: card-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  border-radius: var(--radius);
+  box-shadow: var(--line);
+  animation: card-in 0.35s ease both;
 }
 
 .wrapper.shake {
@@ -23,8 +22,8 @@
 }
 
 @keyframes card-in {
-  from { opacity: 0; transform: translateY(30px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes shake {
@@ -52,19 +51,8 @@
   color: var(--accent);
   font-size: 2.4em;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.02em;
   line-height: 1.1;
-  animation: name-pop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s backwards;
-  transition: transform var(--transition);
-}
-
-.wrapper:hover .brand-name {
-  transform: translateY(-2px) scale(1.03);
-}
-
-@keyframes name-pop {
-  from { opacity: 0; transform: scale(0.8); }
-  to   { opacity: 1; transform: scale(1); }
 }
 
 .brand-name sup {
@@ -85,7 +73,7 @@
   width: 100%;
   margin: 34px 0 30px;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: var(--radius);
   box-shadow: var(--neu-inset);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
@@ -104,7 +92,6 @@
   height: 50px;
   background: transparent;
   border: none;
-  outline: none;
   font-size: 1em;
   color: var(--text);
   padding: 0 44px 0 16px;
@@ -185,7 +172,7 @@
   width: 100%;
   height: 46px;
   border: none;
-  border-radius: 40px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   box-shadow: var(--neu-raised-sm);
   color: var(--on-accent);
@@ -200,7 +187,7 @@
 }
 
 .btn:active {
-  box-shadow: inset 3px 3px 7px var(--accent-dark), inset -3px -3px 7px var(--accent-light);
+  background: var(--accent-dark);
 }
 
 .btn:disabled {
