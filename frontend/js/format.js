@@ -1,7 +1,7 @@
-// Formatters: rands, sheet numbers, dates, % changes, KPI values, month names and HTML escaping
 export const randFormat = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 export const numberFormat = new Intl.NumberFormat("en-ZA", { maximumFractionDigits: 0 });
 const dateFormat = new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+const monthFormat = new Intl.DateTimeFormat("en-ZA", { month: "long" });
 
 export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => (
@@ -19,7 +19,8 @@ export function formatDate(iso) {
 }
 
 export function monthName(month) {
-  return new Date(2000, month - 1, 1).toLocaleString("en-ZA", { month: "long" });
+  const date = new Date(2000, month - 1, 1);
+  return Number.isNaN(date.getTime()) ? date.toString() : monthFormat.format(date);
 }
 
 export function initials(name) {

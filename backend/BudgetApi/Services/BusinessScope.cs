@@ -1,4 +1,3 @@
-// Business scope: locks a business unit and checks what a business has on record
 using BudgetApi.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +5,6 @@ namespace BudgetApi.Services;
 
 public class BusinessScope(BudgetDbContext db)
 {
-    // Holds a row lock until the surrounding transaction ends, so uploads and decisions for one unit run one at a time
     public Task LockUnitAsync(string unitId, CancellationToken cancellationToken) =>
         db.Database.ExecuteSqlAsync($"SELECT 1 FROM business_unit WHERE unit_id = {unitId} FOR UPDATE", cancellationToken);
 

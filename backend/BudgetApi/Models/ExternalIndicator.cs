@@ -1,4 +1,3 @@
-// External indicator model: one indicator value per year
 using System.Text.Json.Serialization;
 
 namespace BudgetApi.Models;

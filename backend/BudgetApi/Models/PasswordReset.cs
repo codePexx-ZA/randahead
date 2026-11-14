@@ -1,4 +1,3 @@
-// Password reset model: a one-time emailed link, stored only as a hash of its token
 namespace BudgetApi.Models;
 
 public class PasswordReset

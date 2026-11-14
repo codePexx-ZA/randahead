@@ -1,4 +1,3 @@
-// Business unit model: the part of a business that budgets (for now the whole company)
 namespace BudgetApi.Models;
 
 public class BusinessUnit

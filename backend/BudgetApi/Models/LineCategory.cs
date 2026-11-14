@@ -1,4 +1,3 @@
-// Line category model: an income statement category
 namespace BudgetApi.Models;
 
 public class LineCategory

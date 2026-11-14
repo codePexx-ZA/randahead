@@ -1,4 +1,3 @@
-// App startup: registers services and starts the API
 using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

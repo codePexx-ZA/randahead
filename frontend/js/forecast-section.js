@@ -1,4 +1,3 @@
-// Forecast and budget section: runs forecasts and chooses the budget
 import { chooseBudget as saveBudgetChoice, getLatestForecast, runForecasts } from "./api.js";
 import { changeClass, numberFormat, percentChange, randFormat, yearsText } from "./format.js";
 import { FORECAST_PRESETS, METHOD_NAMES, compareRuns, describeMethod, fyStartDate, presetFor } from "./forecast.js";

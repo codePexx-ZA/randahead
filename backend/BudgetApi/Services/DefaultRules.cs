@@ -1,4 +1,3 @@
-// Default warning rules: the four indicator rules every new business starts with, and the rule wording
 using BudgetApi.Models;
 
 namespace BudgetApi.Services;

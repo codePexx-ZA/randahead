@@ -1,4 +1,3 @@
-// Approvals section: approve or reject uploads and budgets
 import { decideBudget, decideSubmission, getPendingSubmissions } from "./api.js";
 import { formatDate, yearsText } from "./format.js";
 import { describeMethod } from "./forecast.js";

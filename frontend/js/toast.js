@@ -1,4 +1,3 @@
-// Toast messages: shows small pop-up notifications
 export function showToast(message, type = "info", duration = 3500) {
   const icons = {
     success: "fa-circle-check",

@@ -1,4 +1,3 @@
-// Ingestion service: fetches, validates and saves indicators
 using BudgetApi.Data;
 using BudgetApi.Models;
 using Microsoft.EntityFrameworkCore;

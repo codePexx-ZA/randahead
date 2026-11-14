@@ -1,4 +1,3 @@
-// Forecast run model: one method's forecast for a business unit
 namespace BudgetApi.Models;
 
 public class ForecastRun

@@ -1,4 +1,3 @@
-// Schema tests: every table, column, column type and primary key EF Core maps exists in database/init/01_schema.sql
 using System.Text.RegularExpressions;
 using BudgetApi.Data;
 using Microsoft.EntityFrameworkCore;
@@ -77,7 +76,6 @@ public partial class SchemaTests
                 }
             );
 
-    // Lengths and precisions only document the schema here, so EF maps them as the bare type
     private static string EfType(string sqlType) =>
         sqlType switch
         {

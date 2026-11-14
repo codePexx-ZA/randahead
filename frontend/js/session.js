@@ -1,4 +1,3 @@
-// Session: the signed-in user and token, kept in localStorage ("remember me") or sessionStorage
 export const Session = {
   save(data, remember) {
     (remember ? localStorage : sessionStorage).setItem("session", JSON.stringify(data));

@@ -1,4 +1,3 @@
-// Forecast results: the two methods' runs beside the API's comparison of them, financial-year labels and economic warnings
 export const METHOD_NAMES = {
   moving_average: "Moving Average",
   exponential_smoothing: "Exponential Smoothing",
@@ -16,7 +15,6 @@ export function presetFor(windowSize, alpha) {
   return found ? { id: found[0], ...found[1] } : null;
 }
 
-// Shorter than the indicator_type names, to fit the rule list and warnings
 export const INDICATOR_NAMES = {
   cpi_headline: "Consumer inflation (headline CPI)",
   cpi_core: "Core inflation",

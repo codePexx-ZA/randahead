@@ -1,4 +1,3 @@
-// Permissions: the roles, what each one may do (an admin may do everything) and the attribute that guards an endpoint with them
 using BudgetApi.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -48,14 +47,12 @@ public static class Permissions
 
     public static string[] For(AppUser user) => Grants.Select(g => g.Permission).Where(p => Allows(user, p)).ToArray();
 
-    // Approvers manage Submitters only, so one person can't control both choosing and approving a budget
     public static bool CanManage(AppUser caller, string targetRole) =>
         Allows(caller, ManageUsers) && (caller.IsAdmin || caller.Role == Roles.DecisionMaker || targetRole == Roles.Submitter);
 
     public static string[] ManageableRoles(AppUser user) => Roles.All.Where(role => CanManage(user, role)).ToArray();
 }
 
-// Runs before model binding, so a caller without the permission gets 403 even when the body is invalid
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class RequirePermissionAttribute(string permission, string message = "Your role can't do this.")
     : Attribute,

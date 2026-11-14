@@ -1,4 +1,3 @@
-// Reports API: the combined report for Decision Makers, every approved year and the approved budget's years side by side, with key ratios and KPI target results
 using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authorization;

@@ -1,4 +1,3 @@
-// Import mapping model: a business's remembered choice of category (and split) for a file label
 namespace BudgetApi.Models;
 
 public class ImportMapping

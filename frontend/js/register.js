@@ -1,4 +1,3 @@
-// Register page: signs up a new business with its first Decision Maker, then signs them in
 import { register } from "./api.js";
 import { rejectInput, setLoading, setupAuthForm, shakeCard } from "./auth-form.js";
 import { EMAIL_PATTERN, INDUSTRIES, MIN_PASSWORD_LENGTH } from "./config.js";

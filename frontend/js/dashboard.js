@@ -1,4 +1,3 @@
-// Dashboard page: checks the signed-in user, switches sections and loads the data every section shares
 import * as activity from "./activity.js";
 import { getApprovedSubmissions, getBusiness, getCurrentUser, getStatementDefinitions } from "./api.js";
 import * as approvals from "./approvals.js";
@@ -106,7 +105,6 @@ async function refreshUser() {
     state.user = { ...state.user, ...user };
     await emit("user");
   } catch {
-    // The stored user stays in place; a 401 has already sent the user to the login page
   }
   return true;
 }

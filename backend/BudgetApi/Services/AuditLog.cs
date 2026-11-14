@@ -1,4 +1,3 @@
-// Audit log: records who did what in the business, with before and after values, saved together with the change itself
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;

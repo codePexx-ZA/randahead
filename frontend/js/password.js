@@ -1,4 +1,3 @@
-// Password page: emails a reset link, sets a new password from that link, or changes the signed-in user's password
 import { changePassword, forgotPassword, resetPassword } from "./api.js";
 import { rejectInput, setLoading, setupAuthForm, shakeCard } from "./auth-form.js";
 import { EMAIL_PATTERN, MIN_PASSWORD_LENGTH } from "./config.js";

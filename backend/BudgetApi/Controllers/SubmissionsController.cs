@@ -1,4 +1,3 @@
-// Submissions API: income statement uploads, the approver's decisions on them and the business's remembered line mappings
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using BudgetApi.Data;
@@ -66,7 +65,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     private const int MaxYears = StatementImporter.MaxYears;
     private const int MaxRows = StatementImporter.MaxRows;
     private const long MaxFileBytes = 5 * 1024 * 1024;
-    // Keeps the sum of up to MaxRows lines inside financial_line_item.amount NUMERIC(18,2)
     private const decimal MaxRandAmount = 10_000_000_000_000m;
     private const string UploadersOnly = "Only a Submitter can upload income statements.";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -132,7 +130,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         }
     }
 
-    // The statement an upload would give, with its subtotal checks, while the submitter is still mapping it
     [HttpPost("check")]
     [RequirePermission(Permissions.Upload, UploadersOnly)]
     public IActionResult Check(SubmissionRequest request)

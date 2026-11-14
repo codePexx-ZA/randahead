@@ -1,4 +1,3 @@
-// Income statement tests: category totals and their sign rule, subtotals, KPIs, target progress and the template's formulas
 using BudgetApi.Models;
 using BudgetApi.Services;
 using ClosedXML.Excel;

@@ -1,4 +1,3 @@
-# Docker Compose: runs the database, C# API, forecasting service and Mailpit (catches emails in development)
 name: randahead
 
 services:

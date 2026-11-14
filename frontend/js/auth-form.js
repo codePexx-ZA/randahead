@@ -1,4 +1,3 @@
-// Auth form helpers: floating labels, show-password toggles, loading buttons and errors for the sign-in pages
 import { showToast } from "./toast.js";
 
 const wrapper = document.querySelector(".wrapper");

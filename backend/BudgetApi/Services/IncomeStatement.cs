@@ -1,4 +1,3 @@
-// Income statement: the one definition of the 13 categories, the subtotals and their formulas, the display layout, the sign rule and the KPIs
 namespace BudgetApi.Services;
 
 public record LayoutItem(string? Category = null, string? Subtotal = null, string? Heading = null);
@@ -39,10 +38,8 @@ public static class IncomeStatement
         "depreciation",
     ];
 
-    // Same codes and order as line_category in database/init/02_reference_data.sql
     public static readonly string[] Categories = [Revenue, "other_income", "cost_of_sales", .. OperatingExpenses, "finance_costs", "income_tax"];
 
-    // Each subtotal may use the ones before it
     public static readonly SubtotalFormula[] Subtotals =
     [
         new(GrossProfit, "Gross profit", [(1, [Revenue]), (-1, ["cost_of_sales"])]),
@@ -81,7 +78,6 @@ public static class IncomeStatement
 
     public static string SubtotalName(string code) => Subtotals.First(s => s.Code == code).Name;
 
-    // In the order targets are listed: profits, margins, then the categories
     public static List<KpiDefinition> Kpis(IReadOnlyDictionary<string, string> categoryNames) =>
     [
         .. ProfitKpis.Select(code => new KpiDefinition(code, SubtotalName(code), "Profit and margins", "rand", true)),
@@ -111,7 +107,6 @@ public static class IncomeStatement
         return figures.TryGetValue(metric, out var value) ? value : null;
     }
 
-    // Rands per category and year from the file's lines (amounts in file units, one per year, blank = 0)
     public static Dictionary<string, decimal[]> CategoryTotals(
         IEnumerable<(decimal?[] Values, IEnumerable<MappingPart> Mapping)> lines,
         int years,
@@ -129,8 +124,6 @@ public static class IncomeStatement
                 }
             }
         }
-        // Statements may show expenses in brackets or income as negative, so each side's overall sign sets its convention;
-        // a category signed against its side (a tax credit, an other-income loss) stays negative
         static int SideSign(IEnumerable<decimal[]> side) => side.Sum(a => a.Sum()) < 0 ? -1 : 1;
         var incomeSign = SideSign(totals.Where(t => IsIncome(t.Key)).Select(t => t.Value));
         var expenseSign = SideSign(totals.Where(t => !IsIncome(t.Key)).Select(t => t.Value));
@@ -158,8 +151,6 @@ public static class IncomeStatement
         );
     }
 
-    // The statement behind a file's rows, with each of the file's own subtotal rows checked against the recalculation:
-    // within one unit of the file's scale matches, and a later row for the same subtotal replaces an earlier one
     public static StatementTable FromRows(
         string[] years,
         IReadOnlyList<(string Kind, string? Subtotal, decimal?[] Values, IEnumerable<MappingPart>? Mapping)> rows,
