@@ -1,4 +1,3 @@
-// UI helpers: an auto-escaping html template, the render pieces shared by sections, and busy buttons
 import { changeClass, escapeHtml, formatGap, formatKpiValue, formatSheet, numberFormat, pctText, percentChange, randFormat } from "./format.js";
 import { getCategory } from "./store.js";
 

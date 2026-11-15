@@ -1,4 +1,3 @@
-# CI: builds and checks the database, C# API, forecasting service and frontend on every push
 name: CI
 
 on:

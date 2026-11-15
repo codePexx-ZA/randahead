@@ -1,4 +1,3 @@
--- Database schema: creates all tables
 
 BEGIN;
 

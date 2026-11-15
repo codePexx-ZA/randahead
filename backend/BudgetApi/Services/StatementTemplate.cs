@@ -1,4 +1,3 @@
-// Statement template: builds the standard Excel income statement (categories down, the last five financial years across)
 using ClosedXML.Excel;
 
 namespace BudgetApi.Services;
@@ -36,7 +35,6 @@ public static class StatementTemplate
 
         var row = HeaderRow;
         var at = new Dictionary<string, int>();
-        // A term over several lines must list them in layout order, as one SUM over their rows
         string Term(string column, string[] codes) =>
             codes.Length == 1 ? $"{column}{at[codes[0]]}" : $"SUM({column}{at[codes[0]]}:{column}{at[codes[^1]]})";
 

@@ -1,4 +1,3 @@
-// Activity log section: who did what and when; the admin sees the whole business, everyone else only their own actions
 import { getActivity } from "./api.js";
 import { state } from "./store.js";
 import { showToast } from "./toast.js";

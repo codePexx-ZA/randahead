@@ -1,4 +1,3 @@
-// Error responses: gives every failed request (bad input, unhandled exception, bare status code) a readable { message } body
 using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;

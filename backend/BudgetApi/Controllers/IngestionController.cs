@@ -1,4 +1,3 @@
-// Ingestion API: fetches and saves external indicators, and returns the new alerts for the caller's business only
 using BudgetApi.Data;
 using BudgetApi.Models;
 using BudgetApi.Services;

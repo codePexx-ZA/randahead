@@ -1,4 +1,3 @@
-// Must change password: blocks every API call except the ones marked [AllowTemporaryPassword] while the user is still on a temporary password
 namespace BudgetApi.Services;
 
 [AttributeUsage(AttributeTargets.Method)]

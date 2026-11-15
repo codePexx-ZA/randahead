@@ -1,4 +1,3 @@
-// Forecasts API: runs both forecasting methods through the Python service, saves them and returns the business's latest pair of runs with their comparison
 using System.Globalization;
 using System.Text.Json.Serialization;
 using BudgetApi.Data;

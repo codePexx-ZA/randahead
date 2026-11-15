@@ -1,4 +1,3 @@
-# Forecasting logic: checks an annual history and runs both forecasting methods on it
 from dataclasses import dataclass, field
 from datetime import date
 

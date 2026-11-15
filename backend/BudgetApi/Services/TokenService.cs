@@ -1,4 +1,3 @@
-// Token service: creates signed JWT sign-in tokens for users
 using System.Security.Claims;
 using System.Text;
 using BudgetApi.Models;

@@ -1,4 +1,3 @@
-// Contact support section: sends the signed-in user's message to the support inbox
 import { sendSupportMessage } from "./api.js";
 import { on, state } from "./store.js";
 import { showToast } from "./toast.js";

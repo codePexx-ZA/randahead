@@ -1,4 +1,3 @@
-// Auth API: registers a new business with its first user, signs users in, resets and changes passwords and returns who is signed in
 using System.Buffers.Text;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
@@ -177,7 +176,6 @@ public class AuthController(BudgetDbContext db, TokenService tokens, AuditLog au
 
             If you didn't ask for this, ignore this email and your password stays the same.
             """;
-        // Not awaited, so the response takes the same time whether or not the account exists
         _ = mailer.SendAsync(user.Email, "Reset your RandAhead password", body, CancellationToken.None);
         return Ok(sent);
     }

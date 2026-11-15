@@ -1,4 +1,3 @@
-# Forecasting API: one endpoint that forecasts an annual history sent by the C# API
 from dataclasses import asdict
 from datetime import date
 

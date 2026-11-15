@@ -1,3 +1,2 @@
-# Python packages for the forecasting service
 fastapi==0.115.12
 uvicorn[standard]==0.34.2

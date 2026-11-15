@@ -1,4 +1,3 @@
-// Budget selection model: the forecast a decision maker chose as the budget and where it is in the approval flow
 namespace BudgetApi.Models;
 
 public class BudgetSelection

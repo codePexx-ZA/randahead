@@ -1,4 +1,3 @@
-// Financial year tests: labels and start dates for a December and a February year end
 using BudgetApi.Services;
 
 namespace BudgetApi.Tests;

@@ -1,4 +1,3 @@
-// Dashboard section: metric cards, KPI target cards, budget vs actual and both income statements
 import { getDashboard } from "./api.js";
 import { changeClass, formatKpiValue, formatSheet, numberFormat, randFormat, yearsText } from "./format.js";
 import { METHOD_NAMES, describeMethod } from "./forecast.js";

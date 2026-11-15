@@ -1,4 +1,3 @@
-// World Bank client: fetches inflation data from the World Bank API
 using System.Text.Json;
 
 namespace BudgetApi.Services;

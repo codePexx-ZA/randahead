@@ -1,4 +1,3 @@
-// Database context: maps classes to database tables (column names come from the snake_case naming convention in Program.cs)
 using System.Text.RegularExpressions;
 using BudgetApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +33,6 @@ public partial class BudgetDbContext(DbContextOptions<BudgetDbContext> options) 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Tables are named after the class, not the DbSet
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
             entity.SetTableName(WordStart().Replace(entity.ClrType.Name, "_").ToLowerInvariant());

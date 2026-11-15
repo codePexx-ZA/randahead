@@ -1,4 +1,3 @@
-// Rate limits: caps sign-in, register, password reset and support messages per client IP and answers 429 with a readable message
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 

@@ -1,4 +1,3 @@
--- Demo data: fictional business, users, income statement uploads, KPI targets and activity log
 
 BEGIN;
 

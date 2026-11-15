@@ -1,4 +1,3 @@
-// Business model: the company that uses the app
 namespace BudgetApi.Models;
 
 public class Business

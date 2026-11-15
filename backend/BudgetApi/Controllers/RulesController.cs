@@ -1,4 +1,3 @@
-// Warning rules API: lists, adds, changes, switches off and deletes the caller's business's indicator warning rules
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
 using BudgetApi.Models;

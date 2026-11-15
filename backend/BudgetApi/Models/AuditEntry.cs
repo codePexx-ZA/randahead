@@ -1,4 +1,3 @@
-// Audit entry model: one thing a person did in the business, with what changed and when
 namespace BudgetApi.Models;
 
 public class AuditEntry

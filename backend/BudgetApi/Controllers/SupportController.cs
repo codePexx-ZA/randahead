@@ -1,4 +1,3 @@
-// Support API: emails a signed-in user's support message to the support inbox, with their email as the reply address
 using System.Text.Json.Serialization;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authorization;

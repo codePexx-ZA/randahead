@@ -1,4 +1,3 @@
-// Users API: lists, adds, edits, switches off and deletes the people who sign in to the caller's business
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
 using BudgetApi.Models;

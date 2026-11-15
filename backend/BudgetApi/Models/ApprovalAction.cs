@@ -1,4 +1,3 @@
-// Approval action model: an approver's decision on an upload or a budget, with their comment
 namespace BudgetApi.Models;
 
 public class ApprovalAction

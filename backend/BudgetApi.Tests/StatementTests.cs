@@ -1,4 +1,3 @@
-// Statement tests: reading the sample income statement
 using BudgetApi.Services;
 
 namespace BudgetApi.Tests;

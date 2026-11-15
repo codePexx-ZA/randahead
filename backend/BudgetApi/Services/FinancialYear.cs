@@ -1,4 +1,3 @@
-// Financial year: converts between labels like "FY2025" and the date the year starts, for a given year-end month
 namespace BudgetApi.Services;
 
 public static class FinancialYear

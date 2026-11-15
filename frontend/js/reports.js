@@ -1,4 +1,3 @@
-// Reports section: the Decision Maker's combined report of every approved year and the approved budget, with KPI targets, warnings, CSV download and print
 import { getReport } from "./api.js";
 import { formatKpiValue, numberFormat, yearsText } from "./format.js";
 import { METHOD_NAMES } from "./forecast.js";

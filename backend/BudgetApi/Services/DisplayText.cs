@@ -1,4 +1,3 @@
-// Display text: how people, dates and names inside sentences are shown in API responses and messages
 using System.Globalization;
 using BudgetApi.Models;
 

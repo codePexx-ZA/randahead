@@ -1,4 +1,3 @@
-// Statement importer: reads an uploaded Excel or CSV income statement and suggests a category for every line
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
@@ -137,7 +136,6 @@ public static partial class StatementImporter
     private static List<List<Cell[]>> ReadWorkbook(Stream stream)
     {
         const string unreadable = "We couldn't open this Excel file. Save it again as .xlsx (or .csv) and try again.";
-        // ClosedXML loads the whole unzipped workbook into memory, so a small compressed file can still exhaust it
         try
         {
             using var zip = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);

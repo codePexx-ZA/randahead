@@ -1,4 +1,3 @@
-// Targets and rules section: KPI targets and warning rules
 import { createKpiTarget, createRule, deleteKpiTarget, deleteRule as removeRule, getKpiTargets, updateKpiTarget, updateRule as saveRule } from "./api.js";
 import { formatKpiValue, numberFormat } from "./format.js";
 import { INDICATOR_NAMES, fyStartDate, nextYearLabels } from "./forecast.js";

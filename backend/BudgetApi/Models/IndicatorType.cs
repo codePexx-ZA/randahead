@@ -1,4 +1,3 @@
-// Indicator type model: a tracked economic indicator
 using System.Text.Json.Serialization;
 
 namespace BudgetApi.Models;

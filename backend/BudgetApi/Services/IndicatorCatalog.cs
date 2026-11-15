@@ -1,4 +1,3 @@
-// Indicator catalog: where each indicator is fetched from
 namespace BudgetApi.Services;
 
 public enum IndicatorProvider

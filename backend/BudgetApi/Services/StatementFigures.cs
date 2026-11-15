@@ -1,4 +1,3 @@
-// Statement figures: a unit's approved history and budget figures per financial year, with subtotals, KPI values and target progress
 using BudgetApi.Data;
 using BudgetApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -63,7 +62,6 @@ public class StatementFigures(BudgetDbContext db)
         );
     }
 
-    // Every approved year's category amounts; where approved uploads overlap, the latest upload wins
     public async Task<SortedDictionary<DateOnly, Dictionary<string, decimal>>> ApprovedAmountsAsync(
         string unitId,
         CancellationToken cancellationToken
@@ -156,7 +154,6 @@ public class StatementFigures(BudgetDbContext db)
             .ToList();
     }
 
-    // Each KPI's value in every actual year, then every budget year after them, for the target form's hint
     public static IEnumerable<object> KpiFigures(
         SortedDictionary<DateOnly, Dictionary<string, decimal>> history,
         SortedDictionary<DateOnly, Dictionary<string, decimal>>? budget,

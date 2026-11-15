@@ -1,4 +1,3 @@
-// KPI targets API: lists the caller's unit's goals per KPI per financial year with their progress, and adds, changes and deletes them
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
 using BudgetApi.Models;

@@ -1,4 +1,3 @@
-// Rule alert model: a warning raised by a rule
 using System.Text.Json.Serialization;
 
 namespace BudgetApi.Models;
