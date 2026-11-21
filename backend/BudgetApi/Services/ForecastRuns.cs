@@ -42,8 +42,8 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
         CancellationToken cancellationToken
     )
     {
-        var approvedAt = await HistoryApprovedAtAsync(unitId, cancellationToken);
-        var amounts = await figures.ApprovedAmountsAsync(unitId, cancellationToken);
+        var updatedAt = await HistoryUpdatedAtAsync(unitId, cancellationToken);
+        var amounts = await figures.ActiveAmountsAsync(unitId, cancellationToken);
         var history = amounts
             .SelectMany(year => year.Value.Select(category => (category.Key, Point: new ForecastPoint(year.Key, category.Value))))
             .GroupBy(entry => entry.Key)
@@ -58,7 +58,7 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
                 ForecastingMethod = method.Key,
                 HistoryStart = output.HistoryStart,
                 HistoryEnd = output.HistoryEnd,
-                HistoryApprovedAt = approvedAt,
+                HistoryUpdatedAt = updatedAt,
                 Parameters = JsonSerializer.Serialize(
                     new Dictionary<string, object>
                     {
@@ -132,23 +132,20 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
 
     public async Task<bool> MatchesHistoryAsync(string unitId, IReadOnlyCollection<string> runIds, CancellationToken cancellationToken)
     {
-        var current = await HistoryApprovedAtAsync(unitId, cancellationToken);
+        var current = await HistoryUpdatedAtAsync(unitId, cancellationToken);
         var stored = await db
             .ForecastRuns.AsNoTracking()
             .Where(r => r.UnitId == unitId && runIds.Contains(r.RunId))
-            .Select(r => r.HistoryApprovedAt)
+            .Select(r => r.HistoryUpdatedAt)
             .ToListAsync(cancellationToken);
         return current is not null && stored.Count == 2 && runIds.Count == 2 && stored.All(t => t == current);
     }
 
-    public Task<DateTime?> HistoryApprovedAtAsync(string unitId, CancellationToken cancellationToken) =>
+    public Task<DateTime?> HistoryUpdatedAtAsync(string unitId, CancellationToken cancellationToken) =>
         db
-            .ApprovalActions.AsNoTracking()
-            .Where(a => a.Decision == "approved" && a.SubmissionId != null)
-            .Where(a =>
-                db.BudgetSubmissions.Any(s => s.SubmissionId == a.SubmissionId && s.UnitId == unitId && s.Status == "approved")
-            )
-            .MaxAsync(a => (DateTime?)a.ActedAt, cancellationToken);
+            .BudgetSubmissions.AsNoTracking()
+            .Where(s => s.UnitId == unitId && s.Status == "active")
+            .MaxAsync(s => (DateTime?)s.SubmittedAt, cancellationToken);
 
     public async Task<List<string>> LatestPairAsync(string unitId, CancellationToken cancellationToken)
     {

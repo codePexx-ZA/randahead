@@ -26,9 +26,9 @@ public class KpiTargetsController(BudgetDbContext db, StatementFigures figures, 
     {
         var caller = Caller;
         string Label(DateOnly start) => FinancialYear.Label(start, caller.Unit!.Business!.YearEndMonth);
-        var history = await figures.ApprovedHistoryAsync(caller.UnitId, cancellationToken);
-        var approved = await figures.ApprovedBudgetAsync(caller.UnitId, cancellationToken);
-        var budget = approved is null ? null : await figures.BudgetAsync(approved, cancellationToken);
+        var history = await figures.ActiveHistoryAsync(caller.UnitId, cancellationToken);
+        var chosen = await figures.ChosenBudgetAsync(caller.UnitId, cancellationToken);
+        var budget = chosen is null ? null : await figures.BudgetAsync(chosen, cancellationToken);
         return Ok(new
         {
             targets = await figures.TargetsAsync(caller.UnitId, history, budget, Label, cancellationToken),

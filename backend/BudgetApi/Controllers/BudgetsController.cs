@@ -21,12 +21,6 @@ public record BudgetView(
     string[] RunIds,
     string ChosenBy,
     string? ChosenOn,
-    string? Decision,
-    string? DecidedBy,
-    string? DecidedOn,
-    string? Comment,
-    string? ApprovedBy,
-    string? ApprovedOn,
     bool OutOfDate,
     IReadOnlyList<ForecastRunView> Runs,
     ForecastComparison Comparison
@@ -45,7 +39,7 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         var caller = Caller;
         var latest = await Budgets(caller.UnitId)
             .AsNoTracking()
-            .Where(b => b.Status != "superseded")
+            .Where(b => b.Status == "active")
             .OrderByDescending(b => b.ChosenAt)
             .FirstOrDefaultAsync(cancellationToken);
         if (latest is null)
@@ -88,19 +82,14 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         await scope.LockUnitAsync(caller.UnitId, cancellationToken);
         if (!await runs.MatchesHistoryAsync(caller.UnitId, [maRunId, esRunId], cancellationToken))
         {
-            return Conflict(new { message = "The approved history has changed since these forecasts ran. Run the forecasts again first." });
+            return Conflict(new { message = "Your income statement history has changed since these forecasts ran. Run the forecasts again first." });
         }
-        var open = await Budgets(caller.UnitId).Where(b => b.Status == "submitted" || b.Status == "approved").ToListAsync(cancellationToken);
-        if (open.Any(b => b.MaRunId == maRunId && b.BudgetMethod == request.Method))
+        var current = await Budgets(caller.UnitId).Where(b => b.Status == "active").ToListAsync(cancellationToken);
+        if (current.Any(b => b.MaRunId == maRunId && b.BudgetMethod == request.Method))
         {
             return Conflict(new { message = "This option is already your budget." });
         }
 
-        foreach (var waiting in open.Where(b => b.Status == "submitted"))
-        {
-            waiting.Status = "superseded";
-        }
-        await db.SaveChangesAsync(cancellationToken);
         var budget = new BudgetSelection
         {
             UnitId = caller.UnitId,
@@ -110,6 +99,8 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
             ChosenBy = caller.UserId,
             Chooser = caller,
         };
+        Activate(current, budget);
+        await db.SaveChangesAsync(cancellationToken);
         db.BudgetSelections.Add(budget);
         audit.Add(caller, "budget", "chosen", $"Chose {AuditLog.MethodNames[request.Method]} as the budget");
         if (await SaveAsync(transaction, cancellationToken) is { } clash)
@@ -119,77 +110,19 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
         return Ok(await ViewAsync(budget, cancellationToken));
     }
 
-    [HttpPost("{id}/decision")]
-    public async Task<IActionResult> Decide(string id, DecisionRequest request, CancellationToken cancellationToken)
+    internal static void Activate(IEnumerable<BudgetSelection> current, BudgetSelection chosen)
     {
-        var caller = Caller;
-        var comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments.Trim();
-        var problem = (request.Decision, comments) switch
+        foreach (var previous in current)
         {
-            (not ("approved" or "rejected"), _) => "The decision must be approved or rejected.",
-            ("rejected", null) => "Add a comment so the decision maker knows what to change.",
-            (_, { Length: > 2000 }) => "The comment can be at most 2000 characters.",
-            _ => null,
-        };
-        if (problem is not null)
-        {
-            return BadRequest(new { message = problem });
+            previous.Status = "superseded";
         }
-
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await scope.LockUnitAsync(caller.UnitId, cancellationToken);
-        var budgets = await Budgets(caller.UnitId).Where(b => b.BudgetId == id || b.Status == "approved").ToListAsync(cancellationToken);
-        if (budgets.FirstOrDefault(b => b.BudgetId == id) is not { } target)
-        {
-            return NotFound(new { message = "This budget no longer exists." });
-        }
-        if (target.Status != "submitted")
-        {
-            return Conflict(new { message = "This budget has already been decided." });
-        }
-        if (request.Decision == "approved")
-        {
-            if (!await runs.MatchesHistoryAsync(caller.UnitId, [target.MaRunId, target.EsRunId], cancellationToken))
-            {
-                return Conflict(new { message = "The approved history has changed since these forecasts ran. Reject this budget and ask for a new forecast." });
-            }
-            foreach (var previous in budgets.Where(b => b.Status == "approved"))
-            {
-                previous.Status = "superseded";
-            }
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        target.Status = request.Decision!;
-        target.Approvals.Add(
-            new ApprovalAction
-            {
-                BudgetId = target.BudgetId,
-                ActedBy = caller.UserId,
-                Actor = caller,
-                Decision = request.Decision!,
-                Comments = comments,
-            }
-        );
-        audit.Add(
-            caller,
-            "budget",
-            target.Status,
-            $"{(target.Status == "approved" ? "Approved" : "Rejected")} the budget ({AuditLog.MethodNames[target.BudgetMethod]})",
-            comments is null ? null : [new AuditChange("Comment", null, comments)]
-        );
-        if (await SaveAsync(transaction, cancellationToken) is { } clash)
-        {
-            return clash;
-        }
-        return Ok(await ViewAsync(target, cancellationToken));
+        chosen.Status = "active";
     }
 
     private IQueryable<BudgetSelection> Budgets(string unitId) =>
         db
             .BudgetSelections.Where(b => b.UnitId == unitId)
-            .Include(b => b.Chooser)
-            .Include(b => b.Approvals)
-            .ThenInclude(a => a.Actor);
+            .Include(b => b.Chooser);
 
     private async Task<ObjectResult?> SaveAsync(IDbContextTransaction transaction, CancellationToken cancellationToken)
     {
@@ -207,8 +140,6 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
 
     private async Task<BudgetView> ViewAsync(BudgetSelection b, CancellationToken cancellationToken)
     {
-        var decision = b.Approvals.OrderByDescending(a => a.ActedAt).FirstOrDefault();
-        var approved = b.Status is "approved" or "superseded" && decision?.Decision == "approved";
         var (budgetRuns, comparison, matchesHistory) = await runs.LoadPairAsync(
             b.UnitId,
             [b.MaRunId, b.EsRunId],
@@ -222,12 +153,6 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
             [b.MaRunId, b.EsRunId],
             DisplayText.Person(b.Chooser),
             DisplayText.Day(b.ChosenAt),
-            decision?.Decision,
-            decision is null ? null : DisplayText.Person(decision.Actor),
-            DisplayText.Day(decision?.ActedAt),
-            decision?.Comments,
-            approved ? DisplayText.Person(decision!.Actor) : null,
-            approved ? DisplayText.Day(decision!.ActedAt) : null,
             !matchesHistory,
             budgetRuns,
             comparison

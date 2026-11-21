@@ -19,7 +19,7 @@ public class DashboardController(BudgetDbContext db, StatementFigures figures) :
         var yearEndMonth = caller.Unit!.Business!.YearEndMonth;
         string Label(DateOnly start) => FinancialYear.Label(start, yearEndMonth);
 
-        var history = await figures.ApprovedHistoryAsync(caller.UnitId, cancellationToken);
+        var history = await figures.ActiveHistoryAsync(caller.UnitId, cancellationToken);
         var periods = history.Keys.ToList();
         var index = year is null ? periods.Count - 1 : periods.FindIndex(p => Label(p) == year);
         if (year is not null && index < 0)
@@ -27,13 +27,13 @@ public class DashboardController(BudgetDbContext db, StatementFigures figures) :
             return BadRequest(new
             {
                 message = periods.Count == 0
-                    ? "There's no approved income statement history yet."
-                    : $"Choose a year in the approved history ({Label(periods[0])}–{Label(periods[^1])}).",
+                    ? "There's no income statement history yet."
+                    : $"Choose a year in your history ({Label(periods[0])}–{Label(periods[^1])}).",
             });
         }
 
         var period = index >= 0 ? periods[index] : (DateOnly?)null;
-        var yearBudget = period is null ? null : await ApprovedBudgetForAsync(caller.UnitId, period.Value, cancellationToken);
+        var yearBudget = period is null ? null : await ChosenBudgetForAsync(caller.UnitId, period.Value, cancellationToken);
         var yearBudgetFigures = yearBudget is null ? null : (await figures.BudgetAsync(yearBudget, cancellationToken))[period!.Value];
 
         var actual = period is null ? null : history[period.Value];
@@ -61,33 +61,24 @@ public class DashboardController(BudgetDbContext db, StatementFigures figures) :
                 };
             }).ToList<object>();
 
-        var approved = await figures.ApprovedBudgetAsync(caller.UnitId, cancellationToken);
-        var approvedFigures = approved is null ? null : await figures.BudgetAsync(approved, cancellationToken);
+        var chosen = await figures.ChosenBudgetAsync(caller.UnitId, cancellationToken);
+        var chosenFigures = chosen is null ? null : await figures.BudgetAsync(chosen, cancellationToken);
         return Ok(new
         {
             years = periods.Select(Label),
             year = period is null ? null : Label(period.Value),
             previousYear = index > 0 ? Label(periods[index - 1]) : null,
-            budget = yearBudget is null ? null : StatementFigures.ApprovedBudgetSummary(yearBudget),
+            budget = yearBudget is null ? null : StatementFigures.ChosenBudgetSummary(yearBudget),
             lines,
-            targets = await figures.TargetsAsync(caller.UnitId, history, approvedFigures, Label, cancellationToken),
+            targets = await figures.TargetsAsync(caller.UnitId, history, chosenFigures, Label, cancellationToken),
         });
     }
 
-    private async Task<BudgetSelection?> ApprovedBudgetForAsync(string unitId, DateOnly period, CancellationToken cancellationToken) =>
-        (
-            await db
-                .BudgetSelections.AsNoTracking()
-                .Where(b =>
-                    b.UnitId == unitId
-                    && (b.Status == "approved" || b.Status == "superseded")
-                    && b.Approvals.Any(a => a.Decision == "approved")
-                    && db.ForecastValues.Any(v => v.RunId == b.MaRunId && v.ForecastPeriod == period)
-                )
-                .Include(b => b.Approvals)
-                .ThenInclude(a => a.Actor)
-                .ToListAsync(cancellationToken)
-        )
-            .OrderByDescending(b => b.Approvals.Where(a => a.Decision == "approved").Max(a => a.ActedAt))
-            .FirstOrDefault();
+    private Task<BudgetSelection?> ChosenBudgetForAsync(string unitId, DateOnly period, CancellationToken cancellationToken) =>
+        db
+            .BudgetSelections.AsNoTracking()
+            .Where(b => b.UnitId == unitId && db.ForecastValues.Any(v => v.RunId == b.MaRunId && v.ForecastPeriod == period))
+            .Include(b => b.Chooser)
+            .OrderByDescending(b => b.ChosenAt)
+            .FirstOrDefaultAsync(cancellationToken);
 }

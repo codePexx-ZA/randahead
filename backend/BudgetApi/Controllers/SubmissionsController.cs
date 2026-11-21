@@ -23,11 +23,8 @@ public record SubmissionRequest(
     string? Frequency,
     int Scale,
     string[]? Years,
-    string? ReplacesSubmissionId,
     SubmissionRowRequest[]? Rows
 );
-
-public record DecisionRequest(string? Decision, string? Comments);
 
 public record SubmissionRowView(
     string Label,
@@ -48,11 +45,6 @@ public record SubmissionView(
     string SubmittedBy,
     string? SubmittedOn,
     string Status,
-    string? ReplacesId,
-    string? Decision,
-    string? DecidedBy,
-    string? DecidedOn,
-    string? Comment,
     string? SupersededBy,
     StatementTable? Statement
 );
@@ -157,18 +149,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await scope.LockUnitAsync(caller.UnitId, cancellationToken);
-        var submissions = await LoadAsync(caller.UnitId, tracked: false, cancellationToken);
-        if (request.ReplacesSubmissionId is { } replacesId)
-        {
-            if (submissions.FirstOrDefault(s => s.SubmissionId == replacesId) is not { Status: "rejected" })
-            {
-                return Conflict(new { message = "Only a rejected upload can be fixed and re-uploaded." });
-            }
-            if (submissions.Any(s => s.ReplacesSubmissionId == replacesId))
-            {
-                return Conflict(new { message = "This rejected upload has already been fixed and sent again." });
-            }
-        }
+        var submissions = await LoadAsync(caller.UnitId, tracked: true, cancellationToken);
 
         var yearEndMonth = caller.Unit!.Business!.YearEndMonth;
         var order = Enumerable.Range(0, request.Years!.Length).OrderBy(i => request.Years[i], StringComparer.Ordinal).ToArray();
@@ -181,9 +162,8 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             Submitter = caller,
             PeriodStart = starts[0],
             PeriodEnd = starts[^1].AddYears(1).AddDays(-1),
-            Status = "submitted",
+            Status = "active",
             SubmittedAt = DateTime.UtcNow,
-            ReplacesSubmissionId = request.ReplacesSubmissionId,
             ImportMethod = rows.Any(r => r.Kind == "line" && r.Remember) ? "mapped_import" : "template",
             SourceFileName = request.FileName!.Trim(),
             SourceScale = request.Scale,
@@ -222,85 +202,23 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
 
         await RememberMappingsAsync(caller, rows, cancellationToken);
         db.BudgetSubmissions.Add(submission);
+        var newestFirst = submissions.Prepend(submission).ToList();
+        SupersedeCovered(newestFirst);
         var sorted = request.Years!.Order(StringComparer.Ordinal).ToArray();
         var span = sorted.Length == 1 ? sorted[0] : $"{sorted[0]}–{sorted[^1]}";
-        var fixing = request.ReplacesSubmissionId is null ? "" : " to fix a rejected upload";
-        audit.Add(caller, "upload", "uploaded", $"Uploaded {submission.SourceFileName} ({span}){fixing}");
+        audit.Add(caller, "upload", "uploaded", $"Uploaded {submission.SourceFileName} ({span})");
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return Ok(View(submission, [submission], yearEndMonth));
-    }
-
-    [HttpPost("{id}/decision")]
-    public async Task<IActionResult> Decide(string id, DecisionRequest request, CancellationToken cancellationToken)
-    {
-        var caller = Caller;
-        var comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments.Trim();
-        var problem = (request.Decision, comments) switch
-        {
-            (not ("approved" or "rejected"), _) => "The decision must be approved or rejected.",
-            ("rejected", null) => "Add a comment so the submitter knows what to fix.",
-            (_, { Length: > 2000 }) => "The comment can be at most 2000 characters.",
-            _ => null,
-        };
-        if (problem is not null)
-        {
-            return BadRequest(new { message = problem });
-        }
-
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await scope.LockUnitAsync(caller.UnitId, cancellationToken);
-        var submissions = await LoadAsync(caller.UnitId, tracked: true, cancellationToken);
-        if (submissions.FirstOrDefault(s => s.SubmissionId == id) is not { } target)
-        {
-            return NotFound(new { message = "This upload no longer exists." });
-        }
-        if (target.Status != "submitted")
-        {
-            return Conflict(new { message = "This upload has already been decided." });
-        }
-
-        target.Status = request.Decision!;
-        target.Approvals.Add(
-            new ApprovalAction
-            {
-                SubmissionId = target.SubmissionId,
-                ActedBy = caller.UserId,
-                Actor = caller,
-                Decision = request.Decision!,
-                Comments = comments,
-            }
-        );
-        if (target.Status == "approved")
-        {
-            if (submissions.FirstOrDefault(s => s.SubmissionId == target.ReplacesSubmissionId) is { Status: "rejected" } fixedUpload)
-            {
-                fixedUpload.Status = "superseded";
-            }
-            SupersedeCovered(submissions);
-        }
-
-        audit.Add(
-            caller,
-            "upload",
-            target.Status,
-            $"{(target.Status == "approved" ? "Approved" : "Rejected")} upload {target.SourceFileName}",
-            comments is null ? null : [new AuditChange("Comment", null, comments)]
-        );
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return Ok(View(target, submissions, caller.Unit!.Business!.YearEndMonth));
+        return Ok(View(submission, newestFirst, yearEndMonth));
     }
 
     private async Task<List<BudgetSubmission>> LoadAsync(string unitId, bool tracked, CancellationToken cancellationToken)
     {
         var query = db
-            .BudgetSubmissions.Where(s => s.UnitId == unitId && s.Status != "draft")
+            .BudgetSubmissions.Where(s => s.UnitId == unitId)
             .Include(s => s.Submitter)
             .Include(s => s.Rows)
             .Include(s => s.LineItems)
-            .Include(s => s.Approvals)
-            .ThenInclude(a => a.Actor)
             .OrderByDescending(s => s.SubmittedAt)
             .AsSplitQuery();
         return await (tracked ? query : query.AsNoTracking()).ToListAsync(cancellationToken);
@@ -351,11 +269,11 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         );
     }
 
-    private static void SupersedeCovered(List<BudgetSubmission> newestFirst)
+    internal static void SupersedeCovered(List<BudgetSubmission> newestFirst)
     {
-        var approved = newestFirst.Where(s => s.Status == "approved").ToList();
+        var active = newestFirst.Where(s => s.Status == "active").ToList();
         var covered = new HashSet<DateOnly>();
-        foreach (var submission in approved)
+        foreach (var submission in active)
         {
             var periods = Periods(submission);
             if (covered.Count > 0 && periods.All(covered.Contains))
@@ -370,7 +288,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     {
         var periods = Periods(s);
         var labels = periods.Select(p => FinancialYear.Label(p, yearEndMonth)).ToArray();
-        var decision = s.Approvals.OrderByDescending(a => a.ActedAt).FirstOrDefault();
         var rows = s.Rows.Count == 0
             ? null
             : s.Rows.OrderBy(r => r.RowOrder).Select(r => new SubmissionRowView(
@@ -392,25 +309,14 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             DisplayText.Person(s.Submitter),
             DisplayText.Day(s.SubmittedAt),
             s.Status,
-            s.ReplacesSubmissionId,
-            decision?.Decision,
-            decision is null ? null : DisplayText.Person(decision.Actor),
-            DisplayText.Day(decision?.ActedAt),
-            decision?.Comments,
             s.Status == "superseded" ? ReplacedBy(s, periods, all) : null,
             rows is null ? null : IncomeStatement.FromRows(labels, [.. rows.Select(StatementRow)], s.SourceScale)
         );
     }
 
     private static string? ReplacedBy(BudgetSubmission s, List<DateOnly> periods, List<BudgetSubmission> newestFirst) =>
-        newestFirst.FirstOrDefault(x => x.ReplacesSubmissionId == s.SubmissionId)?.SubmissionId
-        ?? newestFirst
-            .LastOrDefault(x =>
-                x.SubmittedAt > s.SubmittedAt
-                && x.Status is "approved" or "superseded"
-                && x.Approvals.Any(a => a.Decision == "approved")
-                && Periods(x).Intersect(periods).Any()
-            )
+        newestFirst
+            .LastOrDefault(x => x.SubmittedAt > s.SubmittedAt && Periods(x).Intersect(periods).Any())
             ?.SubmissionId;
 
     private static List<DateOnly> Periods(BudgetSubmission s) =>

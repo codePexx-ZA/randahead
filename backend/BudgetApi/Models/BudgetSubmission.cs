@@ -7,9 +7,8 @@ public class BudgetSubmission
     public string SubmittedBy { get; set; } = string.Empty;
     public DateOnly PeriodStart { get; set; }
     public DateOnly PeriodEnd { get; set; }
-    public string Status { get; set; } = "draft";
-    public DateTime? SubmittedAt { get; set; }
-    public string? ReplacesSubmissionId { get; set; }
+    public string Status { get; set; } = "active";
+    public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
     public string ImportMethod { get; set; } = "template";
     public string? SourceFileName { get; set; }
     public int SourceScale { get; set; } = 1;
@@ -17,5 +16,4 @@ public class BudgetSubmission
     public AppUser? Submitter { get; set; }
     public ICollection<FinancialLineItem> LineItems { get; set; } = new List<FinancialLineItem>();
     public ICollection<SubmissionRow> Rows { get; set; } = new List<SubmissionRow>();
-    public ICollection<ApprovalAction> Approvals { get; set; } = new List<ApprovalAction>();
 }

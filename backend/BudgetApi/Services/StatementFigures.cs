@@ -51,18 +51,18 @@ public class StatementFigures(BudgetDbContext db)
             .ToList();
     }
 
-    public async Task<SortedDictionary<DateOnly, Dictionary<string, decimal>>> ApprovedHistoryAsync(
+    public async Task<SortedDictionary<DateOnly, Dictionary<string, decimal>>> ActiveHistoryAsync(
         string unitId,
         CancellationToken cancellationToken
     )
     {
-        var amounts = await ApprovedAmountsAsync(unitId, cancellationToken);
+        var amounts = await ActiveAmountsAsync(unitId, cancellationToken);
         return new SortedDictionary<DateOnly, Dictionary<string, decimal>>(
             amounts.TakeLast(HistoryYears).ToDictionary(year => year.Key, year => IncomeStatement.WithSubtotals(year.Value))
         );
     }
 
-    public async Task<SortedDictionary<DateOnly, Dictionary<string, decimal>>> ApprovedAmountsAsync(
+    public async Task<SortedDictionary<DateOnly, Dictionary<string, decimal>>> ActiveAmountsAsync(
         string unitId,
         CancellationToken cancellationToken
     )
@@ -71,7 +71,7 @@ public class StatementFigures(BudgetDbContext db)
             .FinancialLineItems.AsNoTracking()
             .Where(i => i.Frequency == "annual")
             .Join(
-                db.BudgetSubmissions.Where(s => s.UnitId == unitId && s.Status == "approved"),
+                db.BudgetSubmissions.Where(s => s.UnitId == unitId && s.Status == "active"),
                 i => i.SubmissionId,
                 s => s.SubmissionId,
                 (i, s) => new { i.Category, i.PeriodStart, i.Amount, s.SubmittedAt }
@@ -122,11 +122,10 @@ public class StatementFigures(BudgetDbContext db)
         return figures;
     }
 
-    public Task<BudgetSelection?> ApprovedBudgetAsync(string unitId, CancellationToken cancellationToken) =>
+    public Task<BudgetSelection?> ChosenBudgetAsync(string unitId, CancellationToken cancellationToken) =>
         db.BudgetSelections.AsNoTracking()
-            .Where(b => b.UnitId == unitId && b.Status == "approved")
-            .Include(b => b.Approvals)
-            .ThenInclude(a => a.Actor)
+            .Where(b => b.UnitId == unitId && b.Status == "active")
+            .Include(b => b.Chooser)
             .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<List<TargetProgress>> TargetsAsync(
@@ -164,18 +163,15 @@ public class StatementFigures(BudgetDbContext db)
                 values = kpis.ToDictionary(k => k.Code, k => IncomeStatement.Kpi(k.Code, y.Figures)),
             });
 
-    public static object ApprovedBudgetSummary(BudgetSelection b)
-    {
-        var approval = b.Approvals.Where(a => a.Decision == "approved").MaxBy(a => a.ActedAt)!;
-        return new
+    public static object ChosenBudgetSummary(BudgetSelection b) =>
+        new
         {
             id = b.BudgetId,
             method = b.BudgetMethod,
             b.Status,
-            approvedBy = DisplayText.Person(approval.Actor),
-            approvedOn = DisplayText.Day(approval.ActedAt),
+            chosenBy = DisplayText.Person(b.Chooser),
+            chosenOn = DisplayText.Day(b.ChosenAt),
         };
-    }
 
     internal static TargetProgress Progress(
         KpiTarget t,

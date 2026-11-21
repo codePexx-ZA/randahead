@@ -23,9 +23,9 @@ public class ReportsController(StatementFigures figures) : ApiController
         var unit = caller.Unit!;
         string Label(DateOnly start) => FinancialYear.Label(start, unit.Business!.YearEndMonth);
 
-        var history = await figures.ApprovedHistoryAsync(caller.UnitId, cancellationToken);
-        var approved = await figures.ApprovedBudgetAsync(caller.UnitId, cancellationToken);
-        var budget = approved is null ? null : await figures.BudgetAsync(approved, cancellationToken);
+        var history = await figures.ActiveHistoryAsync(caller.UnitId, cancellationToken);
+        var chosen = await figures.ChosenBudgetAsync(caller.UnitId, cancellationToken);
+        var budget = chosen is null ? null : await figures.BudgetAsync(chosen, cancellationToken);
 
         var lastActual = history.Count > 0 ? history.Keys.Last() : DateOnly.MinValue;
         var columns = history.Select(h => (Period: h.Key, Source: "actual", Figures: h.Value)).ToList();
@@ -73,7 +73,7 @@ public class ReportsController(StatementFigures figures) : ApiController
             columns = columns.Select(c => new { year = Label(c.Period), source = c.Source }),
             changeFrom = first is null ? null : Label(history.Keys.First()),
             changeTo = first is null ? null : Label(lastActual),
-            budget = approved is null ? null : StatementFigures.ApprovedBudgetSummary(approved),
+            budget = chosen is null ? null : StatementFigures.ChosenBudgetSummary(chosen),
             lines = columns.Count == 0 ? [] : lines,
             ratios = columns.Count == 0 ? [] : ratios,
             targets = await figures.TargetsAsync(caller.UnitId, history, budget, Label, cancellationToken),

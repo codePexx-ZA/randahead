@@ -19,7 +19,6 @@ public partial class BudgetDbContext(DbContextOptions<BudgetDbContext> options) 
     public DbSet<BudgetSubmission> BudgetSubmissions => Set<BudgetSubmission>();
     public DbSet<FinancialLineItem> FinancialLineItems => Set<FinancialLineItem>();
     public DbSet<SubmissionRow> SubmissionRows => Set<SubmissionRow>();
-    public DbSet<ApprovalAction> ApprovalActions => Set<ApprovalAction>();
     public DbSet<ImportMapping> ImportMappings => Set<ImportMapping>();
     public DbSet<ForecastRun> ForecastRuns => Set<ForecastRun>();
     public DbSet<ForecastValue> ForecastValues => Set<ForecastValue>();
@@ -39,7 +38,6 @@ public partial class BudgetDbContext(DbContextOptions<BudgetDbContext> options) 
         modelBuilder.Entity<AuditEntry>().ToTable("audit_log");
 
         modelBuilder.Entity<AppUser>().HasKey(e => e.UserId);
-        modelBuilder.Entity<ApprovalAction>().HasKey(e => e.ApprovalId);
         modelBuilder.Entity<AuditEntry>().HasKey(e => e.LogId);
         modelBuilder.Entity<BudgetSelection>().HasKey(e => e.BudgetId);
         modelBuilder.Entity<BudgetSubmission>().HasKey(e => e.SubmissionId);
@@ -68,16 +66,13 @@ public partial class BudgetDbContext(DbContextOptions<BudgetDbContext> options) 
             entity.HasOne(e => e.Submitter).WithMany().HasForeignKey(e => e.SubmittedBy).OnDelete(DeleteBehavior.Restrict);
             entity.HasMany(e => e.LineItems).WithOne().HasForeignKey(i => i.SubmissionId);
             entity.HasMany(e => e.Rows).WithOne().HasForeignKey(r => r.SubmissionId);
-            entity.HasMany(e => e.Approvals).WithOne().HasForeignKey(a => a.SubmissionId);
         });
         modelBuilder.Entity<ForecastRun>().HasMany(e => e.Values).WithOne().HasForeignKey(v => v.RunId);
-        modelBuilder.Entity<ApprovalAction>().HasOne(e => e.Actor).WithMany().HasForeignKey(e => e.ActedBy).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<BudgetSelection>(entity =>
         {
             entity.HasOne(e => e.Chooser).WithMany().HasForeignKey(e => e.ChosenBy).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.MaRun).WithMany().HasForeignKey(e => e.MaRunId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.EsRun).WithMany().HasForeignKey(e => e.EsRunId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasMany(e => e.Approvals).WithOne().HasForeignKey(a => a.BudgetId);
         });
         modelBuilder.Entity<AuditEntry>().HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<BusinessUnit>().HasOne(e => e.Business).WithMany(b => b.Units).HasForeignKey(e => e.BusinessId).OnDelete(DeleteBehavior.Restrict);

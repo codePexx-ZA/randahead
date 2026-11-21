@@ -24,7 +24,7 @@ public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLo
     {
         var caller = Caller;
         var business = caller.Unit!.Business!;
-        return Ok(BusinessView(caller, await scope.HasApprovedHistoryAsync(business.BusinessId, cancellationToken)));
+        return Ok(BusinessView(caller, await scope.HasHistoryAsync(business.BusinessId, cancellationToken)));
     }
 
     [HttpPut]
@@ -40,7 +40,7 @@ public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLo
         }
 
         var business = caller.Unit!.Business!;
-        var hasHistory = await scope.HasApprovedHistoryAsync(business.BusinessId, cancellationToken);
+        var hasHistory = await scope.HasHistoryAsync(business.BusinessId, cancellationToken);
         if (
             request.YearEndMonth != business.YearEndMonth
             && await scope.HasYearDatedDataAsync(business.BusinessId, cancellationToken)
@@ -71,7 +71,7 @@ public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLo
 
     private static string MonthName(int month) => CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(month);
 
-    private static object BusinessView(AppUser caller, bool hasApprovedHistory)
+    private static object BusinessView(AppUser caller, bool hasHistory)
     {
         var unit = caller.Unit!;
         var business = unit.Business!;
@@ -84,7 +84,7 @@ public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLo
             unit.UnitId,
             unit.UnitName,
             unit.Currency,
-            hasApprovedHistory,
+            hasHistory,
         };
     }
 }

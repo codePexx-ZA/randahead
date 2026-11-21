@@ -7,7 +7,7 @@ public class ForecastRun
     public string ForecastingMethod { get; set; } = string.Empty;
     public DateOnly HistoryStart { get; set; }
     public DateOnly HistoryEnd { get; set; }
-    public DateTime? HistoryApprovedAt { get; set; }
+    public DateTime? HistoryUpdatedAt { get; set; }
     public string Parameters { get; set; } = "{}";
     public DateTime CreatedAt { get; set; }
 
