@@ -1,5 +1,5 @@
 import { login } from "./api.js";
-import { rejectInput, setLoading, setupAuthForm, shakeCard } from "./auth-form.js";
+import { flagInput, setLoading, setupAuthForm, shakeCard } from "./auth-form.js";
 import { Session } from "./session.js";
 import { showToast } from "./toast.js";
 
@@ -17,8 +17,8 @@ form.addEventListener("submit", async (e) => {
   const username = usernameInput.value.trim();
   const password = passwordInput.value;
 
-  if (username === "") return rejectInput(usernameInput, "Enter your username.", false);
-  if (password === "") return rejectInput(passwordInput, "Enter your password.", false);
+  if (username === "") return flagInput(usernameInput, "Enter your username.", false);
+  if (password === "") return flagInput(passwordInput, "Enter your password.", false);
 
   setLoading(loginBtn, true);
   try {

@@ -173,7 +173,7 @@ async function reloadTargets(highlightId) {
   await emit("targets");
 }
 
-function rejectField(input, message) {
+function flagField(input, message) {
   input.classList.add("invalid");
   input.focus();
   showToast(message, "error");
@@ -192,7 +192,7 @@ async function saveTarget(e) {
   if (Number.isNaN(value)) problem = metric.unit === "rand" ? "Type the target in rands, e.g. 1 200 000." : "Type the target as a percentage, e.g. 7.5.";
   else if (metric.unit === "rand" && value < 0) problem = "A rand target can't be negative.";
   else if (metric.unit === "percent" && (value < -100 || value > 100)) problem = "A margin target must be between -100% and 100%.";
-  if (problem) return rejectField(input, problem);
+  if (problem) return flagField(input, problem);
 
   const target = {
     metricName: metric.code,
@@ -346,7 +346,7 @@ function saveRuleThreshold(row) {
   const rule = ruleOfRow(row);
   const input = row.querySelector(".rule-threshold-input");
   const threshold = parseThreshold(input.value);
-  if (Number.isNaN(threshold)) return rejectField(input, "Type a threshold between 0 and 100, e.g. 6 or 7.5.");
+  if (Number.isNaN(threshold)) return flagField(input, "Type a threshold between 0 and 100, e.g. 6 or 7.5.");
   updateRule(rule, { threshold }, `${rule.name}: now warns above ${formatThreshold(threshold)}.`);
 }
 
@@ -390,7 +390,7 @@ async function addRule(e) {
 
   const thresholdInput = document.getElementById("ruleThreshold");
   const threshold = parseThreshold(thresholdInput.value);
-  if (Number.isNaN(threshold)) return rejectField(thresholdInput, "Type a threshold between 0 and 100, e.g. 15.");
+  if (Number.isNaN(threshold)) return flagField(thresholdInput, "Type a threshold between 0 and 100, e.g. 15.");
   const nameInput = document.getElementById("ruleName");
   const name = nameInput.value.trim() || suggestedRuleName();
   if (name.length > 200) {

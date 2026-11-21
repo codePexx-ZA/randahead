@@ -13,7 +13,7 @@ public class BudgetSubmission
     public string? SourceFileName { get; set; }
     public int SourceScale { get; set; } = 1;
 
-    public AppUser? Submitter { get; set; }
+    public AppUser? Uploader { get; set; }
     public ICollection<FinancialLineItem> LineItems { get; set; } = new List<FinancialLineItem>();
     public ICollection<SubmissionRow> Rows { get; set; } = new List<SubmissionRow>();
 }

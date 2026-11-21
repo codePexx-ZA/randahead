@@ -159,7 +159,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         {
             UnitId = caller.UnitId,
             SubmittedBy = caller.UserId,
-            Submitter = caller,
+            Uploader = caller,
             PeriodStart = starts[0],
             PeriodEnd = starts[^1].AddYears(1).AddDays(-1),
             Status = "active",
@@ -216,7 +216,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     {
         var query = db
             .BudgetSubmissions.Where(s => s.UnitId == unitId)
-            .Include(s => s.Submitter)
+            .Include(s => s.Uploader)
             .Include(s => s.Rows)
             .Include(s => s.LineItems)
             .OrderByDescending(s => s.SubmittedAt)
@@ -306,7 +306,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             labels,
             s.SourceScale,
             rows,
-            DisplayText.Person(s.Submitter),
+            DisplayText.Person(s.Uploader),
             DisplayText.Day(s.SubmittedAt),
             s.Status,
             s.Status == "superseded" ? ReplacedBy(s, periods, all) : null,

@@ -34,7 +34,7 @@ export function setLoading(button, loading) {
   button.classList.toggle("loading", loading);
 }
 
-export function rejectInput(input, message, focus = true) {
+export function flagInput(input, message, focus = true) {
   input.parentElement.classList.add("invalid");
   if (focus) input.focus();
   showToast(message, "error");

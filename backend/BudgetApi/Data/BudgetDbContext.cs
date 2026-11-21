@@ -63,7 +63,7 @@ public partial class BudgetDbContext(DbContextOptions<BudgetDbContext> options) 
 
         modelBuilder.Entity<BudgetSubmission>(entity =>
         {
-            entity.HasOne(e => e.Submitter).WithMany().HasForeignKey(e => e.SubmittedBy).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Uploader).WithMany().HasForeignKey(e => e.SubmittedBy).OnDelete(DeleteBehavior.Restrict);
             entity.HasMany(e => e.LineItems).WithOne().HasForeignKey(i => i.SubmissionId);
             entity.HasMany(e => e.Rows).WithOne().HasForeignKey(r => r.SubmissionId);
         });

@@ -1,4 +1,4 @@
-import { getCategory, subtotalName } from "./store.js";
+import { subtotalName } from "./store.js";
 
 const MIN_HISTORY_YEARS = 3;
 export const MAX_HISTORY_YEARS = 5;
@@ -145,45 +145,6 @@ function submissionFromUpload(upload) {
     years: upload.periods,
     rows,
   };
-}
-
-export function reviewUpload(upload, change) {
-  const items = historyChecks(change);
-  const lines = upload.rows.filter((r) => r.kind === "line");
-  const name = (code) => getCategory(code).name;
-
-  const handMapped = lines.filter((r) => r.remember && r.mapping.length === 1);
-  if (handMapped.length) {
-    const list = handMapped.map((r) => `"${r.label}" → ${name(r.mapping[0].category)}`).join("; ");
-    items.push({ level: "info", text: `Mapped by the submitter (not recognised automatically): ${list}.` });
-  }
-  lines.filter((r) => r.mapping.length > 1).forEach((r) => {
-    const parts = r.mapping.map((p) => `${p.percent}% ${name(p.category)}`).join(", ");
-    items.push({ level: "info", text: `"${r.label}" split by the submitter: ${parts}.` });
-  });
-
-  const ignored = lines.filter((r) => !r.mapping.length);
-  if (ignored.length) {
-    items.push({ level: "warning", text: `Left out as not part of the income statement: ${listNames(ignored)}.` });
-  }
-  const blanks = blankRows(lines);
-  if (blanks.length) items.push({ level: "warning", text: `Blank amounts in ${listNames(blanks)} were treated as 0.` });
-
-  const subtotals = upload.statement.checks;
-  const keys = Object.keys(subtotals);
-  if (!keys.length) {
-    items.push({ level: "warning", text: "No subtotals in the file, so the totals couldn't be cross-checked." });
-  }
-  keys.forEach((k) => {
-    const check = subtotals[k];
-    if (check.matches) return;
-    const i = check.diffs.findIndex((d) => Math.abs(d) > upload.scale);
-    const off = `R ${Math.round(Math.abs(check.diffs[i])).toLocaleString("en-ZA")}`;
-    items.push({ level: "warning", text: `${subtotalName(k)} in the file doesn't match our recalculation: off by ${off} in ${upload.periods[i]}.` });
-  });
-  if (keys.length && keys.every((k) => subtotals[k].matches)) items.push(subtotalsMatchItem(keys));
-
-  return { items, subtotals };
 }
 
 export function uploadPeriods(u) {
