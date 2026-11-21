@@ -29,7 +29,7 @@ The token is kept with the session and sent as `Authorization: Bearer …` on ev
 | `index.html` | Login page (username and password; goes to the dashboard after signing in) |
 | `dashboard.html` | The app itself: one page whose sidebar switches sections (`#upload`, `#forecast`, `#approvals`, `#dashboard`, `#reports`, `#targets`, `#settings`, `#activity`, `#support`) without reloading. Section styles and behaviour live in their own files (`css/upload.css` + `js/upload.js`, `css/forecast-section.css` + `js/forecast-section.js`, `css/approvals.css` + `js/approvals.js`, `css/targets.css` + `js/targets.js`, `css/settings.css` + `js/settings.js`, `css/activity.css` + `js/activity.js`, `css/reports.css` + `js/reports.js`, `js/dashboard-section.js`, `js/support.js`) |
 | `assets/images/favicon.svg` | Browser tab icon: "R" lettermark in brand blue and cream (the RandAhead™ wordmark is the only logo) |
-| `css/base.css` | Brand palette (`#3368A0`, `#66A3BF`, `#C8DFDB`, `#F2EFE7`) as CSS variables, reset, toasts |
+| `css/base.css` | The only place colours are defined: the dark palette and the light print palette as CSS variables, `color-scheme`, reset, toasts |
 | `css/login.css` | Login page styles and animations |
 | `css/dashboard.css` | Dashboard layout: sidebar, top bar, metric cards, KPI cards, support form |
 | `css/components.css` | Shared pieces used by several sections: buttons, panels, badges and tags, statement tables, chips, checks, upload-history tables and comments, target forms, icon buttons and inline delete confirms. Loaded straight after `css/dashboard.css` |
@@ -183,22 +183,39 @@ Rule changes update the economic warnings in Forecast & budget and the budget ch
 
 This section uses the C# API (endpoints in `../backend/README.md`).
 
-## Brand palette
+## Colour palette (dark theme)
 
-Used across the whole app (and charts, logo, screenshots). Defined once as CSS variables in `css/base.css`; page CSS uses the variables, not hex values.
+The app always uses one dark theme: a soft charcoal / slate, not black. There is no light mode and no toggle, and it does not follow the operating system's setting. `:root` sets `color-scheme: dark`, so native inputs, selects, date pickers and scrollbars are dark too, and `scrollbar-color` tints the scrollbars.
+
+**Rule: every colour lives in `css/base.css`.** Page CSS and JS use only the variables (the forecast chart reads them with `getComputedStyle`). CI rejects a hex colour in any other CSS file.
 
 | Variable | Hex | Use |
 |---|---|---|
-| `--blue` / `--accent` | `#3368A0` | Buttons, links, brand name, main chart series |
-| `--sky` / `--accent-light` | `#66A3BF` | Highlights, second chart series |
-| `--mint` | `#C8DFDB` | Avatars, tags, subtle highlights |
-| `--cream` / `--bg` | `#F2EFE7` | Page background |
-| `--surface` | `#F7F4EE` | Cards, panels and the top bar |
+| `--bg` | `#232833` | Page background |
+| `--surface` | `#2C3240` | Cards, panels, tables, the top bar, sidebar, toasts, fields |
+| `--surface-hover` | `#363D4D` | Hovers, subtotal rows, raised strips |
+| `--border` | `#444C5E` | The 1px edge on panels, fields and buttons; chart grid |
+| `--text` | `#E8EBF1` | Body text |
+| `--text-muted` | `#B4BCCC` | Secondary text, labels, chart axes |
+| `--accent` | `#8DBBEE` | Links, brand name, primary buttons, active nav, main chart series |
+| `--accent-dark` | `#A6C8F0` | Button hover and text on tags and avatars (on dark it is the stronger, lighter accent) |
+| `--accent-light` | `#86C5DC` | Icons, highlights, second chart series |
+| `--on-accent` | `#14202E` | Text on accent, success, warning and danger fills (buttons, nav count) |
+| `--mint` | `#2F4B53` | Avatar and tag background |
+| `--success` | `#62D0A6` | Better for the business, approved, met / on track |
+| `--warning` | `#E9BD62` | Waiting, off track |
+| `--danger` | `#F59EA5` | Worse for the business, rejected, missed |
 
-Supporting: text `#1F3550`, muted text `#5F7F96`, `--surface-hover` `#EBE7DD` (subtotal rows), danger `#C94A54`, warning `#D99A2B`, success `#2F8F6F`, plus see-through tints (`--blue-tint`, `--sky-tint`, `--warning-tint`, …) for hovers and highlights. `--border` is `#D4CDB8`, the 1px edge on panels, fields and buttons.
+Tints for badges and highlights are see-through versions of those colours (`--blue-tint`, `--sky-tint`, `--success-tint`, `--warning-tint`, `--danger-tint`). `--overlay` dims the page behind the mobile sidebar, and `--spinner-track` is the faint ring of the sign-in spinner.
+
+**Contrast.** Every text colour above meets WCAG AA (at least 4.5:1) on `--bg`, `--surface` and `--surface-hover`, and on each badge tint over those surfaces. `--on-accent` meets it on every fill it sits on. The lowest pair is `--accent` text on `--sky-tint` over `--surface`, at 4.95:1.
+
+**Print.** `@media print` in `base.css` swaps the variables back to a light palette (white page, dark text, darker status colours, `color-scheme: light`), so Reports → Print or save as PDF stays readable on paper. Every print pair also meets 4.5:1 (lowest 4.75:1).
+
+The favicon keeps the brand blue (`#3368A0`) with a cream "R" on its own rounded square, so it reads on light and dark browser tabs alike. The RandAhead™ wordmark is text in `--accent`.
 
 Text uses the system UI font (`--font`). Amounts, statement figures and metric values use a monospace face (`--font-num`) with `tabular-nums`, so columns of rands line up.
 
 ## Look
 
-Panels, fields and buttons sit on the cream page with a 1px border (`--line` in `base.css`, and the old `--neu-*` names now point at that same line). Corners are 8px on panels and 6px on buttons and fields. Keyboard focus draws a 2px accent outline. Colour on a figure means something: green is better for the business, red is worse, amber is waiting. The login card uses the same border.
+Panels, fields and buttons sit a step lighter than the charcoal page, with a 1px border (`--line` in `base.css`, and the old `--neu-*` names now point at that same line). Corners are 8px on panels and 6px on buttons and fields. Keyboard focus draws a 2px accent outline. Colour on a figure means something: green is better for the business, red is worse, amber is waiting. The login card uses the same border.
