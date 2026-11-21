@@ -51,7 +51,7 @@ export function emptyRow(text) {
 }
 
 export function emptyNote(content, icon = "fa-circle-info", extraClass = "") {
-  return html`<p class="ap-empty${extraClass ? ` ${extraClass}` : ""}"><i class="fas ${icon}"></i><span>${content}</span></p>`;
+  return html`<p class="empty-note${extraClass ? ` ${extraClass}` : ""}"><i class="fas ${icon}"></i><span>${content}</span></p>`;
 }
 
 export function teamTag(title = TEAM_TITLE) {
@@ -65,7 +65,7 @@ export function lockIcon(title) {
 export function confirmDelete(question, kind, id) {
   const idAttr = id === undefined ? "" : html` data-id="${id}"`;
   return html`<span class="tg-confirm">${question}
-      <button type="button" class="btn-reject btn-small" data-action="delete-${kind}"${idAttr}>Delete</button>
+      <button type="button" class="btn-danger btn-small" data-action="delete-${kind}"${idAttr}>Delete</button>
       <button type="button" class="btn-outline btn-small" data-action="keep-${kind}">Keep</button></span>`;
 }
 
@@ -126,14 +126,10 @@ export function kpiGapHtml(gap, unit, reached) {
 }
 
 export function setTargetBadge(badge, total, checked, reached) {
-  badge.className = `badge ${checked && reached === checked ? "approved" : "warning"}`;
+  badge.className = `badge ${checked && reached === checked ? "good" : "warning"}`;
   badge.textContent = checked ? `${reached} of ${checked} on target` : `${total} set`;
 }
 
 export function checksHtml(items) {
   return html`${items.map((i) => html`<li class="check ${i.level}"><i class="fas ${CHECK_ICONS[i.level]}"></i><span>${i.text}</span></li>`)}`;
-}
-
-export function commentRow(cols, decision, by, comment) {
-  return html`<tr class="row-comment"><td colspan="${cols}"><div class="comment-box ${decision}"><i class="fas fa-comment-dots"></i><span><strong>${by}:</strong> ${comment}</span></div></td></tr>`;
 }

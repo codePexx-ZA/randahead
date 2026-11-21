@@ -18,7 +18,6 @@
     <link rel="stylesheet" href="css/components.css" />
     <link rel="stylesheet" href="css/upload.css" />
     <link rel="stylesheet" href="css/forecast-section.css" />
-    <link rel="stylesheet" href="css/approvals.css" />
     <link rel="stylesheet" href="css/targets.css" />
     <link rel="stylesheet" href="css/settings.css" />
     <link rel="stylesheet" href="css/activity.css" />
@@ -47,10 +46,6 @@
         </a>
 
         <p class="nav-group">Monitor and decide</p>
-        <a href="#approvals" class="nav-item" data-view="approvals">
-          <i class="fas fa-clipboard-check"></i><span>Approvals</span>
-          <span class="nav-count" id="apNavCount" hidden></span>
-        </a>
         <a href="#dashboard" class="nav-item" data-view="dashboard">
           <i class="fas fa-gauge-high"></i><span>Dashboard</span>
         </a>
@@ -161,8 +156,8 @@
             <p class="panel-note">
               <i class="fas fa-circle-info"></i>
               <span>
-                The chosen year against the year before and, once a year the approved budget forecast is
-                uploaded and approved, against that budget. <strong class="note-good">Green</strong> is better for
+                The chosen year against the year before and, once a budgeted year has actual figures,
+                against that budget. <strong class="note-good">Green</strong> is better for
                 the business (more income or profit, lower costs), <strong class="note-bad">red</strong> is worse.
               </span>
             </p>
@@ -172,13 +167,13 @@
             <article class="panel">
               <header class="panel-header">
                 <div>
-                  <h2>Submitted income statement</h2>
-                  <p class="panel-meta" id="submittedMeta">Loading…</p>
+                  <h2>Your income statement as uploaded</h2>
+                  <p class="panel-meta" id="uploadedMeta">Loading…</p>
                 </div>
-                <span class="badge" id="submittedBadge"></span>
+                <span class="badge" id="uploadedBadge"></span>
               </header>
               <div class="table-wrap">
-                <table class="statement" id="submittedTable">
+                <table class="statement" id="uploadedTable">
                   <tbody><tr class="row-loading"><td></td></tr></tbody>
                 </table>
               </div>
@@ -221,7 +216,7 @@
           class="view"
           id="view-reports"
           data-title="Reports"
-          data-subtitle="Every approved year and the approved budget, side by side"
+          data-subtitle="Every year of your history and the chosen budget, side by side"
         >
           <article class="panel rp-report">
             <header class="panel-header">
@@ -286,24 +281,17 @@
           class="view"
           id="view-upload"
           data-title="Upload statement"
-          data-subtitle="Send your income statement for approval in three steps"
+          data-subtitle="Save your income statement in two steps"
         >
 
           <div id="uploadFlow">
             <ol class="stepper" id="uploadSteps">
               <li class="step" data-step="1"><span class="step-dot">1</span><span>Choose your file</span></li>
-              <li class="step" data-step="2"><span class="step-dot">2</span><span>Check and send</span></li>
-              <li class="step" data-step="3"><span class="step-dot">3</span><span>Wait for approval</span></li>
+              <li class="step" data-step="2"><span class="step-dot">2</span><span>Check and save</span></li>
             </ol>
 
             <div class="upload-step" id="uploadStep1">
               <div class="panel upload-card">
-                <p class="replace-note" id="replaceNote" hidden>
-                  <i class="fas fa-rotate"></i>
-                  <span id="replaceText"></span>
-                  <button type="button" class="link-btn" id="replaceCancel">Cancel</button>
-                </p>
-
                 <h2 class="upload-card-title">Choose your income statement</h2>
                 <p class="template-note">
                   No file yet?
@@ -324,7 +312,7 @@
                   <ul class="need-list">
                     <li><i class="fas fa-file-invoice-dollar"></i><span>Your <strong>income statement</strong> only, not the balance sheet</span></li>
                     <li><i class="fas fa-calendar-days"></i><span><strong>3 to 5 financial years</strong> in total, one column per year (e.g. FY2022 to FY2026)</span></li>
-                    <li><i class="fas fa-layer-group"></i><span><strong>One file or several.</strong> A single-year file is added to your approved history. If a year is in more than one upload, the newest one is used</span></li>
+                    <li><i class="fas fa-layer-group"></i><span><strong>One file or several.</strong> A single-year file is added to your history. If a year is in more than one upload, the newest one is used</span></li>
                     <li><i class="fas fa-list"></i><span>Line names in the first column. We match them <strong>by name</strong>, so your own layout works</span></li>
                     <li><i class="fas fa-calculator"></i><span>Keep your subtotals (gross profit, net profit) so we can check the totals</span></li>
                     <li><i class="fas fa-table"></i><span>Several sheets? We read the first sheet with year columns</span></li>
@@ -376,7 +364,7 @@
                       <i class="fas fa-arrow-left"></i><span>Choose a different file</span>
                     </button>
                     <button type="button" class="btn-primary" id="submitUploadBtn" disabled>
-                      <i class="fas fa-paper-plane"></i><span>Send for approval</span>
+                      <i class="fas fa-floppy-disk"></i><span>Save statement</span>
                     </button>
                   </div>
                 </footer>
@@ -386,7 +374,7 @@
             <div class="upload-step" id="uploadStep3" hidden>
               <div class="panel upload-done">
                 <i class="fas fa-circle-check"></i>
-                <h2>Sent for approval</h2>
+                <h2>Statement saved</h2>
                 <p id="doneText"></p>
                 <button type="button" class="btn-primary" id="uploadAnotherBtn">
                   <i class="fas fa-file-arrow-up"></i><span>Upload another file</span>
@@ -399,7 +387,7 @@
             <header class="panel-header">
               <div>
                 <h2>Your uploads</h2>
-                <p class="panel-meta">Track each upload here and fix any that were rejected. Every version is kept.</p>
+                <p class="panel-meta">Every version is kept. For each year, the newest upload is the one in use.</p>
               </div>
             </header>
             <div class="table-wrap">
@@ -422,7 +410,7 @@
               <div>
                 <span class="step-label">Step 1 of 4</span>
                 <h2>Set up and run the forecast</h2>
-                <p class="panel-meta" id="fcHistoryMeta">Loading your approved history…</p>
+                <p class="panel-meta" id="fcHistoryMeta">Loading your history…</p>
               </div>
             </header>
 
@@ -569,69 +557,6 @@
                 <i class="fas fa-check"></i><span>Use as budget</span>
               </button>
             </footer>
-          </article>
-        </section>
-
-        <section
-          class="view"
-          id="view-approvals"
-          data-title="Approvals"
-          data-subtitle="Review uploads and budgets before they're used"
-        >
-
-          <div class="ap-summary">
-            <div class="ap-stat">
-              <i class="fas fa-file-excel"></i>
-              <div><strong id="apUploadCount">–</strong><span>uploads waiting</span></div>
-            </div>
-            <div class="ap-stat">
-              <i class="fas fa-check-to-slot"></i>
-              <div><strong id="apBudgetCount">–</strong><span>budget waiting</span></div>
-            </div>
-          </div>
-
-          <article class="panel ap-panel">
-            <header class="panel-header">
-              <div>
-                <h2>Uploads waiting for approval</h2>
-                <p class="panel-meta">
-                  An approved upload becomes the history behind the forecasts and the dashboard.
-                  A rejected one goes back to the submitter with your comment.
-                </p>
-              </div>
-            </header>
-            <div class="ap-list" id="apUploads">
-              <div class="ap-item skeleton"></div>
-            </div>
-          </article>
-
-          <article class="panel ap-panel">
-            <header class="panel-header">
-              <div>
-                <h2>Budget waiting for approval</h2>
-                <p class="panel-meta">
-                  The budget chosen in Forecast &amp; budget. Approving it makes it the business's budget;
-                  rejecting it asks for a new choice.
-                </p>
-              </div>
-            </header>
-            <div class="ap-list" id="apBudgets">
-              <div class="ap-item skeleton"></div>
-            </div>
-          </article>
-
-          <article class="panel ap-panel">
-            <header class="panel-header">
-              <div>
-                <h2>Recent decisions</h2>
-                <p class="panel-meta">Every decision is kept with who made it, when, and the comment.</p>
-              </div>
-            </header>
-            <div class="table-wrap">
-              <table class="uploads-table ap-history" id="apHistory">
-                <tbody><tr class="row-loading"><td></td></tr></tbody>
-              </table>
-            </div>
           </article>
         </section>
 
@@ -800,7 +725,7 @@
             <header class="panel-header">
               <div>
                 <h2>All activity</h2>
-                <p class="panel-meta">Uploads, decisions and every change.</p>
+                <p class="panel-meta">Uploads, budget choices and every change.</p>
               </div>
               <span class="badge info" id="acBadge" hidden></span>
             </header>

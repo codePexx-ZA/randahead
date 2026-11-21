@@ -1,6 +1,5 @@
 import * as activity from "./activity.js";
-import { getApprovedSubmissions, getBusiness, getCurrentUser, getStatementDefinitions } from "./api.js";
-import * as approvals from "./approvals.js";
+import { getActiveSubmissions, getBusiness, getCurrentUser, getStatementDefinitions } from "./api.js";
 import * as dashboard from "./dashboard-section.js";
 import * as forecast from "./forecast-section.js";
 import { initials } from "./format.js";
@@ -14,7 +13,7 @@ import * as targets from "./targets.js";
 import { showToast } from "./toast.js";
 import * as upload from "./upload.js";
 
-const SECTIONS = { activity, reports, dashboard, support, upload, forecast, approvals, targets, settings };
+const SECTIONS = { activity, reports, dashboard, support, upload, forecast, targets, settings };
 
 const views = document.querySelectorAll(".view");
 const navItems = document.querySelectorAll(".nav-item");
@@ -87,8 +86,8 @@ async function refreshUser() {
 async function loadData() {
   const shared = Promise.all([loadUploads(), loadRules()].map((load) => load.catch((err) => showToast(err.message, "error"))));
   try {
-    const [business, approved] = await Promise.all([getBusiness(), getApprovedSubmissions()]);
-    const withRows = approved.filter((u) => u.rows);
+    const [business, active] = await Promise.all([getBusiness(), getActiveSubmissions()]);
+    const withRows = active.filter((u) => u.rows);
     state.business = business;
     state.submission = withRows.length ? combineUploads(withRows) : null;
     state.processed = state.submission?.statement ?? null;

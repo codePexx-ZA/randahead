@@ -70,12 +70,8 @@ export function getStatementDefinitions() {
   return request("/statement/definitions", { fallback: "Could not load the income statement layout." });
 }
 
-export function getApprovedSubmissions() {
-  return request("/submissions?status=approved", { fallback: "Could not load the income statements." });
-}
-
-export function getPendingSubmissions() {
-  return request("/submissions?status=submitted", { fallback: "Could not load the uploads waiting for approval." });
+export function getActiveSubmissions() {
+  return request("/submissions?status=active", { fallback: "Could not load the income statements." });
 }
 
 export function getSubmissions() {
@@ -100,22 +96,12 @@ export function submitUpload(payload) {
   return request("/submissions", { method: "POST", body: payload, fallback: "Could not send the upload." });
 }
 
-export function decideSubmission(submissionId, decision, comments) {
-  const body = { decision, comments };
-  return request(`/submissions/${id(submissionId)}/decision`, { method: "POST", body, fallback: "Could not save the decision." });
-}
-
 export function getLatestBudget() {
   return request("/budgets/latest", { nullOn404: true, fallback: "Could not load the budget." });
 }
 
 export function chooseBudget(method, runIds) {
   return request("/budgets", { method: "POST", body: { method, run_ids: runIds }, fallback: "Could not save the budget." });
-}
-
-export function decideBudget(budgetId, decision, comments) {
-  const body = { decision, comments };
-  return request(`/budgets/${id(budgetId)}/decision`, { method: "POST", body, fallback: "Could not save the decision." });
 }
 
 export function getLatestForecast() {

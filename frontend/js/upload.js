@@ -4,19 +4,16 @@ import {
   MAX_HISTORY_YEARS, SCALE_LABELS, buildSubmissionPayload, checkPreview, describeChange, fileExtension, historyChange,
   isResolved, planHistory, uploadPeriods, yearList,
 } from "./importer.js";
-import { on, reloadUploads, state, subtotalName } from "./store.js";
+import { emit, on, reloadUploads, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
-import { checksHtml, chip, commentRow, emptyRow, headingRow, html, raw, sheetCells, withBusy } from "./ui.js";
+import { checksHtml, chip, emptyRow, headingRow, html, raw, sheetCells, withBusy } from "./ui.js";
 
 const UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
 const UPLOAD_TYPES = [".xlsx", ".csv"];
 const TEMPLATE_FILE_NAME = "RandAhead_income_statement_template.xlsx";
 const UNREADABLE_TYPES = [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".tif", ".tiff"];
 const UPLOAD_STATUS = {
-  draft: "Draft",
-  submitted: "Waiting for approval",
-  approved: "Approved",
-  rejected: "Rejected",
+  active: "In use",
   superseded: "Replaced",
 };
 const NEW_UPLOAD_ID = "new";
@@ -26,7 +23,6 @@ const upload = {
   statement: null,
   statementToken: 0,
   check: null,
-  replacesId: null,
   highlightId: null,
 };
 
@@ -90,15 +86,6 @@ function downloadTemplate(e) {
       showToast(err.message, "error");
     }
   });
-}
-
-function setReplaces(item) {
-  upload.replacesId = item ? item.id : null;
-  document.getElementById("replaceNote").hidden = !item;
-  if (item) {
-    document.getElementById("replaceText").textContent =
-      `Fixing ${item.fileName} (rejected). Your new file will replace it.`;
-  }
 }
 
 function setupDropzone() {
@@ -293,11 +280,11 @@ function renderHistoryPlan(change) {
       const note = replaced[y] ? `replaces ${replaced[y].fileName}` : "new year";
       return html`<td class="plan-new">This file<small>${note}</small></td>`;
     }
-    return html`<td>${source.fileName}<small>already approved</small></td>`;
+    return html`<td>${source.fileName}<small>already saved</small></td>`;
   });
 
   document.getElementById("historyPlan").innerHTML = html`
-    <p class="plan-title">Your history once this file is approved</p>
+    <p class="plan-title">Your history once this file is saved</p>
     <div class="table-wrap">
       <table class="plan-table">
         <thead><tr>${years.map((y) => html`<th>${y}</th>`)}</tr></thead>
@@ -320,7 +307,7 @@ function refreshChecks() {
     const cell = tr.querySelector(".status-cell");
     const check = result.subtotals?.[row.subtotal];
     if (!check) {
-      cell.innerHTML = chip("muted", "Waiting", "fa-hourglass-half", "Choose every category first");
+      cell.innerHTML = chip("muted", "Pick one", "fa-hand-pointer", "Choose every category first");
     } else if (check.matches) {
       cell.innerHTML = chip("ok", "Matches", "fa-check");
     } else {
@@ -345,20 +332,16 @@ async function submitUpload() {
 
   try {
     const change = previewChange();
-    const created = await sendUpload(buildSubmissionPayload(p, upload.replacesId));
-    const fixed = state.uploads?.find((u) => u.id === created.replacesId);
+    const created = await sendUpload(buildSubmissionPayload(p));
     document.getElementById("doneText").textContent =
-      `${yearList(p.years)} from ${p.fileName} is waiting for an approver.` +
-      (fixed ? ` It's the corrected version of ${fixed.fileName}.` : "") +
-      ` Once approved: ${describeChange(change)}` +
-      " Until then the dashboard keeps showing the current approved history.";
+      `${yearList(p.years)} from ${p.fileName} is saved and in use now. ${describeChange(change)}`;
 
-    setReplaces(null);
     upload.preview = null;
     goToStep(3);
-    showToast("Sent for approval.", "success");
+    showToast("Statement saved.", "success");
     upload.highlightId = created.id;
     await reloadUploads().catch((err) => showToast(err.message, "error"));
+    await emit("reload");
   } catch (err) {
     showToast(err.message, "error");
     updateSubmitState();
@@ -377,36 +360,24 @@ function renderUploads() {
     return;
   }
 
-  const fixed = new Set(uploads.map((u) => u.replacesId).filter(Boolean));
-  const plan = planHistory(uploads.filter((u) => u.status === "approved"));
+  const plan = planHistory(uploads.filter((u) => u.status === "active"));
   const usage = (u) => {
     const used = plan.years.filter((y) => plan.sourceOf[y] === u);
     return used.length ? `Used for ${yearList(used)}` : `Not used: only the latest ${MAX_HISTORY_YEARS} years are kept`;
   };
 
   const rows = uploads.map((u) => {
-    const decided = u.decision || (u.status === "rejected" ? "rejected" : "approved");
     const replacer = u.status === "superseded" && uploads.find((x) => x.id === u.supersededBy);
-    let decision = "";
-    if (u.status === "rejected") decision = `by ${u.decidedBy}, ${formatDate(u.decidedOn)}`;
-    else if (u.decidedOn) decision = `${decided} by ${u.decidedBy}, ${formatDate(u.decidedOn)}`;
-    if (u.status === "approved") decision += ` · ${usage(u)}`;
-    if (replacer) decision += ` · replaced by ${replacer.fileName}`;
-
-    const canFix = u.status === "rejected" && !fixed.has(u.id);
-    const action = canFix
-      ? html`<button type="button" class="btn-outline btn-small" data-fix="${u.id}"><i class="fas fa-wrench"></i><span>Fix &amp; re-upload</span></button>`
-      : "";
+    const detail = u.status === "active" ? usage(u) : replacer ? `Replaced by ${replacer.fileName}` : "";
 
     return html`<tr class="${u.id === highlightId ? "row-new" : ""}">
       <td><i class="fas fa-file-lines file-icon"></i>${u.fileName}</td>
       <td>${yearList(uploadPeriods(u))}</td>
       <td>${formatDate(u.submittedOn)}<small>${u.submittedBy}</small></td>
-      <td><span class="badge ${u.status}">${UPLOAD_STATUS[u.status] || u.status}</span><small>${decision}</small></td>
-      <td class="action-cell">${action}</td></tr>${u.comment ? commentRow(5, decided, u.decidedBy, u.comment) : ""}`;
+      <td><span class="badge ${u.status}">${UPLOAD_STATUS[u.status] || u.status}</span><small>${detail}</small></td></tr>`;
   });
 
-  table.innerHTML = html`<thead><tr><th>File</th><th>Years</th><th>Uploaded</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+  table.innerHTML = html`<thead><tr><th>File</th><th>Years</th><th>Uploaded</th><th>Status</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function renderUploadsIfLoaded() {
@@ -434,16 +405,6 @@ export function setup() {
   document.getElementById("confirmCheck").addEventListener("change", updateSubmitState);
   document.getElementById("submitUploadBtn").addEventListener("click", submitUpload);
   ["changeFileBtn", "uploadAnotherBtn"].forEach((id) => document.getElementById(id).addEventListener("click", () => goToStep(1)));
-  document.getElementById("replaceCancel").addEventListener("click", () => setReplaces(null));
-
-  document.getElementById("uploadsTable").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-fix]");
-    if (!btn) return;
-    setReplaces(state.uploads.find((u) => u.id === btn.dataset.fix));
-    goToStep(1);
-    document.getElementById("view-upload").scrollIntoView({ behavior: "smooth" });
-    showToast("Choose the corrected file. It will replace the rejected upload.", "info");
-  });
 }
 
 export const refresh = renderUploadsIfLoaded;

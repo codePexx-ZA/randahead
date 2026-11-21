@@ -40,12 +40,12 @@ function renderBusiness() {
   yearEnd.innerHTML = html`${Array.from({ length: 12 }, (_, i) => i + 1)
     .map((m) => html`<option value="${m}"${raw(m === b.yearEndMonth ? " selected" : "")}>${monthName(m)}</option>`)}`;
   [name, industry].forEach((input) => input.classList.remove("invalid"));
-  yearEnd.disabled = b.hasApprovedHistory;
+  yearEnd.disabled = b.hasHistory;
 
   const lastMonth = monthName(b.yearEndMonth);
   const firstMonth = monthName((b.yearEndMonth % 12) + 1);
-  const lock = b.hasApprovedHistory
-    ? "The year-end is locked because income statement history is already approved: every financial year label and target date depends on it."
+  const lock = b.hasHistory
+    ? "The year-end is locked because an income statement is already saved: every financial year label and target date depends on it."
     : "Set this before the first upload or KPI target; it can't change afterwards.";
   document.getElementById("bizYearEndHint").textContent = `Financial years run from ${firstMonth} to ${lastMonth}. ${lock}`;
   document.getElementById("bizUnit").textContent = `${b.unitName || "Whole company"} · ${b.currency === "ZAR" || !b.currency ? "Rand (ZAR)" : b.currency}`;

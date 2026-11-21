@@ -100,10 +100,10 @@ function renderReportWarnings() {
   const checked = rp.warnings.length;
   const triggered = rp.warnings.filter((w) => w.triggered);
   document.getElementById("rpWarningsMeta").textContent = checked
-    ? `${checked} active warning rule${checked === 1 ? "" : "s"} checked against the approved years`
+    ? `${checked} active warning rule${checked === 1 ? "" : "s"} checked against your history years`
     : "Every warning rule is switched off";
   badge.hidden = !checked;
-  badge.className = `badge ${triggered.length ? "warning" : "approved"}`;
+  badge.className = `badge ${triggered.length ? "warning" : "good"}`;
   badge.textContent = triggered.length ? `${triggered.length} warning${triggered.length === 1 ? "" : "s"}` : "No warnings";
 
   list.innerHTML = triggered.length
@@ -121,14 +121,14 @@ function renderReport() {
 
   const budgetNote = budget
     ? planned
-      ? `Budget columns: ${METHOD_NAMES[budget.method]}, approved by ${budget.approvedBy} on ${budget.approvedOn}.`
-      : `The approved budget (${METHOD_NAMES[budget.method]}) covers years that now have actual figures; compare them on the Dashboard.`
-    : "No approved budget yet, so only actual years are shown.";
+      ? `Budget columns: ${METHOD_NAMES[budget.method]}, chosen by ${budget.chosenBy} on ${budget.chosenOn}.`
+      : `The chosen budget (${METHOD_NAMES[budget.method]}) covers years that now have actual figures; compare them on the Dashboard.`
+    : "No budget chosen yet, so only actual years are shown.";
   const changeNote = changeFrom
     ? html` Change compares ${changeTo} with ${changeFrom}. <strong class="note-good">Green</strong> is better for the business, <strong class="note-bad">red</strong> is worse.`
     : "";
   document.getElementById("rpNote").innerHTML =
-    html`Amounts in rands from the approved income statements. ${budgetNote}${changeNote}`;
+    html`Amounts in rands from your income statements. ${budgetNote}${changeNote}`;
 
   document.getElementById("rpStatement").innerHTML = columns.length ? rpStatementHtml() : "";
   renderReportTargets();
@@ -140,11 +140,11 @@ function renderReportEmpty() {
   rp.data = null;
   rpSetActions(false);
   document.getElementById("rpTitle").textContent = "Combined report";
-  document.getElementById("rpMeta").textContent = "Nothing approved yet";
-  document.getElementById("rpNote").textContent = "The report fills in once the first income statement upload is approved.";
-  document.getElementById("rpStatement").innerHTML = emptyRow("No approved income statement yet.");
+  document.getElementById("rpMeta").textContent = "Nothing uploaded yet";
+  document.getElementById("rpNote").textContent = "The report fills in once the first income statement is saved.";
+  document.getElementById("rpStatement").innerHTML = emptyRow("No income statement yet.");
   ["rpTargets", "rpWarnings"].forEach((id) => (document.getElementById(id).innerHTML = ""));
-  ["rpTargetsMeta", "rpWarningsMeta"].forEach((id) => (document.getElementById(id).textContent = "Checked once history is approved."));
+  ["rpTargetsMeta", "rpWarningsMeta"].forEach((id) => (document.getElementById(id).textContent = "Checked once a statement is saved."));
   ["rpTargetsBadge", "rpWarningsBadge"].forEach((id) => (document.getElementById(id).hidden = true));
 }
 

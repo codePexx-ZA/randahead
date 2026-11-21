@@ -424,7 +424,7 @@
   padding: 18px 20px 22px;
 }
 
-.dash-kpi-list .ap-empty {
+.dash-kpi-list .empty-note {
   grid-column: 1 / -1;
 }
 

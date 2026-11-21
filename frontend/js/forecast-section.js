@@ -154,7 +154,7 @@ function renderMeta() {
   const s = state.submission;
   const origin = s.sources?.length > 1
     ? `combined from ${describeSources(s)}`
-    : `from ${s.fileName}, approved by ${s.approvedBy}`;
+    : `from ${s.fileName}, uploaded by ${s.submittedBy}`;
   document.getElementById("fcHistoryMeta").textContent = `History: ${yearsText(p.years)} (${p.years.length} years) ${origin}`;
   document.getElementById("fcNoteYear").textContent = p.years[p.years.length - 1];
   if (!c) return;
@@ -192,7 +192,7 @@ function renderWarnings() {
   const triggered = fc.warnings.filter((w) => w.triggered).length;
 
   const badge = document.getElementById("fcWarnBadge");
-  badge.className = `badge ${triggered ? "warning" : "approved"}`;
+  badge.className = `badge ${triggered ? "warning" : "good"}`;
   badge.textContent = triggered ? `${triggered} warning${triggered === 1 ? "" : "s"}` : "No warnings";
 
   if (!fc.warnings.length) {
@@ -297,17 +297,10 @@ function renderCurrentBudget() {
   }
   if (b.outOfDate) {
     const lastYear = state.processed.years[state.processed.years.length - 1];
-    el.textContent = `${describeMethod(b)} for ${yearsText(b.years)} is out of date: the approved history now runs to ${lastYear}. Choose a new budget below.`;
+    el.textContent = `${describeMethod(b)} for ${yearsText(b.years)} is out of date: your history now runs to ${lastYear}. Choose a new budget below.`;
     return;
   }
-  if (b.status === "rejected") {
-    el.textContent = `${describeMethod(b)} for ${yearsText(b.years)} was rejected by ${b.decidedBy}: "${b.comment}" Choose again below.`;
-    return;
-  }
-  const status = b.status === "approved"
-    ? `approved by ${b.approvedBy}`
-    : `chosen by ${b.chosenBy || "you"}, waiting for approval`;
-  el.textContent = `Current budget: ${describeMethod(b)} for ${yearsText(b.years)}, ${status}.`;
+  el.textContent = `Current budget: ${describeMethod(b)} for ${yearsText(b.years)}, chosen by ${b.chosenBy || "you"} on ${b.chosenOn}.`;
 }
 
 function renderChoices() {
@@ -323,9 +316,7 @@ function renderChoices() {
     const selected = fc.chosen === method;
     let current = "";
     if (isCurrentBudget(m)) {
-      current = state.budget.status === "rejected"
-        ? raw('<span class="badge rejected">Rejected</span>')
-        : raw('<span class="badge approved">Current budget</span>');
+      current = raw('<span class="badge good">Current budget</span>');
     }
     const preset = presetFor(c.windowSize, c.alpha);
     const setting = method === "combined"
@@ -361,11 +352,11 @@ function updateChooseState() {
   const blocked = [
     [isStale(), "Run the forecast with your new settings first, or set them back."],
     [!m, "Pick the forecast that looks most realistic to you, or both for their average."],
-    [m && isCurrentBudget(m) && state.budget.status !== "rejected", "This option is already your budget."],
+    [m && isCurrentBudget(m), "This option is already your budget."],
   ].find(([when]) => when);
   note.textContent = blocked
     ? blocked[1]
-    : `The % is the change from ${state.processed.years[state.processed.years.length - 1]}'s actual. The dashboard always shows both forecasts; your choice sets its Budget column and goes to an approver.`;
+    : `The % is the change from ${state.processed.years[state.processed.years.length - 1]}'s actual. The dashboard always shows both forecasts; your choice becomes the budget straight away and sets its Budget column.`;
   btn.disabled = Boolean(blocked);
 }
 
@@ -514,7 +505,7 @@ async function chooseBudget() {
     await reloadBudget();
     btn.classList.remove("busy");
     renderChoices();
-    showToast(`${describeMethod(m)} is now your budget for ${yearsText(fc.comparison.years)}. Sent for approval.`, "success", 5000);
+    showToast(`${describeMethod(m)} is now your budget for ${yearsText(fc.comparison.years)}.`, "success", 5000);
   } catch (err) {
     btn.classList.remove("busy");
     showToast(err.message, "error");
@@ -581,7 +572,7 @@ export async function refresh() {
   refreshStale();
   if (!state.processed) {
     document.getElementById("fcHistoryMeta").textContent =
-      "No approved history yet: the forecasts run once the first income statement is approved.";
+      "No history yet: the forecasts run once the first income statement is saved.";
     return;
   }
   renderMeta();

@@ -33,7 +33,7 @@ function setupYearPicker() {
   select.addEventListener("change", () => {
     dash.yearIndex = Number(select.value);
     document.querySelectorAll(".metric-card").forEach((card) => updateMetricCard(card, false));
-    renderSubmitted();
+    renderUploaded();
     refreshDashboardSummary();
   });
 }
@@ -174,19 +174,19 @@ function scrollToSelectedYear(table) {
   wrap.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
 }
 
-function renderSubmitted() {
+function renderUploaded() {
   const s = state.submission;
   const cols = s.years.length + 1;
 
   const combined = s.sources?.length > 1;
-  document.getElementById("submittedMeta").textContent = combined
+  document.getElementById("uploadedMeta").textContent = combined
     ? `Combined from ${s.sources.length} uploads: ${describeSources(s)}`
     : `${s.fileName} · uploaded by ${s.submittedBy}`;
-  const badge = document.getElementById("submittedBadge");
+  const badge = document.getElementById("uploadedBadge");
   badge.hidden = false;
-  badge.className = `badge ${s.status}`;
-  badge.textContent = s.status.charAt(0).toUpperCase() + s.status.slice(1);
-  if (s.approvedBy) badge.title = `${combined ? "Newest upload approved" : "Approved"} by ${s.approvedBy} on ${s.approvedOn}`;
+  badge.className = "badge good";
+  badge.textContent = "In use";
+  if (s.submittedOn) badge.title = `${combined ? "Newest upload" : "Uploaded"} by ${s.submittedBy} on ${s.submittedOn}`;
 
   const rows = s.rows.map((row) => {
     if (row.heading) return headingRow(row.heading, cols);
@@ -195,7 +195,7 @@ function renderSubmitted() {
         <td>${row.label}</td>${valueCells(row.values, formatSheet)}</tr>`;
   });
 
-  const table = document.getElementById("submittedTable");
+  const table = document.getElementById("uploadedTable");
   table.innerHTML = html`<thead><tr><th>Line (as in file)</th>${yearHeaderCells(combined ? s.sources : null)}</tr></thead><tbody>${rows}</tbody>`;
   applySearch();
   scrollToSelectedYear(table);
@@ -214,18 +214,12 @@ function renderProcessed() {
   const eachYear = b.years.length > 1 ? " · each year" : "";
 
   document.getElementById("processedMeta").textContent = b.outOfDate
-    ? `Budget ${budgetYears} · ${describeMethod(b)} · out of date: the approved history now runs to ${lastYear}. Choose a new budget in Forecast & budget.`
+    ? `Budget ${budgetYears} · ${describeMethod(b)} · out of date: your history now runs to ${lastYear}. Choose a new budget in Forecast & budget.`
     : `Budget ${budgetYears} · ${describeMethod(b)}`;
   const badge = document.getElementById("processedBadge");
-  badge.className = `badge ${b.outOfDate ? "warning" : b.status}`;
-  badge.textContent = b.outOfDate ? "Out of date" : {
-    approved: "Approved budget",
-    submitted: "Waiting for approval",
-    rejected: "Budget rejected",
-  }[b.status] || "Draft budget";
-  if (b.status === "rejected") badge.title = `Rejected by ${b.decidedBy} on ${b.decidedOn}: ${b.comment}`;
-  else if (b.approvedBy) badge.title = `Approved by ${b.approvedBy} on ${b.approvedOn}`;
-  else if (b.chosenBy) badge.title = `Chosen by ${b.chosenBy} on ${b.chosenOn}`;
+  badge.className = `badge ${b.outOfDate ? "warning" : "good"}`;
+  badge.textContent = b.outOfDate ? "Out of date" : "Chosen budget";
+  if (b.chosenBy) badge.title = `Chosen by ${b.chosenBy} on ${b.chosenOn}`;
   document.getElementById("processedNoteYear").textContent = lastYear;
 
   const rows = state.definitions.layout.map((item) => {
@@ -328,14 +322,14 @@ function renderBudgetCheck(summary) {
   const { year, previousYear, budget, lines } = summary;
   document.getElementById("checkTitle").textContent = budget ? `Budget vs actual · ${year}` : `Year on year · ${year}`;
   document.getElementById("checkMeta").textContent = budget
-    ? `${METHOD_NAMES[budget.method]} budget, approved by ${budget.approvedBy} on ${budget.approvedOn}`
-    : `No approved budget forecast ${year}${previousYear ? `, so it's compared with ${previousYear}` : ""}`;
+    ? `${METHOD_NAMES[budget.method]} budget, chosen by ${budget.chosenBy} on ${budget.chosenOn}`
+    : `No budget forecast ${year}${previousYear ? `, so it's compared with ${previousYear}` : ""}`;
 
   const badge = document.getElementById("checkBadge");
   const net = lines.find((l) => l.code === "net_profit");
   badge.hidden = !budget;
   if (budget) {
-    badge.className = `badge ${net.variance >= 0 ? "approved" : "rejected"}`;
+    badge.className = `badge ${net.variance >= 0 ? "good" : "bad"}`;
     badge.textContent = `Net profit ${signedRand(net.variance)} vs budget`;
   }
 
@@ -423,15 +417,15 @@ function setupSearch() {
 }
 
 function renderNoHistory() {
-  const next = raw('Upload your first one under <a href="#upload">Upload statement</a>, then approve it under <a href="#approvals">Approvals</a>.');
+  const next = raw('Upload your first one under <a href="#upload">Upload statement</a>.');
   document.getElementById("metrics").innerHTML =
-    emptyNote(html`No approved income statement yet. ${next}`, "fa-circle-info", "dash-empty");
-  ["submitted", "processed", "check"].forEach((id) => {
-    document.getElementById(`${id}Meta`).textContent = "Nothing approved yet";
+    emptyNote(html`No income statement yet. ${next}`, "fa-circle-info", "dash-empty");
+  ["uploaded", "processed", "check"].forEach((id) => {
+    document.getElementById(`${id}Meta`).textContent = "Nothing uploaded yet";
     document.getElementById(`${id}Badge`).hidden = true;
     document.getElementById(`${id}Table`).innerHTML = "";
   });
-  document.getElementById("dashKpiMeta").textContent = "Checked once the first upload is approved.";
+  document.getElementById("dashKpiMeta").textContent = "Checked once the first statement is saved.";
   document.getElementById("dashKpiBadge").hidden = true;
   document.getElementById("dashKpiList").innerHTML = "";
 }
@@ -454,6 +448,6 @@ export function refresh() {
   dash.selectedMetrics = loadMetricSelection();
   renderYearSelect();
   renderMetrics();
-  renderSubmitted();
+  renderUploaded();
   renderProcessed();
 }

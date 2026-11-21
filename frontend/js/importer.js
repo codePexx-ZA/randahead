@@ -111,13 +111,12 @@ export function checkPreview(preview, change, statement) {
   return { items, subtotals, ready: !items.some((i) => i.level === "error") };
 }
 
-export function buildSubmissionPayload(preview, replacesSubmissionId) {
+export function buildSubmissionPayload(preview) {
   return {
     fileName: preview.fileName,
     frequency: preview.frequency,
     scale: preview.scale,
     years: preview.years,
-    replacesSubmissionId: replacesSubmissionId || null,
     rows: preview.rows.map((r) => ({
       label: r.label,
       kind: r.kind,
@@ -141,8 +140,7 @@ function submissionFromUpload(upload) {
     fileName: upload.fileName,
     status: upload.status,
     submittedBy: upload.submittedBy,
-    approvedBy: upload.decidedBy,
-    approvedOn: upload.decidedOn,
+    submittedOn: upload.submittedOn,
     scale: upload.scale,
     years: upload.periods,
     rows,
@@ -218,15 +216,15 @@ export function planHistory(uploads) {
 }
 
 export function historyChange(uploads, incoming) {
-  const isApproved = (u) => u.status === "approved" && u.id !== incoming.id;
-  const approved = uploads.filter(isApproved);
+  const isActive = (u) => u.status === "active" && u.id !== incoming.id;
+  const active = uploads.filter(isActive);
   const index = uploads.findIndex((u) => u.id === incoming.id);
   const saved = index !== -1;
-  const before = planHistory(approved);
-  const after = planHistory(saved ? uploads.filter((u) => u.id === incoming.id || isApproved(u)) : [incoming, ...approved]);
+  const before = planHistory(active);
+  const after = planHistory(saved ? uploads.filter((u) => u.id === incoming.id || isActive(u)) : [incoming, ...active]);
   const own = uploadPeriods(incoming);
   const mine = (y) => Boolean(after.sourceOf[y]) && after.sourceOf[y].id === incoming.id;
-  const newer = new Set(approved.filter((u) => uploads.indexOf(u) < index).flatMap(uploadPeriods));
+  const newer = new Set(active.filter((u) => uploads.indexOf(u) < index).flatMap(uploadPeriods));
 
   return {
     before,
@@ -255,9 +253,9 @@ function historyChecks(change) {
   const years = change.after.years;
   const span = yearList(years);
   if (years.length < MIN_HISTORY_YEARS) {
-    items.push({ level: "warning", text: `Once approved, the history has only ${years.length} year${years.length > 1 ? "s" : ""} (${span}). Forecasts are more reliable with 3 to 5 years.` });
+    items.push({ level: "warning", text: `Once saved, the history has only ${years.length} year${years.length > 1 ? "s" : ""} (${span}). Forecasts are more reliable with 3 to 5 years.` });
   } else {
-    items.push({ level: "ok", text: `Once approved, the history is ${span} (${years.length} years).` });
+    items.push({ level: "ok", text: `Once saved, the history is ${span} (${years.length} years).` });
   }
   items.push({ level: "info", text: describeChange(change) });
   const missing = missingYears(years);
@@ -265,7 +263,7 @@ function historyChecks(change) {
     items.push({ level: "warning", text: `Missing ${missing.join(", ")}, so the history has a gap. Upload that year to fill it.` });
   }
   if (change.covered.length) {
-    items.push({ level: "warning", text: `${yearList(change.covered)} in this file won't be used: a newer approved upload already covers ${change.covered.length > 1 ? "them" : "it"}.` });
+    items.push({ level: "warning", text: `${yearList(change.covered)} in this file won't be used: a newer upload already covers ${change.covered.length > 1 ? "them" : "it"}.` });
   }
   if (change.tooOld.length) {
     items.push({ level: "info", text: `${yearList(change.tooOld)} won't be used: only the latest ${MAX_HISTORY_YEARS} years are kept.` });
@@ -284,9 +282,9 @@ function rowKeys(rows) {
   });
 }
 
-export function combineUploads(approved) {
-  const plan = planHistory(approved);
-  const used = approved.filter((u) => plan.years.some((y) => plan.sourceOf[y] === u));
+export function combineUploads(active) {
+  const plan = planHistory(active);
+  const used = active.filter((u) => plan.years.some((y) => plan.sourceOf[y] === u));
   const newest = used[0];
   const { scale } = newest;
 
@@ -333,10 +331,9 @@ export function combineUploads(approved) {
 
   return {
     fileName: newest.fileName,
-    status: "approved",
+    status: "active",
     submittedBy: newest.submittedBy,
-    approvedBy: newest.decidedBy,
-    approvedOn: newest.decidedOn,
+    submittedOn: newest.submittedOn,
     scale,
     years: plan.years,
     rows,
@@ -345,7 +342,6 @@ export function combineUploads(approved) {
       fileName: u.fileName,
       years: plan.years.filter((y) => plan.sourceOf[y] === u),
       submittedBy: u.submittedBy,
-      approvedBy: u.decidedBy,
     })),
     statement: {
       years: plan.years,

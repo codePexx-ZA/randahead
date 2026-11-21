@@ -299,7 +299,7 @@ function renderRules() {
   const active = tg.rules.filter((r) => r.active);
   const warning = active.filter((r) => r.triggered).length;
   const badge = document.getElementById("ruleBadge");
-  badge.className = `badge ${warning ? "warning" : "approved"}`;
+  badge.className = `badge ${warning ? "warning" : "good"}`;
   badge.textContent = `${active.length} of ${tg.rules.length} on · ${warning} warning${warning === 1 ? "" : "s"}`;
   updateAddRulePreview();
 }
@@ -418,7 +418,7 @@ async function addRule(e) {
 
 function renderNoTargetHistory() {
   document.getElementById("kpiMeta").textContent =
-    "Targets are set per financial year, so they open once the first income statement is approved.";
+    "Targets are set per financial year, so they open once the first income statement is saved.";
   document.getElementById("kpiBadge").hidden = true;
   document.getElementById("kpiTable").innerHTML = "";
 }

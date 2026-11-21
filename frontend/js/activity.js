@@ -3,7 +3,6 @@ import { showToast } from "./toast.js";
 import { emptyRow, html } from "./ui.js";
 
 const AC_AREAS = {
-  account: { label: "Account", icon: "fa-key" },
   upload: { label: "Uploads", icon: "fa-file-arrow-up" },
   forecast: { label: "Forecasts", icon: "fa-chart-line" },
   budget: { label: "Budgets", icon: "fa-scale-balanced" },
@@ -11,7 +10,7 @@ const AC_AREAS = {
   rule: { label: "Warning rules", icon: "fa-triangle-exclamation" },
   business: { label: "Business details", icon: "fa-building" },
 };
-const AC_ALERT_ACTIONS = ["rejected", "deleted", "switched_off"];
+const AC_ALERT_ACTIONS = ["deleted", "switched_off"];
 const ac = { data: null, request: 0 };
 
 const acDateFormat = new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short", year: "numeric" });
