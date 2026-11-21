@@ -286,51 +286,51 @@
           class="view"
           id="view-upload"
           data-title="Upload statement"
-          data-subtitle="Send your income statement history for approval"
+          data-subtitle="Send your income statement for approval in three steps"
         >
 
           <div id="uploadFlow">
             <ol class="stepper" id="uploadSteps">
-              <li class="step" data-step="1"><span class="step-dot">1</span><span>Choose file</span></li>
-              <li class="step" data-step="2"><span class="step-dot">2</span><span>Check &amp; map lines</span></li>
-              <li class="step" data-step="3"><span class="step-dot">3</span><span>Send for approval</span></li>
+              <li class="step" data-step="1"><span class="step-dot">1</span><span>Choose your file</span></li>
+              <li class="step" data-step="2"><span class="step-dot">2</span><span>Check and send</span></li>
+              <li class="step" data-step="3"><span class="step-dot">3</span><span>Wait for approval</span></li>
             </ol>
 
             <div class="upload-step" id="uploadStep1">
-              <div class="upload-grid">
-                <div class="panel upload-card">
-                  <p class="replace-note" id="replaceNote" hidden>
-                    <i class="fas fa-rotate"></i>
-                    <span id="replaceText"></span>
-                    <button type="button" class="link-btn" id="replaceCancel">Cancel</button>
-                  </p>
+              <div class="panel upload-card">
+                <p class="replace-note" id="replaceNote" hidden>
+                  <i class="fas fa-rotate"></i>
+                  <span id="replaceText"></span>
+                  <button type="button" class="link-btn" id="replaceCancel">Cancel</button>
+                </p>
 
-                  <label class="dropzone" id="dropzone" for="fileInput" tabindex="0">
-                    <input type="file" id="fileInput" accept=".xlsx,.csv" hidden />
-                    <i class="fas fa-cloud-arrow-up"></i>
-                    <strong>Drag your income statement here</strong>
-                    <span>or <span class="dropzone-link">browse your files</span></span>
-                    <small>Excel (.xlsx) or CSV, up to 5 MB</small>
-                  </label>
+                <h2 class="upload-card-title">Choose your income statement</h2>
+                <p class="template-note">
+                  No file yet?
+                  <button type="button" class="link-btn" id="templateBtn"><i class="fas fa-file-arrow-down"></i> Download the template</button>,
+                  fill it in, then choose it below.
+                </p>
 
-                  <p class="template-note">
-                    No statement in Excel yet?
-                    <button type="button" class="link-btn" id="templateBtn"><i class="fas fa-file-arrow-down"></i> Download the template</button>
-                  </p>
-                </div>
+                <label class="dropzone" id="dropzone" for="fileInput" tabindex="0">
+                  <input type="file" id="fileInput" accept=".xlsx,.csv" hidden />
+                  <i class="fas fa-cloud-arrow-up"></i>
+                  <strong>Drag your income statement here</strong>
+                  <span>or <span class="dropzone-link">browse your files</span></span>
+                  <small>Excel (.xlsx) or CSV, up to 5 MB</small>
+                </label>
 
-                <aside class="panel upload-help">
-                  <h2>What we need</h2>
+                <details class="more upload-help">
+                  <summary>What the file needs</summary>
                   <ul class="need-list">
-                    <li><i class="fas fa-file-invoice-dollar"></i><span>Your <strong>income statement</strong> only (no balance sheet)</span></li>
+                    <li><i class="fas fa-file-invoice-dollar"></i><span>Your <strong>income statement</strong> only, not the balance sheet</span></li>
                     <li><i class="fas fa-calendar-days"></i><span><strong>3 to 5 financial years</strong> in total, one column per year (e.g. FY2022 to FY2026)</span></li>
-                    <li><i class="fas fa-layer-group"></i><span><strong>One file or several.</strong> A file with a single year (e.g. just FY2026) is added to your approved history. If a year is in more than one upload, the newest upload's figures are used</span></li>
-                    <li><i class="fas fa-ban"></i><span>PDFs and scanned images can't be read</span></li>
-                    <li><i class="fas fa-table"></i><span>If your Excel file has several sheets, we read the first sheet with year columns, so put the income statement there</span></li>
+                    <li><i class="fas fa-layer-group"></i><span><strong>One file or several.</strong> A single-year file is added to your approved history. If a year is in more than one upload, the newest one is used</span></li>
                     <li><i class="fas fa-list"></i><span>Line names in the first column. We match them <strong>by name</strong>, so your own layout works</span></li>
                     <li><i class="fas fa-calculator"></i><span>Keep your subtotals (gross profit, net profit) so we can check the totals</span></li>
+                    <li><i class="fas fa-table"></i><span>Several sheets? We read the first sheet with year columns</span></li>
+                    <li><i class="fas fa-ban"></i><span>PDFs and scanned images can't be read</span></li>
                   </ul>
-                </aside>
+                </details>
               </div>
             </div>
 
@@ -341,24 +341,35 @@
                     <h2><span id="previewFile"></span></h2>
                     <p class="panel-meta" id="previewMeta"></p>
                   </div>
+                </header>
+
+                <div class="check-step">
+                  <h3 class="check-step-title"><span class="check-step-num">a</span>Pick the unit your amounts are in</h3>
                   <label class="scale-picker">
                     <span>Amounts in</span>
                     <select id="scaleSelect" aria-label="Amounts in"></select>
                   </label>
-                </header>
+                </div>
 
-                <ul class="checks" id="previewChecks"></ul>
-
-                <div class="history-plan" id="historyPlan"></div>
-
+                <div class="check-step">
+                  <h3 class="check-step-title"><span class="check-step-num">b</span>Check the category of each line</h3>
+                  <p class="check-step-hint">Change a category if we guessed wrong, or split a line across two categories.</p>
+                </div>
                 <div class="table-wrap">
                   <table class="statement map-table" id="mapTable"></table>
                 </div>
 
+                <div class="check-step">
+                  <h3 class="check-step-title"><span class="check-step-num">c</span>Read our checks</h3>
+                </div>
+                <ul class="checks" id="previewChecks"></ul>
+
+                <div class="history-plan" id="historyPlan"></div>
+
                 <footer class="preview-footer">
                   <label class="confirm">
                     <input type="checkbox" id="confirmCheck" />
-                    <span>I've checked the amounts, the scale and the categories</span>
+                    <span>I've checked the amounts, the unit and the categories</span>
                   </label>
                   <div class="preview-buttons">
                     <button type="button" class="btn-outline" id="changeFileBtn">
@@ -388,7 +399,7 @@
             <header class="panel-header">
               <div>
                 <h2>Your uploads</h2>
-                <p class="panel-meta">Every version is kept. Approved uploads combine into one history; where a year is in more than one, the newest upload is used.</p>
+                <p class="panel-meta">Track each upload here and fix any that were rejected. Every version is kept.</p>
               </div>
             </header>
             <div class="table-wrap">

@@ -57,16 +57,58 @@
   animation: fade-up 0.4s ease both;
 }
 
-.upload-grid {
-  display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 20px;
-  align-items: start;
+.upload-card {
+  max-width: 820px;
+  padding: 24px;
 }
 
-.upload-card,
+.upload-card-title {
+  margin-bottom: 6px;
+  font-size: 1.1em;
+}
+
+.upload-card .template-note {
+  margin: 0 0 16px;
+  text-align: left;
+}
+
 .upload-help {
-  padding: 24px;
+  margin-top: 18px;
+}
+
+.check-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 16px 20px 10px;
+}
+
+.check-step-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95em;
+}
+
+.check-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.8em;
+  font-weight: 700;
+}
+
+.check-step-hint {
+  flex-basis: 100%;
+  margin-left: 34px;
+  color: var(--text-muted);
+  font-size: 0.85em;
 }
 
 .replace-note {
@@ -187,11 +229,6 @@
   place-items: center;
   color: var(--accent);
   font-weight: 600;
-}
-
-.upload-help h2 {
-  font-size: 1.05em;
-  margin-bottom: 14px;
 }
 
 .need-list {
@@ -427,12 +464,6 @@
 
 .uploads {
   margin-top: 24px;
-}
-
-@media (max-width: 1050px) {
-  .upload-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 600px) {
