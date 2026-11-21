@@ -72,7 +72,7 @@ The one signed-in user can open every section and do every action: upload and fi
 
 | Part | What it does |
 |---|---|
-| Sidebar | Upload statement, Targets & rules, Forecast & budget, Approvals (with a count of items waiting), Dashboard, Reports, Business, Activity log, Contact support (workflow order; Targets & rules sits before Forecast & budget because its rules set the forecast warnings). Back/forward buttons work (URL hash). After signing in the app opens on Dashboard (a `#section` in the URL wins) |
+| Sidebar | In the order the system is used, in three labelled groups. **Set up and plan:** Business, Upload statement, Targets & rules, Forecast & budget (Targets & rules comes before the forecast because its rules set the forecast warnings). **Monitor and decide:** Approvals (with a count of items waiting), Dashboard, Reports, Activity log. **Help:** Contact support. The menu scrolls on short screens, and on phones it opens from the ☰ button over a dimmed page. Back/forward buttons work (URL hash). After signing in the app opens on Dashboard (a `#section` in the URL wins) |
 | Top bar | Section title, financial year picker, signed-in user, sign out |
 | Search | Filters the lines of both income statements |
 | 4 metric cards | Each has a dropdown of the uploaded income statement lines (Sales, Rent, Water, Electricity…) plus totals (Gross profit… Net profit). Shows the amount for the chosen year and the change from the previous year (green = good, red = bad; a rise in an expense is bad). Choices are remembered in the browser |
@@ -109,13 +109,19 @@ One combined report of every approved year (up to 5) followed by the approved bu
 
 ## Upload statement
 
-Three steps: choose a file, check and map the lines, then send for approval. The upload history is underneath.
+The page reads top to bottom in the order of the work, with a stepper showing **1 Choose your file → 2 Check and send → 3 Wait for approval**:
+
+1. **Choose your file.** "No file yet? Download the template" comes first, then the drop zone. The file rules sit in a collapsed **What the file needs** list.
+2. **Check and send**, in lettered steps: (a) pick the unit the amounts are in, (b) check the category of each line (change it or split it), (c) read our checks; then the history once approved, the confirm tick and **Send for approval**.
+3. **Wait for approval.** A short confirmation with **Upload another file**.
+
+**Your uploads** stays at the bottom for tracking and **Fix & re-upload**.
 
 | Part | What it does |
 |---|---|
-| Choose file | Drag and drop or browse. Excel (.xlsx) or CSV up to 5 MB; old `.xls`, PDFs and images are refused with a message. **Download the template** (real API only) gives the standard Excel layout. To test, use the sample files below |
+| 1 Choose your file | Drag and drop or browse. Excel (.xlsx) or CSV up to 5 MB; old `.xls`, PDFs and images are refused with a message. **Download the template** (real API only) gives the standard Excel layout. To test, use the sample files below |
 | Reading the file | Finds the first row with at least two year columns (`FY2025`, `2025`, `2024/25`, `Feb 2025`, `Year ended 28 Feb 2025`), sorts years oldest first and keeps the latest 5. Failing that, a **single-year file**: one year heading to the right of the labels with amounts under it. Monthly files are refused for now. Amounts accept brackets, spaces, `R`, commas and dashes (= 0). Scale is detected from `R'000` / `R million` text and confirmed by the user |
-| Check & map lines | Every line is matched **by label**: known labels map automatically, choices made before are **remembered**, unknown labels must be given a category, and cross-category lines (e.g. "Water & electricity") must be assigned to one category or **split by %** (the user types the %, never guessed). Lines can also be marked "not part of the income statement". Total lines ("Total operating expenses") are skipped |
+| 2 Check the category of each line | Every line is matched **by label**: known labels map automatically, choices made before are **remembered**, unknown labels must be given a category, and cross-category lines (e.g. "Water & electricity") must be assigned to one category or **split by %** (the user types the %, never guessed). Lines can also be marked "not part of the income statement". Total lines ("Total operating expenses") are skipped |
 | Checks | Years in the file, then the **history once approved** (warning under 3 years, gaps, what the file adds / replaces / pushes out, years a newer upload already covers), blank amounts (treated as 0), unmapped lines and missing revenue (both block sending), and the sheet's subtotals vs our recalculation (per subtotal row, with the difference) |
 | History once approved | One column per year of the combined history: "This file" (new year, or which upload it replaces) or the approved upload the year keeps coming from |
 | Send for approval | Needs every line mapped and the confirm tick. Once approved, the file's years join the history. A file sent with **Fix & re-upload** is the next version of the rejected upload. User choices are remembered for the next upload |
@@ -137,14 +143,21 @@ The file is read on the server (`POST /api/submissions/preview`, C# + ClosedXML,
 
 Runs **Moving Average** and **Exponential Smoothing** side by side for each of the 13 categories, from the approved income statement history, and lets the user choose which one becomes the budget. No ARIMA, no machine learning.
 
+The page is four labelled steps in order:
+
+1. **Set up and run the forecast:** the history used, the prediction and how far ahead, then **Run forecasts**. **How the two methods work** is collapsed inside this step.
+2. **Compare the forecasts:** the chart, then every category side by side.
+3. **Check the economic warnings:** lines to look at again before choosing.
+4. **Choose your budget:** pick a method and **Use as budget**.
+
 | Part | What it does |
 |---|---|
-| Forecast settings | Three predictions: **Steady** (last 3 years, smoothing weight 0.3), **Balanced** (last 3 years, weight 0.5, the default) and **Recent** (last 2 years, weight 0.7). How far ahead is still 1, 2 or 3 years. **Run forecasts** runs both methods once (one saved run each). Changing a setting shows "Settings changed" until you run again. The exact window and weight are shown under the prediction and stored on the activity log |
-| How the two methods work | Moving Average says it adds the last 2 or 3 years and divides, each year counting the same. Exponential Smoothing follows the prediction: **Steady** keeps older years in the picture, **Balanced** lets recent years count more without following only the latest year, **Recent** follows the latest years. An honest note says forecasts are **flat** (years 2–3 repeat year 1, no growth or inflation added) and how many categories come out below last year |
-| Economic warnings | Each active warning rule (starting with one per external indicator: headline CPI, core CPI, electricity price, fuel price at 6 / 6 / 10 / 10%; set in Targets & rules) checked against the latest indicator year inside the history. A warning lists the categories to review and is also shown on those rows of the table. **Warnings never change the figures** |
-| History vs forecasts | Line chart for one category or total: actual figures (navy, solid), Moving Average (blue, dashed), Exponential Smoothing (sky, dashed) and their average (muted, dotted) starting from the last actual year. Pick it from the dropdown or click a table row |
-| Side-by-side comparison | Every category and subtotal: last actual year, both forecasts and their average, each with the % change (green = better for the business, red = worse). Team-managed categories (revenue, employee costs) are tagged |
-| Choose your budget | Three cards: **Moving Average**, **Exponential Smoothing** or **Both (average)** = (MA + ES) ÷ 2 per category, one number from both (revenue, total expenses, net profit on each). **Use as budget** saves the choice; it waits for approval in Approvals and sets the Budget column of the dashboard's processed statement straight away ("Waiting for approval"). Both forecasts are always kept, so there is no need to re-run to compare |
+| 1 Set up and run | Three predictions: **Steady** (last 3 years, smoothing weight 0.3), **Balanced** (last 3 years, weight 0.5, the default) and **Recent** (last 2 years, weight 0.7). How far ahead is still 1, 2 or 3 years. **Run forecasts** runs both methods once (one saved run each). Changing a setting shows "Settings changed" until you run again. The exact window and weight are shown under the prediction and stored on the activity log |
+| How the two methods work (collapsed in step 1) | Moving Average says it adds the last 2 or 3 years and divides, each year counting the same. Exponential Smoothing follows the prediction: **Steady** keeps older years in the picture, **Balanced** lets recent years count more without following only the latest year, **Recent** follows the latest years. An honest note says forecasts are **flat** (years 2–3 repeat year 1, no growth or inflation added) and how many categories come out below last year |
+| 2 Compare: chart | Line chart for one category or total: actual figures (navy, solid), Moving Average (blue, dashed), Exponential Smoothing (sky, dashed) and their average (muted, dotted) starting from the last actual year. Pick it from the dropdown or click a table row |
+| 2 Compare: every category side by side | Every category and subtotal: last actual year, both forecasts and their average, each with the % change (green = better for the business, red = worse). Team-managed categories (revenue, employee costs) are tagged |
+| 3 Check the economic warnings | Each active warning rule (starting with one per external indicator: headline CPI, core CPI, electricity price, fuel price at 6 / 6 / 10 / 10%; set in Targets & rules) checked against the latest indicator year inside the history. A warning lists the categories to review and is also shown on those rows of the table. **Warnings never change the figures** |
+| 4 Choose your budget | Three cards: **Moving Average**, **Exponential Smoothing** or **Both (average)** = (MA + ES) ÷ 2 per category, one number from both (revenue, total expenses, net profit on each). **Use as budget** saves the choice; it waits for approval in Approvals and sets the Budget column of the dashboard's processed statement straight away ("Waiting for approval"). Both forecasts are always kept, so there is no need to re-run to compare |
 
 On first open it shows the latest saved forecast when `matchesHistory` is true, or runs one with the default settings. A correction of an earlier year makes `matchesHistory` false. It uses `GET /api/forecasts/latest`, `POST /api/forecasts` (the C# API asks the Python service and returns its two runs), `POST /api/budgets` (`{ method, run_ids: [MA run, ES run] }`, method `moving_average` / `exponential_smoothing` / `combined`) and `GET /api/budgets/latest` (the budget plus both runs; the API sends each method's figures as `comparison`, and `budgetFromRuns` in `js/forecast.js` picks the chosen method's, so the average is worked out once, on the server). When the API marks the budget `outOfDate`, the dashboard badge, Forecast & budget, Targets and the budget's Approvals checks say so and ask for a new choice; the figures are never changed. Economic warnings come from `GET /api/rules` and `GET /api/indicators/series`.
 
@@ -164,14 +177,14 @@ Several uploads can be approved at once; they combine into one history (see Uplo
 
 ## Targets & rules
 
-Two panels: the **KPI targets** and the **economic warning rules**.
+The page is two labelled steps: **1 Set KPI targets** (pick what to track and the year, set the goal, then see every target and its status) and **2 Set warning levels** (adjust the existing rules first; adding a new rule is in the collapsed **Add another warning rule** section).
 
 | Part | What it does |
 |---|---|
 | Add / edit a target | KPI (net, operating, gross profit and profit before tax in rands; net, operating and gross **margin** as a % of revenue; or any of the 13 categories), financial year (the last actual year and the 3 after it) and the target (rands, or a % with one decimal). The hint says which way is good (profit, margins and income: **at least**; expenses: **at most**) and shows the current actual or budget figure for that year. One target per KPI per year |
 | Target table | Grouped by year, newest first. Each target shows the figure it's checked against (the year's **actual** once it's in the approved history, else the **budget**), the difference (green when reached) and a status: **Met / Missed** (actual), **On track / Off track** (budget) or **No figures yet**. Edit fills the form; delete asks "Delete this target?" in the row. The badge counts targets on target |
 | Warning rules | One card per rule: on/off switch, name, indicator, linked categories, the **Warn above** threshold and a live preview of what it means for the latest indicator value in the history ("6.3% in 2024, above 6%, so it warns"). Typing a new threshold shows **Save** / **Undo** (Enter saves). Rules that have raised alerts can only be switched off (lock icon); added rules can be deleted |
-| Add a rule | Indicator, threshold and an optional name (suggested from the indicator and threshold); a rule name can only be used once. Several rules per indicator are allowed (e.g. a second fuel rule at 5%) |
+| Add another warning rule (collapsed) | Indicator, threshold and an optional name (suggested from the indicator and threshold); a rule name can only be used once. Several rules per indicator are allowed (e.g. a second fuel rule at 5%) |
 
 Rule changes update the economic warnings in Forecast & budget and the budget checks in Approvals straight away; they never change the figures. Endpoints: `GET/POST /api/kpi-targets`, `PUT/DELETE /api/kpi-targets/{id}` (`{ metric_name, target_value, measurement_unit: "rand" | "percent", target_period }`, period = first day of the financial year; unique per unit, metric and period) and `GET/POST /api/rules`, `PUT/DELETE /api/rules/{id}` (`{ rule_name, indicator_code, threshold_value, active_status }`; rules belong to the business; `deletable` is false once a rule has raised an alert, and `DELETE` then answers 409). The rules' latest values come from `GET /api/indicators/series`; `buildIndicatorWarnings` in `js/forecast.js` checks them against the history years (see `../backend/README.md`).
 
