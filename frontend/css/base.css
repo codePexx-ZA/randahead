@@ -1,29 +1,29 @@
 :root {
-  --blue: #3368a0;
-  --sky: #66a3bf;
-  --mint: #c8dfdb;
-  --cream: #f2efe7;
+  color-scheme: dark;
+  scrollbar-color: var(--border) var(--bg);
 
-  --bg: var(--cream);
-  --surface: #f7f4ee;
-  --surface-hover: #ebe7dd;
-  --border: #d4cdb8;
-  --text: #1f3550;
-  --text-muted: #5f7f96;
-  --accent: var(--blue);
-  --accent-dark: #28568a;
-  --accent-light: var(--sky);
-  --on-accent: #ffffff;
-  --danger: #c94a54;
-  --warning: #d99a2b;
-  --success: #2f8f6f;
-  --blue-tint: rgba(51, 104, 160, 0.08);
-  --sky-tint: rgba(102, 163, 191, 0.18);
-  --danger-tint: rgba(201, 74, 84, 0.1);
-  --success-tint: rgba(47, 143, 111, 0.12);
-  --warning-tint: rgba(217, 154, 43, 0.14);
+  --bg: #232833;
+  --surface: #2c3240;
+  --surface-hover: #363d4d;
+  --border: #444c5e;
+  --text: #e8ebf1;
+  --text-muted: #b4bccc;
+  --accent: #8dbbee;
+  --accent-dark: #a6c8f0;
+  --accent-light: #86c5dc;
+  --on-accent: #14202e;
+  --mint: #2f4b53;
+  --danger: #f59ea5;
+  --warning: #e9bd62;
+  --success: #62d0a6;
+  --blue-tint: rgba(141, 187, 238, 0.11);
+  --sky-tint: rgba(134, 197, 220, 0.12);
+  --danger-tint: rgba(245, 158, 165, 0.12);
+  --success-tint: rgba(98, 208, 166, 0.14);
+  --warning-tint: rgba(233, 189, 98, 0.13);
+  --spinner-track: rgba(20, 32, 46, 0.3);
   --bg-glass: var(--surface);
-  --overlay: rgba(31, 53, 80, 0.35);
+  --overlay: rgba(12, 15, 20, 0.6);
   --radius: 8px;
   --radius-sm: 6px;
   --line: 0 0 0 1px var(--border);
@@ -127,6 +127,32 @@ a {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-hover: #f2efe7;
+    --border: #d4cdb8;
+    --text: #1f3550;
+    --text-muted: #4f6b80;
+    --accent: #28568a;
+    --accent-dark: #1f4570;
+    --accent-light: #2f6984;
+    --on-accent: #ffffff;
+    --mint: #c8dfdb;
+    --danger: #a8343e;
+    --warning: #8a5a0a;
+    --success: #23704f;
+    --blue-tint: rgba(51, 104, 160, 0.08);
+    --sky-tint: rgba(102, 163, 191, 0.18);
+    --danger-tint: rgba(201, 74, 84, 0.1);
+    --success-tint: rgba(47, 143, 111, 0.12);
+    --warning-tint: rgba(217, 154, 43, 0.14);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
