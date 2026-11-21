@@ -98,6 +98,19 @@ public partial class SingleLoginTests
         Assert.Empty(limited);
     }
 
+    [Fact]
+    public void NoEndpoint_IsAboutApprovals()
+    {
+        var routes = Controllers()
+            .SelectMany(c => Actions(c).SelectMany(a =>
+                a.GetCustomAttributes<Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute>()
+                    .Select(h => $"{c.GetCustomAttribute<RouteAttribute>()?.Template}/{h.Template}")))
+            .ToList();
+        Assert.NotEmpty(routes);
+        Assert.DoesNotContain(routes, r => Regex.IsMatch(r, "approv|reject|decision|pending", RegexOptions.IgnoreCase));
+        Assert.DoesNotContain(Controllers(), c => c.Name.Contains("Approval", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static IEnumerable<Type> Controllers() =>
         typeof(ApiController).Assembly.GetTypes().Where(t => !t.IsAbstract && typeof(ControllerBase).IsAssignableFrom(t));
 
