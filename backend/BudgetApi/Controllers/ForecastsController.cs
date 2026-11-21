@@ -1,4 +1,3 @@
-// Forecasts API: runs both forecasting methods through the Python service, saves them and returns the business's latest pair of runs with their comparison
 using System.Globalization;
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
@@ -56,15 +55,29 @@ public class ForecastsController(BudgetDbContext db, ForecastRuns runs, AuditLog
         {
             var roundedAlpha = Math.Round(alpha, 2);
             var created = await runs.CreateAsync(caller.UnitId, horizon, windowSize, roundedAlpha, cancellationToken);
+            var preset = $"{windowSize}:{roundedAlpha.ToString("0.0", CultureInfo.InvariantCulture)}" switch
+            {
+                "3:0.3" => "Steady",
+                "3:0.5" => "Balanced",
+                "2:0.7" => "Recent",
+                _ => null,
+            };
+            var ahead = $"{horizon} year{(horizon == 1 ? "" : "s")} ahead";
+            var details = new List<AuditChange>
+            {
+                new("Moving average", null, $"Last {windowSize} years, counted equally"),
+                new("Smoothing weight", null, roundedAlpha.ToString("0.0", CultureInfo.InvariantCulture)),
+            };
+            if (preset is not null)
+            {
+                details.Insert(0, new AuditChange("Prediction", null, preset));
+            }
             audit.Add(
                 caller,
                 "forecast",
                 "ran",
-                $"Ran the forecasts for {horizon} year{(horizon == 1 ? "" : "s")} ahead",
-                [
-                    new AuditChange("Moving Average window", null, $"{windowSize} years"),
-                    new AuditChange("Smoothing weight α", null, roundedAlpha.ToString("0.##", CultureInfo.InvariantCulture)),
-                ]
+                preset is null ? $"Ran the forecasts for {ahead}" : $"Ran the {preset} forecast for {ahead}",
+                details
             );
             await db.SaveChangesAsync(cancellationToken);
             var ids = created.Select(r => r.RunId).ToList();

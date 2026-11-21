@@ -1,4 +1,3 @@
-// API calls: one function per C# API endpoint, all through one request helper
 import { CONFIG } from "./config.js";
 import { Session } from "./session.js";
 

@@ -1,4 +1,3 @@
-// KPI target model: a unit's goal for one KPI in one financial year
 namespace BudgetApi.Models;
 
 public class KpiTarget

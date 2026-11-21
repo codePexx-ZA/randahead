@@ -1,4 +1,3 @@
-// Store: the dashboard's shared data (user, business, statement definitions, uploads, rules, statement, budget) and its change events
 import * as api from "./api.js";
 import { CONFIG } from "./config.js";
 import { budgetFromRuns, buildIndicatorWarnings } from "./forecast.js";

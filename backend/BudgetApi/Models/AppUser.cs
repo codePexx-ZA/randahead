@@ -1,4 +1,3 @@
-// App user model: a person who signs in, with one role
 using System.Text.Json.Serialization;
 
 namespace BudgetApi.Models;

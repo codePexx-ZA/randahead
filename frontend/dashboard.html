@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- Dashboard page: the main app with all sections -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -7,12 +6,6 @@
     <title>Dashboard | RandAhead</title>
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
-    />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -430,24 +423,26 @@
 
               <div class="fc-settings-body">
                 <div class="fc-field">
-                  <span class="fc-label"><span class="swatch swatch-ma"></span>Moving Average window</span>
-                  <div class="segmented" role="radiogroup" aria-label="Moving Average window">
-                    <label><input type="radio" name="fcWindow" value="2" /><span>2 years</span></label>
-                    <label><input type="radio" name="fcWindow" value="3" checked /><span>3 years</span></label>
+                  <span class="fc-label">Prediction</span>
+                  <div class="preset-list" role="radiogroup" aria-label="Prediction">
+                    <label>
+                      <input type="radio" name="fcPreset" value="steady" />
+                      <span><strong>Steady</strong><small>Older years still count</small></span>
+                    </label>
+                    <label>
+                      <input type="radio" name="fcPreset" value="balanced" checked />
+                      <span><strong>Balanced</strong><small>The usual choice</small></span>
+                    </label>
+                    <label>
+                      <input type="radio" name="fcPreset" value="recent" />
+                      <span><strong>Recent</strong><small>Follows the latest years</small></span>
+                    </label>
                   </div>
+                  <p class="fc-preset-detail" id="fcPresetDetail"></p>
                 </div>
 
                 <div class="fc-field">
-                  <label class="fc-label" for="fcAlpha">
-                    <span class="swatch swatch-es"></span>Smoothing weight (α)
-                    <output id="fcAlphaOut" for="fcAlpha">0.5</output>
-                  </label>
-                  <input type="range" id="fcAlpha" min="0.1" max="0.9" step="0.1" value="0.5" />
-                  <div class="range-ends"><span>0.1 · steadier</span><span>0.9 · follows recent years</span></div>
-                </div>
-
-                <div class="fc-field">
-                  <span class="fc-label"><i class="fas fa-calendar-days"></i>Forecast horizon</span>
+                  <span class="fc-label"><i class="fas fa-calendar-days"></i>How far ahead</span>
                   <div class="segmented" role="radiogroup" aria-label="Forecast horizon">
                     <label><input type="radio" name="fcHorizon" value="1" checked /><span>1 year</span></label>
                     <label><input type="radio" name="fcHorizon" value="2" /><span>2 years</span></label>

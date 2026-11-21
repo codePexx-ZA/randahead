@@ -1,4 +1,3 @@
-// Budgets API: the decision maker's choice of forecast as the budget and the approver's decision on it
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
 using BudgetApi.Models;

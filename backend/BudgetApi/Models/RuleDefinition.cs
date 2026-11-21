@@ -1,4 +1,3 @@
-// Rule definition model: a business's warning rule with a threshold
 using System.Text.Json.Serialization;
 
 namespace BudgetApi.Models;

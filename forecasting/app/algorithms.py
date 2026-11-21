@@ -43,7 +43,9 @@ def moving_average_forecast(
     if len(data) < window_size:
         raise ValueError(f"Need at least {window_size} periods of history, got {len(data)}")
 
-    last_average = simple_moving_average(data, window_size)[-1]
+    if window_size < 1:
+        raise ValueError("Window size must be a positive integer")
+    last_average = sum(data[len(data) - window_size : len(data)]) / window_size
     return [round(last_average, 2)] * horizon
 
 

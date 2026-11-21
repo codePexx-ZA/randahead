@@ -1,4 +1,3 @@
-// Upload statement section: upload, map and send for approval
 import { checkUpload, downloadTemplate as fetchTemplate, previewUpload, submitUpload as sendUpload } from "./api.js";
 import { formatDate, randFormat } from "./format.js";
 import {

@@ -1,4 +1,3 @@
-// App settings: API address, demo account hints, account rules and the industry list
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MIN_PASSWORD_LENGTH = 8;
 

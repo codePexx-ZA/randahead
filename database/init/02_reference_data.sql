@@ -1,4 +1,3 @@
--- Reference data: inserts categories and indicators
 
 BEGIN;
 

@@ -1,4 +1,3 @@
-// Rule engine: creates alerts when indicators pass thresholds
 using System.Globalization;
 using BudgetApi.Data;
 using BudgetApi.Models;

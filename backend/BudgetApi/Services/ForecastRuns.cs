@@ -1,4 +1,3 @@
-// Forecast runs: forecasts a unit's approved history through the Python service, saves the pair of runs and reads them back
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BudgetApi.Data;
@@ -35,7 +34,6 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
     public const string MovingAverage = "moving_average";
     public const string ExponentialSmoothing = "exponential_smoothing";
 
-    // Adds both runs to the context unsaved, so the caller saves them in one go with its audit entry
     public async Task<List<ForecastRun>> CreateAsync(
         string unitId,
         int horizon,
@@ -175,7 +173,6 @@ public class ForecastRuns(BudgetDbContext db, StatementFigures figures, Forecast
 
     public static decimal Average(decimal ma, decimal es) => Math.Round((ma + es) / 2, MidpointRounding.AwayFromZero);
 
-    // Both runs and their average as statements over the forecast years
     public static ForecastComparison Compare(IReadOnlyList<ForecastRunView> pair, int yearEndMonth)
     {
         var horizon = pair[0].Parameters.GetProperty("horizon").GetInt32();

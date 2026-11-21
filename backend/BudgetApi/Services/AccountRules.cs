@@ -1,4 +1,3 @@
-// Account rules: shared checks for business details, people's names, emails and passwords
 using System.Text.RegularExpressions;
 
 namespace BudgetApi.Services;

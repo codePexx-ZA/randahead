@@ -1,4 +1,3 @@
-// Activity log API: the admin reads everything that happened in the business, everyone else only their own actions
 using System.Text.Json;
 using BudgetApi.Data;
 using BudgetApi.Services;

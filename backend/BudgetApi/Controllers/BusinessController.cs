@@ -1,4 +1,3 @@
-// Business API: shows and changes the signed-in user's business details
 using System.Globalization;
 using System.Text.Json.Serialization;
 using BudgetApi.Data;

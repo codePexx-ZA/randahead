@@ -1,4 +1,3 @@
-// Indicators API: returns indicators, categories and alerts
 using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authorization;

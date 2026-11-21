@@ -1,4 +1,3 @@
-// Forecast run tests: a correction to an earlier year makes a forecast stale even when the latest year stays
 using BudgetApi.Data;
 using BudgetApi.Models;
 using BudgetApi.Services;

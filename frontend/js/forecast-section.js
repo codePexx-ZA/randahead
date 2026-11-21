@@ -1,7 +1,6 @@
-// Forecast and budget section: runs forecasts and chooses the budget
 import { chooseBudget as saveBudgetChoice, getLatestForecast, runForecasts } from "./api.js";
 import { changeClass, numberFormat, percentChange, randFormat, yearsText } from "./format.js";
-import { METHOD_NAMES, compareRuns, describeMethod } from "./forecast.js";
+import { FORECAST_PRESETS, METHOD_NAMES, compareRuns, describeMethod, presetFor } from "./forecast.js";
 import { describeSources } from "./importer.js";
 import { can, getCategory, indicatorWarnings, on, reloadBudget, showRoleNote, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
@@ -48,18 +47,20 @@ function warningsFor(categoryCode) {
 
 function readSettings() {
   const form = document.getElementById("fcSettings");
-  return {
-    windowSize: Number(form.querySelector('input[name="fcWindow"]:checked').value),
-    alpha: Number(document.getElementById("fcAlpha").value),
-    horizon: Number(form.querySelector('input[name="fcHorizon"]:checked').value),
-  };
+  const horizon = Number(form.querySelector('input[name="fcHorizon"]:checked').value);
+  const id = form.querySelector('input[name="fcPreset"]:checked')?.value;
+  const preset = FORECAST_PRESETS[id];
+  if (preset) return { windowSize: preset.windowSize, alpha: preset.alpha, horizon };
+  const shown = settingsOfComparison();
+  return shown ? { windowSize: shown.windowSize, alpha: shown.alpha, horizon } : { ...DEFAULT_FORECAST_SETTINGS, horizon };
 }
 
 function writeSettings(settings) {
   const form = document.getElementById("fcSettings");
-  form.querySelector(`input[name="fcWindow"][value="${settings.windowSize}"]`).checked = true;
+  const preset = presetFor(settings.windowSize, settings.alpha);
+  const input = preset && form.querySelector(`input[name="fcPreset"][value="${preset.id}"]`);
+  if (input) input.checked = true;
   form.querySelector(`input[name="fcHorizon"][value="${settings.horizon}"]`).checked = true;
-  document.getElementById("fcAlpha").value = settings.alpha;
 }
 
 function settingsOfComparison() {
@@ -75,18 +76,24 @@ function isStale() {
 
 function renderExplanations() {
   const { windowSize, alpha } = readSettings();
-  const n = state.processed?.years.length ?? 5;
-  const weight = (k) => Math.round(alpha * Math.pow(1 - alpha, k) * 100);
-  document.getElementById("fcAlphaOut").textContent = alpha.toFixed(1);
+  const preset = presetFor(windowSize, alpha);
+  const weight = alpha.toFixed(1);
+  document.getElementById("fcPresetDetail").textContent = preset
+    ? `${preset.name}: last ${windowSize} years counted equally, smoothing weight ${weight}.`
+    : `Last ${windowSize} years counted equally, smoothing weight ${weight}.`;
 
   document.getElementById("fcMaExplain").textContent =
-    `Adds up the last ${windowSize} years and divides by ${windowSize}. Each of those years counts the same and older years are ignored. ` +
-    "Steady and easy to check, but slow to catch up when figures keep rising.";
+    `Adds up the last ${windowSize} years and divides by ${windowSize}. Each of those years counts the same, and older years are left out. ` +
+    "Steady, and slow to catch up when figures keep rising.";
 
-  document.getElementById("fcEsExplain").textContent =
-    `A weighted average of all ${n} years where recent years count more. With α ${alpha.toFixed(1)}, the latest year counts about ` +
-    `${weight(0)}%, the year before ${weight(1)}%, then ${weight(2)}%, and so on. ` +
-    "A higher α reacts faster to recent changes; a lower α is steadier.";
+  const esExplain = {
+    steady: "Uses the whole history. Older years still count, so the latest year moves the forecast only a little.",
+    balanced: "Uses the whole history. Recent years count more than older ones, without following only the latest year.",
+    recent: "Uses the whole history and follows the latest years. A change in the last year moves this forecast the most.",
+  };
+  document.getElementById("fcEsExplain").textContent = preset
+    ? esExplain[preset.id]
+    : "Uses the whole history, with recent years counting more than older ones.";
 }
 
 function refreshStale() {
@@ -153,8 +160,9 @@ function renderMeta() {
   if (!c) return;
 
   const flat = c.horizon > 1 ? ", same figure each year" : "";
+  const preset = presetFor(c.windowSize, c.alpha);
   document.getElementById("fcTableMeta").textContent =
-    `Forecast for ${yearsText(c.years)}${flat} · ${describeMethod(c.methods.moving_average)} vs ${describeMethod(c.methods.exponential_smoothing)}`;
+    `Forecast for ${yearsText(c.years)}${flat} · ${preset ? preset.name : "Custom"}. Last ${c.windowSize} years averaged, smoothing weight ${c.alpha.toFixed(1)}.`;
 }
 
 function renderFlatNote() {
@@ -319,9 +327,10 @@ function renderChoices() {
         ? raw('<span class="badge rejected">Rejected</span>')
         : raw('<span class="badge approved">Current budget</span>');
     }
+    const preset = presetFor(c.windowSize, c.alpha);
     const setting = method === "combined"
       ? "(MA + ES) ÷ 2, one number from both"
-      : describeMethod(m).replace(`${METHOD_NAMES[method]} (`, "").replace(/\)$/, "");
+      : preset?.name ?? describeMethod(m).replace(`${METHOD_NAMES[method]} (`, "").replace(/\)$/, "");
     return html`<label class="choice-card ${METHOD_CLASS[method]}${selected ? " selected" : ""}">
       <input type="radio" name="fcMethod" value="${method}"${selected ? " checked" : ""} />
       <span class="choice-head">
@@ -409,7 +418,10 @@ async function renderChart() {
   const pad = new Array(n - 1).fill(null);
   const last = s.history[n - 1];
   const forecastData = (m) => [...pad, last, ...s.forecasts[m]];
-  const settingOf = (m) => describeMethod(c.methods[m]).replace(METHOD_NAMES[m], "").trim();
+  const presetName = presetFor(c.windowSize, c.alpha)?.name;
+  const settingOf = (m) => presetName
+    ? `· ${presetName}`
+    : describeMethod(c.methods[m]).replace(METHOD_NAMES[m], "").trim();
   const lineStyle = {
     moving_average: { color: "--accent", dash: [7, 5], point: "rectRot", width: 2.5 },
     exponential_smoothing: { color: "--accent-light", dash: [7, 5], point: "circle", width: 2.5 },
@@ -448,7 +460,7 @@ async function renderChart() {
     return;
   }
 
-  Chart.defaults.font.family = "Poppins, sans-serif";
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
   Chart.defaults.color = color("--text-muted");
   fc.chart = new Chart(document.getElementById("fcChart"), {
     type: "line",

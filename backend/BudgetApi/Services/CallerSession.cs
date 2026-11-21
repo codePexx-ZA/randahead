@@ -1,4 +1,3 @@
-// Caller session: loads the signed-in user once per request while checking their token, and hands it to the rest of the request
 using BudgetApi.Data;
 using BudgetApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -14,7 +13,6 @@ public static class CallerSession
     public static IQueryable<AppUser> Live(this IQueryable<AppUser> users) =>
         users.Where(u => u.ActiveStatus == "active" && u.DeletedAt == null);
 
-    // Tracked on the request's own BudgetDbContext, so controllers can edit the caller (and their business) and save it
     public static async Task ValidateAsync(TokenValidatedContext context)
     {
         var db = context.HttpContext.RequestServices.GetRequiredService<BudgetDbContext>();
@@ -24,7 +22,6 @@ public static class CallerSession
             .Include(u => u.Unit!)
             .ThenInclude(u => u.Business)
             .FirstOrDefaultAsync(u => u.UserId == userId, context.HttpContext.RequestAborted);
-        // iat is whole seconds, so a token issued in the same second as the change still counts as newer
         if (
             user is null
             || user.Role != context.Principal?.FindFirst("role")?.Value

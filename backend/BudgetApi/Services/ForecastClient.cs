@@ -1,4 +1,3 @@
-// Forecast client: sends a unit's approved history to the Python forecasting service and gets back Moving Average and Exponential Smoothing forecasts
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;

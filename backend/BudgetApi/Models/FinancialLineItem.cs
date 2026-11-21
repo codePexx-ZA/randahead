@@ -1,4 +1,3 @@
-// Financial line item model: one category's amount in rands for one period of a submission
 namespace BudgetApi.Models;
 
 public class FinancialLineItem

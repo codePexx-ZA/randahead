@@ -1,4 +1,3 @@
-# Git ignore: files kept out of git
 .env
 **/appsettings.*.local.json
 

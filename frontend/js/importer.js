@@ -1,4 +1,3 @@
-// Importer: checks uploaded income statements and works out the approved history
 import { getCategory, subtotalName } from "./store.js";
 
 const MIN_HISTORY_YEARS = 3;
@@ -56,7 +55,6 @@ function subtotalsMatchItem(keys) {
   return { level: "ok", text: `Subtotals match the file (${keys.map((k) => subtotalName(k).toLowerCase()).join(", ")}).` };
 }
 
-// statement is the API's recalculation of the preview as mapped now, or null while it is on its way
 export function checkPreview(preview, change, statement) {
   const items = [];
   const lines = preview.rows.filter((r) => r.kind === "line");

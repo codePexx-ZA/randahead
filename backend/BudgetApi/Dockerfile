@@ -1,4 +1,3 @@
-# Dockerfile: builds and runs the C# API
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY BudgetApi/BudgetApi.csproj BudgetApi/

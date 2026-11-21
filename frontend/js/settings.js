@@ -1,4 +1,3 @@
-// Users and business section: business details and who can sign in
 import { createUser, deleteUser as removeUser, getUsers, updateBusiness, updateUser } from "./api.js";
 import { EMAIL_PATTERN, INDUSTRIES, MIN_PASSWORD_LENGTH } from "./config.js";
 import { initials, monthName } from "./format.js";

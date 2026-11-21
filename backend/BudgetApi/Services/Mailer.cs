@@ -1,4 +1,3 @@
-// Mailer: sends plain-text emails over SMTP (Mailpit in development), logs the email when sending fails and reports whether it went out
 using System.Net;
 using System.Net.Mail;
 
@@ -18,7 +17,6 @@ public class MailSettings
 
 public class Mailer(MailSettings settings, ILogger<Mailer> logger, IHostEnvironment environment)
 {
-    // Bodies can hold live password-reset links, so they only reach the log in development
     private string LoggedBody(string body) => environment.IsDevelopment() ? body : "(body hidden outside development)";
 
     public string WebAppUrl => settings.WebAppUrl.TrimEnd('/');

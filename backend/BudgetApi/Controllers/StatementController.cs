@@ -1,4 +1,3 @@
-// Statement API: the income statement's categories, subtotals, display layout, KPIs and which categories each economic indicator affects
 using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authorization;

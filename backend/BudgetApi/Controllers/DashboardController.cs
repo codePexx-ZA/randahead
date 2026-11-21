@@ -1,4 +1,3 @@
-// Dashboard API: one financial year's figures against the year before and its approved budget, plus KPI target progress
 using BudgetApi.Data;
 using BudgetApi.Models;
 using BudgetApi.Services;

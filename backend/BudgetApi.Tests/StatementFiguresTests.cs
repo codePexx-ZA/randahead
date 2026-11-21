@@ -1,4 +1,3 @@
-// Statement figure tests: KPI targets follow the approved budget, not a newer waiting or rejected one
 using BudgetApi.Data;
 using BudgetApi.Models;
 using BudgetApi.Services;

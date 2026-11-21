@@ -1,4 +1,3 @@
-// Budget submission model: one uploaded income statement file and where it is in the approval flow
 namespace BudgetApi.Models;
 
 public class BudgetSubmission

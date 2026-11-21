@@ -1,4 +1,3 @@
-// OECD client: fetches inflation data from the OECD API
 using System.Globalization;
 
 namespace BudgetApi.Services;

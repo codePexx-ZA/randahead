@@ -1,4 +1,3 @@
--- Database schema: creates all tables
 
 BEGIN;
 
@@ -260,7 +259,7 @@ CREATE TABLE audit_log (
     area        VARCHAR(20)  NOT NULL
                 CHECK (area IN ('account', 'upload', 'forecast', 'budget', 'target', 'rule', 'business', 'user')),
     action      VARCHAR(20)  NOT NULL
-                CHECK (action IN ('registered', 'signed_in', 'sign_in_failed', 'uploaded', 'approved', 'rejected', 'ran',
+                CHECK (action IN ('registered', 'uploaded', 'approved', 'rejected', 'ran',
                                   'chosen', 'added', 'changed', 'switched_off', 'switched_on', 'deleted', 'reset_requested')),
     summary     VARCHAR(500) NOT NULL,
     details     JSONB,

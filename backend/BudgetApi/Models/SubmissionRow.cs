@@ -1,4 +1,3 @@
-// Submission row model: one row of the uploaded file as it was, with the categories it was mapped to
 namespace BudgetApi.Models;
 
 public class SubmissionRow

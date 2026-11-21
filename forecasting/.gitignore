@@ -1,4 +1,3 @@
-# Git ignore: Python files kept out of git
 __pycache__/
 *.pyc
 .venv/

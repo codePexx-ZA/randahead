@@ -1,4 +1,3 @@
-// Login page: validates and signs the user in
 import { login } from "./api.js";
 import { rejectInput, setLoading, setupAuthForm, shakeCard } from "./auth-form.js";
 import { roleLabel } from "./roles.js";

@@ -1,4 +1,3 @@
-// Data source model: where indicator data comes from
 using System.Text.Json.Serialization;
 
 namespace BudgetApi.Models;

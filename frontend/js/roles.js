@@ -1,4 +1,3 @@
-// Roles: labels, home sections, duties, demo accounts and which role a locked action needs
 export const ROLES = ["submitter", "approver", "decision_maker"];
 
 export const ROLE_LABELS = { submitter: "Submitter", approver: "Approver", decision_maker: "Decision Maker" };
