@@ -414,106 +414,82 @@
           class="view"
           id="view-forecast"
           data-title="Forecast &amp; budget"
-          data-subtitle="Compare forecasting methods and choose your budget"
+          data-subtitle="Run the forecast, compare it, then choose your budget"
         >
 
-          <div class="fc-top">
-            <form class="panel fc-settings" id="fcSettings" novalidate>
-              <header class="panel-header">
-                <div>
-                  <h2>Forecast settings</h2>
-                  <p class="panel-meta" id="fcHistoryMeta">Loading your approved history…</p>
-                </div>
-              </header>
-
-              <div class="fc-settings-body">
-                <div class="fc-field">
-                  <span class="fc-label">Prediction</span>
-                  <div class="preset-list" role="radiogroup" aria-label="Prediction">
-                    <label>
-                      <input type="radio" name="fcPreset" value="steady" />
-                      <span><strong>Steady</strong><small>Older years still count</small></span>
-                    </label>
-                    <label>
-                      <input type="radio" name="fcPreset" value="balanced" checked />
-                      <span><strong>Balanced</strong><small>The usual choice</small></span>
-                    </label>
-                    <label>
-                      <input type="radio" name="fcPreset" value="recent" />
-                      <span><strong>Recent</strong><small>Follows the latest years</small></span>
-                    </label>
-                  </div>
-                  <p class="fc-preset-detail" id="fcPresetDetail"></p>
-                </div>
-
-                <div class="fc-field">
-                  <span class="fc-label"><i class="fas fa-calendar-days"></i>How far ahead</span>
-                  <div class="segmented" role="radiogroup" aria-label="Forecast horizon">
-                    <label><input type="radio" name="fcHorizon" value="1" checked /><span>1 year</span></label>
-                    <label><input type="radio" name="fcHorizon" value="2" /><span>2 years</span></label>
-                    <label><input type="radio" name="fcHorizon" value="3" /><span>3 years</span></label>
-                  </div>
-                </div>
-              </div>
-
-              <footer class="fc-settings-footer">
-                <p class="fc-stale" id="fcStale" hidden>
-                  <i class="fas fa-rotate"></i> Settings changed. Run again to update the figures.
-                </p>
-                <button type="submit" class="btn-primary" id="fcRunBtn" disabled>
-                  <i class="fas fa-play"></i><span>Run forecasts</span>
-                </button>
-              </footer>
-            </form>
-
-            <article class="panel fc-methods">
-              <header class="panel-header">
-                <div>
-                  <h2>How the two methods work</h2>
-                  <p class="panel-meta">Simple methods you can check by hand. No machine learning.</p>
-                </div>
-              </header>
-              <div class="method-cards">
-                <div class="method-card ma">
-                  <h3><span class="swatch swatch-ma"></span>Moving Average</h3>
-                  <p id="fcMaExplain"></p>
-                </div>
-                <div class="method-card es">
-                  <h3><span class="swatch swatch-es"></span>Exponential Smoothing</h3>
-                  <p id="fcEsExplain"></p>
-                </div>
-              </div>
-              <p class="fc-flat-note">
-                <i class="fas fa-circle-info"></i>
-                <span id="fcFlatNote">Both methods forecast one level, not a trend.</span>
-              </p>
-            </article>
-          </div>
-
-          <article class="panel fc-warnings">
+          <form class="panel fc-settings" id="fcSettings" novalidate>
             <header class="panel-header">
               <div>
-                <h2>Economic warnings</h2>
-                <p class="panel-meta">
-                  Inflation, electricity and fuel prices checked against their thresholds. Warnings only:
-                  they flag categories to review and never change the forecast figures.
-                </p>
+                <span class="step-label">Step 1 of 4</span>
+                <h2>Set up and run the forecast</h2>
+                <p class="panel-meta" id="fcHistoryMeta">Loading your approved history…</p>
               </div>
-              <span class="badge" id="fcWarnBadge"></span>
             </header>
-            <ul class="indicator-list" id="fcWarnings">
-              <li class="indicator skeleton"></li>
-              <li class="indicator skeleton"></li>
-              <li class="indicator skeleton"></li>
-              <li class="indicator skeleton"></li>
-            </ul>
-            <ul class="checks fc-data-checks" id="fcDataChecks" hidden></ul>
-          </article>
+
+            <div class="fc-settings-body">
+              <div class="fc-field">
+                <span class="fc-label">Prediction</span>
+                <div class="preset-list" role="radiogroup" aria-label="Prediction">
+                  <label>
+                    <input type="radio" name="fcPreset" value="steady" />
+                    <span><strong>Steady</strong><small>Older years still count</small></span>
+                  </label>
+                  <label>
+                    <input type="radio" name="fcPreset" value="balanced" checked />
+                    <span><strong>Balanced</strong><small>The usual choice</small></span>
+                  </label>
+                  <label>
+                    <input type="radio" name="fcPreset" value="recent" />
+                    <span><strong>Recent</strong><small>Follows the latest years</small></span>
+                  </label>
+                </div>
+                <p class="fc-preset-detail" id="fcPresetDetail"></p>
+              </div>
+
+              <div class="fc-field">
+                <span class="fc-label"><i class="fas fa-calendar-days"></i>How far ahead</span>
+                <div class="segmented" role="radiogroup" aria-label="Forecast horizon">
+                  <label><input type="radio" name="fcHorizon" value="1" checked /><span>1 year</span></label>
+                  <label><input type="radio" name="fcHorizon" value="2" /><span>2 years</span></label>
+                  <label><input type="radio" name="fcHorizon" value="3" /><span>3 years</span></label>
+                </div>
+              </div>
+
+              <details class="more fc-how">
+                <summary>How the two methods work</summary>
+                <p class="fc-how-intro">Simple methods you can check by hand. No machine learning.</p>
+                <div class="method-cards">
+                  <div class="method-card ma">
+                    <h3><span class="swatch swatch-ma"></span>Moving average</h3>
+                    <p id="fcMaExplain"></p>
+                  </div>
+                  <div class="method-card es">
+                    <h3><span class="swatch swatch-es"></span>Exponential smoothing</h3>
+                    <p id="fcEsExplain"></p>
+                  </div>
+                </div>
+                <p class="fc-flat-note">
+                  <i class="fas fa-circle-info"></i>
+                  <span id="fcFlatNote">Both methods forecast one level, not a trend.</span>
+                </p>
+              </details>
+            </div>
+
+            <footer class="fc-settings-footer">
+              <p class="fc-stale" id="fcStale" hidden>
+                <i class="fas fa-rotate"></i> Settings changed. Run again to update the figures.
+              </p>
+              <button type="submit" class="btn-primary" id="fcRunBtn" disabled>
+                <i class="fas fa-play"></i><span>Run forecasts</span>
+              </button>
+            </footer>
+          </form>
 
           <article class="panel fc-chart-panel" id="fcChartPanel">
             <header class="panel-header">
               <div>
-                <h2>History vs forecasts</h2>
+                <span class="step-label">Step 2 of 4</span>
+                <h2>Compare the forecasts</h2>
                 <p class="panel-meta" id="fcChartMeta">Loading…</p>
               </div>
               <label class="scale-picker">
@@ -530,14 +506,14 @@
             </div>
             <p class="panel-note">
               <i class="fas fa-circle-info"></i>
-              <span>Solid line: actual figures. Dashed lines: forecasts, starting from the last actual year. A flat dashed line means the later years repeat the first forecast year.</span>
+              <span>Solid line: actual figures. Dashed lines: forecasts from the last actual year.</span>
             </p>
           </article>
 
           <article class="panel fc-compare">
             <header class="panel-header">
               <div>
-                <h2>Side-by-side comparison</h2>
+                <h2>Every category side by side</h2>
                 <p class="panel-meta" id="fcTableMeta">Loading…</p>
               </div>
             </header>
@@ -549,17 +525,35 @@
             <p class="panel-note">
               <i class="fas fa-circle-info"></i>
               <span>
-                Amounts in rands. Click a row to show it on the chart. The % in brackets is the change from
-                <span id="fcNoteYear">last year</span>'s actual: <strong class="note-good">green</strong> is better
-                for the business, <strong class="note-bad">red</strong> is worse. <strong>Team-managed</strong>
-                categories (revenue and employee costs) are set by the business itself, so treat these forecasts as a starting point.
+                Rands. Click a row to show it on the chart. Brackets: change from <span id="fcNoteYear">last year</span>'s
+                actual; <strong class="note-good">green</strong> is better, <strong class="note-bad">red</strong> is worse.
+                <strong>Team-managed</strong> lines (revenue, employee costs) are set by the business, so use these as a starting point.
               </span>
             </p>
+          </article>
+
+          <article class="panel fc-warnings">
+            <header class="panel-header">
+              <div>
+                <span class="step-label">Step 3 of 4</span>
+                <h2>Check the economic warnings</h2>
+                <p class="panel-meta">Lines to look at again before you choose. Warnings never change the figures.</p>
+              </div>
+              <span class="badge" id="fcWarnBadge"></span>
+            </header>
+            <ul class="indicator-list" id="fcWarnings">
+              <li class="indicator skeleton"></li>
+              <li class="indicator skeleton"></li>
+              <li class="indicator skeleton"></li>
+              <li class="indicator skeleton"></li>
+            </ul>
+            <ul class="checks fc-data-checks" id="fcDataChecks" hidden></ul>
           </article>
 
           <article class="panel fc-choose">
             <header class="panel-header">
               <div>
+                <span class="step-label">Step 4 of 4</span>
                 <h2>Choose your budget</h2>
                 <p class="panel-meta" id="fcCurrentBudget">Loading current budget…</p>
               </div>

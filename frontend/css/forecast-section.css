@@ -1,5 +1,4 @@
-#view-forecast > .panel,
-.fc-top {
+#view-forecast > .panel {
   margin-bottom: 20px;
 }
 
@@ -30,24 +29,31 @@
 .swatch-es  { background: var(--accent-light); }
 .swatch-avg { background: var(--text-muted); }
 
-.fc-top {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
-  gap: 20px;
-  align-items: stretch;
-}
-
-.fc-settings,
-.fc-methods {
+.fc-settings {
   display: flex;
   flex-direction: column;
+}
+
+.fc-how-intro {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.fc-how .method-cards {
+  padding: 10px 0 0;
 }
 
 .fc-settings-body {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 28px;
+  align-items: start;
   padding: 18px 20px;
+}
+
+.fc-settings-body .fc-how {
+  grid-column: 1 / -1;
 }
 
 .fc-field {
@@ -520,16 +526,16 @@
 }
 
 @media (max-width: 1250px) {
-  .fc-top {
-    grid-template-columns: 1fr;
-  }
-
   .indicator-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1050px) {
+  .fc-settings-body {
+    grid-template-columns: 1fr;
+  }
+
   .choice-cards {
     grid-template-columns: 1fr;
   }
