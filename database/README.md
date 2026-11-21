@@ -1,6 +1,6 @@
 # Shared PostgreSQL schema
 
-This folder owns **all 22 tables**: the 14 from the original design plus 3 reference tables, `import_mapping`, `submission_row`, `budget_selection`, `audit_log` and `password_reset`. No service creates or changes tables itself:
+This folder owns **all 21 tables**: the 14 from the original design plus 3 reference tables, `import_mapping`, `submission_row`, `budget_selection` and `audit_log`. No service creates or changes tables itself:
 
 - The C# API (EF Core) only **reads and writes** tables that already exist.
 - The Python forecasting service has no database access; the C# API sends it the history and saves its results.
@@ -53,7 +53,6 @@ erDiagram
 
     BUSINESS ||--o{ AUDIT_LOG : logs
     APP_USER |o--o{ AUDIT_LOG : "acts in"
-    APP_USER ||--o{ PASSWORD_RESET : "asks for"
 
     BUSINESS {
         varchar business_id PK
@@ -76,23 +75,8 @@ erDiagram
         varchar user_id PK
         varchar unit_id FK
         varchar full_name
-        varchar email
+        varchar username
         varchar password_hash
-        varchar role
-        varchar active_status
-        boolean is_admin
-        boolean must_change_password
-        timestamptz password_changed_at
-        timestamptz deleted_at
-    }
-
-    PASSWORD_RESET {
-        varchar reset_id PK
-        varchar user_id FK
-        char token_hash
-        timestamptz created_at
-        timestamptz expires_at
-        timestamptz used_at
     }
 
     BUDGET_SUBMISSION {
@@ -278,8 +262,7 @@ erDiagram
 |---|---|
 | `business` | The SME using the system; `year_end_month` maps "FY2024" to dates (default February) |
 | `business_unit` | Operating area; the app uses one "Whole company" unit per business for now |
-| `app_user` | Users with one role: `submitter`, `approver` or `decision_maker` |
-| `password_reset` | One-time emailed password reset links (token stored as a hash, 30 minutes) |
+| `app_user` | The one temporary development login (`demo123`); no roles |
 | `budget_submission` | One uploaded set of income statement history; versioned via `replaces_submission_id` |
 | `financial_line_item` | One amount per category per period |
 | `submission_row` | The upload's rows exactly as in the file, with each line's chosen mapping |
@@ -292,7 +275,7 @@ erDiagram
 | `external_indicator` | Validated indicator values per period |
 | `forecast_run` | One forecasting event: method, history window, parameters |
 | `forecast_value` | Forecast amount per category and future period (baseline, optional adjusted) |
-| `budget_selection` | The forecast pair a Decision Maker chose as the budget (MA, ES or their average) and its approval status |
+| `budget_selection` | The forecast pair chosen as the budget (MA, ES or their average) and its approval status |
 | `forecast_input` | Which external indicators informed a forecast (reserved) |
 | `kpi_target` | Targets per unit and period |
 | `rule_definition` | Transparent warning rules with thresholds stored in the database, one set per business |
@@ -305,42 +288,33 @@ Docker's `postgres` image runs every `.sql` file in `init/` in **alphabetical or
 
 ```text
 init/
-  01_schema.sql          -- CREATE TABLE for all 22 tables (parents before children)  [written]
+  01_schema.sql          -- CREATE TABLE for all 21 tables (parents before children)  [written]
   02_reference_data.sql  -- categories, external indicator types, indicator -> category links, warning rules  [written]
-  03_seed.sql            -- fictional demo business, users, income statement uploads, approved budget, KPI targets  [written]
+  03_seed.sql            -- fictional demo business, the one login, income statement uploads, approved budget, KPI targets  [written]
 ```
 
 ## Demo data (`03_seed.sql`)
 
 Everything is made up and matches the web app's demo mode: **Karoo Outdoor Supplies (Pty) Ltd**, retail, February year-end, one "Whole company" unit (`unit_id` `a0000000000000000000000000000001`).
 
-| Sign-in | Password | Role | Status |
-|---|---|---|---|
-| `submitter@demo.co.za` (Sipho Ndlovu) | `demo123` | `submitter` | active |
-| `approver@demo.co.za` (Anika Pillay) | `demo123` | `approver` | active |
-| `owner@demo.co.za` (Johan van Wyk) | `demo123` | `decision_maker` | active |
-| `test@gmail.com` (Test User) | `test` | `decision_maker` | active |
-| `thandi@demo.co.za` (Thandi Mokoena) | `demo123` | `submitter` | inactive (sign-in refused) |
-| `admin@gmail.com` (Admin) | `admin` | `decision_maker` + **admin** (`is_admin = true`) | active |
+| Username | Password |
+|---|---|
+| `demo123` (Demo User) | `test` |
 
-Passwords are stored as BCrypt hashes. The admin password is a development placeholder: change it before any real use.
+**This is a temporary development login.** There is exactly one account and it may do everything; the earlier demo users and roles are gone. The password is stored as a BCrypt hash (`$2a$11$…`). One shared account with a known password is not secure: revisit sign-in and permissions before any real use. Every upload, decision, budget choice and activity log row in the demo data belongs to this user.
 
-## Admin and deleted users (`app_user`)
-
-- **Admin** is not a fourth role: `role` stays `submitter`, `approver` or `decision_maker`, and `is_admin = true` marks the account (meant for senior IT management). Only an admin can change or delete an admin account, and only an admin can delete users who have history. `is_admin` is set in the database, not through the app.
-- **Deleting a user with history** (uploads, approval decisions or remembered mappings point to them) keeps the row: `deleted_at` is set, `active_status` becomes `inactive`, `password_hash` is cleared and `is_admin` is false (a `CHECK` enforces this). The person can't sign in and drops out of the user list, but every record still points to them; screens show them as "Name (former user)". Users with no history are removed completely.
-- **Email** is unique (not case-sensitive) among users that aren't deleted (`ux_app_user_email_current`), so a deleted user's email can be given to a new account.
+`app_user.username` is unique and stored in lower case (a `CHECK` enforces it); the API lower-cases what is typed at sign-in.
 
 | Upload | Years | Status |
 |---|---|---|
 | `Karoo_Outdoor_IS_FY2020-FY2024.xlsx` | FY2020–FY2024 | `superseded` (by the FY2021–FY2025 upload) |
 | `Karoo_Outdoor_IS_FY2021-FY2025_draft.xlsx` | FY2021–FY2025 | `rejected` (interest paid missing for FY2023) |
 | `Karoo_Outdoor_IS_FY2021-FY2025.xlsx` | FY2021–FY2025 | `approved`: the history forecasts use |
-| `Karoo_Outdoor_IS_FY2022-FY2026.xlsx` | FY2022–FY2026 | `submitted` (waiting for the Approver; "Water & electricity" split 70 / 30) |
+| `Karoo_Outdoor_IS_FY2022-FY2026.xlsx` | FY2022–FY2026 | `submitted` (waiting for approval; "Water & electricity" split 70 / 30) |
 
 The last two also have their file rows (`submission_row`) so the web app can show and combine them; "Franchise levy" in the waiting upload was mapped by hand. Plus the remembered label mappings for that last upload and 5 KPI targets.
 
-**Approved budget.** One forecast pair on the approved FY2021–FY2025 history, the **Balanced** prediction (Moving Average over the last 3 years, Exponential Smoothing weight 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget by Johan van Wyk and approved by Anika Pillay.
+**Approved budget.** One forecast pair on the approved FY2021–FY2025 history, the **Balanced** prediction (Moving Average over the last 3 years, Exponential Smoothing weight 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget and approved by the demo user.
 
 The scripts only run on an **empty** volume. After changing a script, reset the database:
 
@@ -367,8 +341,7 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 |---|---|
 | `business.year_end_month` | `1`–`12` (last month of the financial year; default `2` = February) |
 | `business_unit.unit_type` | `company` (default; the app's one "Whole company" unit), `store`, `branch`, `department` |
-| `app_user.role` | `submitter`, `approver`, `decision_maker` |
-| `app_user.active_status`, `rule_definition.active_status` | `active`, `inactive` |
+| `rule_definition.active_status` | `active`, `inactive` |
 | `budget_submission.status` | `draft`, `submitted`, `approved`, `rejected`, `superseded` |
 | `budget_submission.import_method` | `template`, `mapped_import`, `manual` |
 | `budget_submission.source_scale` | `1`, `1000` (R'000), `1000000` (R million) |
@@ -392,13 +365,13 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 
 **History length.** 3–5 years of annual statements, or at least 24 months of monthly reports (monthly preferred). Older years are not used.
 
-**External data uses the same time frame.** For each business, alerts and forecast inputs only use indicator periods inside its approved income statement history (a history from FY2022 onwards uses indicators from 2022). Approver / Decision Maker can request a longer range. Indicators are calendar years; they are matched to financial years with `business.year_end_month`.
+**External data uses the same time frame.** For each business, alerts and forecast inputs only use indicator periods inside its approved income statement history (a history from FY2022 onwards uses indicators from 2022). The user can request a longer range. Indicators are calendar years; they are matched to financial years with `business.year_end_month`.
 
 - **Each upload is one `budget_submission`.** `period_start` / `period_end` span every period in the file (e.g. 5 financial years).
 - **One `financial_line_item` per category per period.** `period_start` is the first day of the month, quarter or financial year (for a February year-end, FY2025 starts `2024-03-01`). Amounts are stored in rands after applying `source_scale`, **as positive figures for income and expenses alike** (the category says which it is; the bracketed negatives on a sheet are flipped on import).
 - **Combining uploads.** All `approved` submissions of a unit together form its history. A newer upload adds its periods; where two approved uploads cover the same category and period, the more recently submitted one wins. Only the latest 5 years are used. A file may hold a single year. Save every category for every period of an upload (0 where the file has no lines), so a newer upload's year fully replaces the older one.
 - **Re-uploads (versioning).** A corrected upload sets `replaces_submission_id` to the rejected version it replaces. When the new one is approved, the old one's status becomes `superseded`. An approved upload whose periods are all covered by newer approved uploads also becomes `superseded`. Superseded uploads are kept for history, never deleted. Forecasts read only `approved` submissions.
-- **File rows (`submission_row`).** Every row of the uploaded statement as it was in the file, in order (`row_order`): `row_kind` `heading`, `line`, `subtotal` (with `subtotal_code`) or `total`, the label, `amounts` (one per year, in file units before `source_scale`, signs as in the file, `NULL` for an empty cell), and for lines the chosen `mapping` (`JSONB`, e.g. `[{"category": "electricity", "percent": 70}, {"category": "other_utilities", "percent": 30}]`) and `hand_mapped`. The web app shows these to the Approver and on the dashboard; forecasts use `financial_line_item`.
+- **File rows (`submission_row`).** Every row of the uploaded statement as it was in the file, in order (`row_order`): `row_kind` `heading`, `line`, `subtotal` (with `subtotal_code`) or `total`, the label, `amounts` (one per year, in file units before `source_scale`, signs as in the file, `NULL` for an empty cell), and for lines the chosen `mapping` (`JSONB`, e.g. `[{"category": "electricity", "percent": 70}, {"category": "other_utilities", "percent": 30}]`) and `hand_mapped`. The web app shows these on Approvals and on the dashboard; forecasts use `financial_line_item`.
 - **Remembered mappings (`import_mapping`).** Per business, `label_key` (trimmed, lower case, single spaces) → category. A normal label has one row at 100%. A cross-category line has one row per category, e.g. "Water & electricity" → 70% `electricity` + 30% `other_utilities`. Split rows are summed into their categories before line items are saved.
 
 ## Forecasts and the chosen budget (`forecast_run`, `budget_selection`)
@@ -409,16 +382,10 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 
 ## Activity log (`audit_log`)
 
-- The API writes one row for every registration, upload, decision, forecast run, budget choice and every change to KPI targets, warning rules, business details and users, in the same save as the change itself. Sign-in, a failed sign-in and sign-out are not recorded.
-- `summary` is one readable line ("Approved upload Karoo_FY2025.xlsx"); `details` is a `JSONB` list of `{ field, before, after }` (e.g. a threshold change, a rejection comment). Passwords are never stored, only "Temporary password set".
-- `user_name` keeps the person's name at the time, so a hard-deleted user's rows survive with `user_id` set to `NULL`. Rows are kept for good: nothing in the app edits or deletes them.
-- The admin (`app_user.is_admin`) reads every row of the business; everyone else reads only their own.
-
-## Passwords (`app_user.must_change_password`, `password_reset`)
-
-- A password set by an Approver or Decision Maker (new user, or a forgotten password) is temporary: `must_change_password` is `true` until the person chooses their own at the next sign-in. Registering, changing your own password or using a reset link sets it back to `false`.
-- Every password change (own change, reset link or a temporary password) sets `password_changed_at`. The API refuses sign-in tokens issued before it, so a password change signs out every other session.
-- "Forgot password?" adds a `password_reset` row and emails a one-time link. Only the SHA-256 hash of the link's token is stored (`token_hash`); the link works for 30 minutes (`expires_at`) and once (`used_at`). Asking again deletes the person's unused links. Rows go when the user is hard-deleted (`ON DELETE CASCADE`).
+- The API writes one row for every upload, decision, forecast run, budget choice and every change to KPI targets, warning rules and business details, in the same save as the change itself. Sign-in, a failed sign-in and sign-out are not recorded.
+- `summary` is one readable line ("Approved upload Karoo_FY2025.xlsx"); `details` is a `JSONB` list of `{ field, before, after }` (e.g. a threshold change, a rejection comment).
+- `user_name` keeps the person's name at the time, so rows survive with `user_id` set to `NULL` if the user row is ever removed. Rows are kept for good: nothing in the app edits or deletes them.
+- The signed-in user reads every row of the business. The `account` and `user` areas and the `registered`, `added`/`deleted` user and `reset_requested` actions stay allowed by the `CHECK` but nothing writes them now.
 
 ## Income statement categories (`line_category`)
 
@@ -466,14 +433,13 @@ Thresholds are starting values to confirm with the business. Users change them i
 
 ## Differences from the original ERD
 
-- `app_user.password_hash` added (nullable) for the API login; `is_admin` and `deleted_at` added for the admin and kept-history deletes; email uniqueness moved to a partial index that skips deleted users.
+- `app_user`: `email` and `role` replaced by a unique lower-case `username`, and `password_hash` added for the API login (temporary development design: one login, no roles).
 - `rule_definition.threshold_value` and `indicator_code` added so rules are configured in the database, not in code; `business_id` added so each business has its own rules (name unique per business instead of globally).
 - `external_indicator.indicator_code` added (stable code; unique per source and period).
 - New reference tables: `line_category`, `indicator_type`, `indicator_category_link`.
 - New table `import_mapping` (remembered label → category choices per business, with % splits).
 - New table `submission_row` (each upload's rows as in the file, with the chosen mapping).
 - New table `audit_log` (who did what and when, for the activity log).
-- New table `password_reset` (one-time emailed reset links) and `app_user.must_change_password` (temporary passwords); `app_user.password_changed_at` (ends older sessions after a password change).
 - New table `budget_selection` (which forecast became the budget, and its approval status); `approval_action.submission_id` is nullable and `budget_id` added, so one table holds decisions on uploads and budgets.
 - `business.year_end_month` added; `business_unit.unit_type` gains `company`.
 - `budget_submission`: `replaces_submission_id`, `import_method`, `source_file_name`, `source_scale` added; status gains `superseded`.
@@ -517,8 +483,6 @@ The C# API maps these tables. EF Core derives every table and column name from t
 | | `chosen_at` | `TIMESTAMPTZ` |
 | `audit_log` | `log_id` (PK), `business_id` (FK → `business`), `user_id` (FK → `app_user`, nullable), `user_name`, `area`, `action`, `summary` | `VARCHAR` |
 | | `details` / `occurred_at` | `JSONB` / `TIMESTAMPTZ` |
-| `app_user` | `must_change_password` / `password_changed_at` | `BOOLEAN` / `TIMESTAMPTZ` |
-| `password_reset` | `reset_id` (PK), `user_id` (FK → `app_user`, cascade delete) / `token_hash` (unique) | `VARCHAR` / `CHAR(64)` |
-| | `created_at` / `expires_at` / `used_at` | `TIMESTAMPTZ` |
+| `app_user` | `user_id` (PK), `unit_id` (FK → `business_unit`), `full_name`, `username` (unique, lower case), `password_hash` | `VARCHAR` |
 
 C# `DateTime` values are written in UTC, which Npgsql requires to be `TIMESTAMPTZ` (not `TIMESTAMP`).

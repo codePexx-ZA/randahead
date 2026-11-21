@@ -11,72 +11,53 @@ Settings in `js/config.js`:
 | Setting | Default | Meaning |
 |---|---|---|
 | `API_BASE` | `http://localhost:5080/api` | The C# API (needs `docker compose up`) |
-| `SHOW_DEMO_ACCOUNTS` | `true` | Read-only notes name the demo account that has the needed role (e.g. "sign in as approver@demo.co.za"). Turn off for a real business |
 
-The token is kept with the session and sent as `Authorization: Bearer …` on every API call; a `401` signs the user out. The session ends when the token expires (8 hours). Opening `dashboard.html` without a session goes to the login page, and the dashboard re-checks the user with `GET /api/auth/me` when it loads. **Register.** "Register here" on the login page opens `register.html` (`css/register.css`, `js/register.js`): business name, industry, year-end month, then the person's name, email and password (twice). `POST /api/auth/register` makes them the business's Decision Maker and signs them in. Until the first upload is approved, the dashboard shows one "No approved income statement yet" message, Forecast & budget and KPI targets wait, and Approvals, warning rules and Users & business work as usual. The industry list, email pattern and minimum password length live in `js/config.js`. The API allows the web app only from `http://127.0.0.1:5500` and `http://localhost:5500` (Live Server's default port).
+The token is kept with the session and sent as `Authorization: Bearer …` on every API call; a `401` signs the user out. The session ends when the token expires (8 hours). Opening `dashboard.html` without a session goes to the login page, and the dashboard re-checks the user with `GET /api/auth/me` when it loads. Until the first upload is approved, the dashboard shows one "No approved income statement yet" message, Forecast & budget and KPI targets wait, and Approvals, warning rules and Business work as usual. The industry list lives in `js/config.js`. The API allows the web app only from `http://127.0.0.1:5500` and `http://localhost:5500` (Live Server's default port).
 
-These **fictional** demo accounts come from `database/init/03_seed.sql` (password `demo123`):
+**Sign in** with the one account from `database/init/03_seed.sql`:
 
-| Email | Role |
+| Username | Password |
 |---|---|
-| `submitter@demo.co.za` | Submitter |
-| `approver@demo.co.za` | Approver |
-| `owner@demo.co.za` | Decision Maker |
-| `test@gmail.com` (password `test`) | Decision Maker (test account) |
-| `admin@gmail.com` (password `admin`) | **Admin** (a Decision Maker account with the admin flag, for senior IT management): the web app lets it do everything every role can, with no read-only notes, and it can delete users with history. The password is a development placeholder |
-| `thandi@demo.co.za` | Submitter, **switched off** (sign-in is refused until a user manager switches her back on in Users & business) |
+| `demo123` | `test` |
 
-Users added in Users & business sign in with the temporary password set when they were added. They are saved in the database and sign in through the API.
-
-**Passwords** (`password.html`, `css/password.css`, `js/password.js`; one page, three forms):
-
-- **Forgot password?** on the login page opens `password.html`: type your email and the API emails a one-time link (30 minutes). In development the email lands in Mailpit at http://localhost:8025. The link opens `password.html?token=…`, which asks for the new password twice and then goes to the login page (the token is removed from the address bar straight away).
-- **Temporary passwords.** A password typed by an Approver or Decision Maker (adding a user, or a new one for someone who forgot theirs) is temporary. After signing in with it the person goes to `password.html?change` and can't open the dashboard until they choose their own (or sign out). The users list tags them "Temporary password".
-- **Change password.** The **Password** button in the top bar opens `password.html?change` (current password + new one twice). Your own password isn't editable in Users & business.
+**This is a temporary development login.** There is exactly one account and it can do everything; there are no roles, no registration, no user management and no password reset or change. One shared account with a known password is not secure: revisit sign-in and permissions before any real use.
 
 ## Structure
 
 | Path | Purpose |
 |---|---|
-| `index.html` | Login page (goes to the dashboard after signing in, or to `password.html?change` on a temporary password) |
-| `register.html` | Register a new business and its first Decision Maker |
-| `password.html` | Forgot password (email a link), set a new password from the link, change your own password |
+| `index.html` | Login page (username and password; goes to the dashboard after signing in) |
 | `dashboard.html` | The app itself: one page whose sidebar switches sections (`#upload`, `#forecast`, `#approvals`, `#dashboard`, `#reports`, `#targets`, `#settings`, `#activity`, `#support`) without reloading. Section styles and behaviour live in their own files (`css/upload.css` + `js/upload.js`, `css/forecast-section.css` + `js/forecast-section.js`, `css/approvals.css` + `js/approvals.js`, `css/targets.css` + `js/targets.js`, `css/settings.css` + `js/settings.js`, `css/activity.css` + `js/activity.js`, `css/reports.css` + `js/reports.js`, `js/dashboard-section.js`, `js/support.js`) |
 | `assets/images/favicon.svg` | Browser tab icon: "R" lettermark in brand blue and cream (the RandAhead™ wordmark is the only logo) |
 | `css/base.css` | Brand palette (`#3368A0`, `#66A3BF`, `#C8DFDB`, `#F2EFE7`) as CSS variables, reset, toasts |
-| `css/login.css` | Login page styles and animations (also the card used by the register and password pages) |
-| `css/register.css` | Register page extras |
-| `css/password.css` | Password page extras (intro text, "check your email" panel) |
+| `css/login.css` | Login page styles and animations |
 | `css/dashboard.css` | Dashboard layout: sidebar, top bar, metric cards, KPI cards, support form |
-| `css/components.css` | Shared pieces used by several sections: buttons, panels, badges and tags, statement tables, chips, checks, upload-history tables and comments, target/user forms, icon buttons and inline delete confirms. Loaded straight after `css/dashboard.css` |
+| `css/components.css` | Shared pieces used by several sections: buttons, panels, badges and tags, statement tables, chips, checks, upload-history tables and comments, target forms, icon buttons and inline delete confirms. Loaded straight after `css/dashboard.css` |
 | `css/upload.css` | Upload statement section: steps, drop zone, mapping table, history plan |
 | `css/forecast-section.css` | Forecast & budget section: settings, method cards, warnings, chart, comparison table, budget choice |
 | `css/approvals.css` | Approvals section: waiting counts, review cards, comment + approve, sidebar count |
 | `css/targets.css` | Targets & rules section: target table, rule cards with on/off switch, threshold box and preview |
-| `css/settings.css` | Users & business section: business details form, users table with avatars and status |
+| `css/settings.css` | Business section: business details form |
 | `css/activity.css` | Activity log section: filters and the entries table with area icons and before → after details |
 | `css/reports.css` | Reports section: report actions, targets and warnings panels, and the print layout (only the report, no sidebar or buttons) |
-| `js/config.js` | API address, demo account hints, account rules and the industry list |
+| `js/config.js` | API address and the industry list |
 | `js/toast.js` | `showToast(message, type)` notifications |
-| `js/session.js` | The logged-in session (`Session.save`, `get`, `update` after editing your own name or email, `clear`) |
-| `js/api.js` | One `request()` helper (bearer token, one network-failure message, the server's `message` on errors, `401` signs out) and one function per endpoint (`login`, `register`, `forgotPassword`, `resetPassword`, `changePassword`, `getCurrentUser`, `getBusiness`, `updateBusiness`, `getStatementDefinitions`, `getApprovedSubmissions`, `getPendingSubmissions`, `getSubmissions`, `previewUpload`, `checkUpload`, `downloadTemplate`, `submitUpload`, `decideSubmission`, `getLatestBudget`, `chooseBudget`, `decideBudget`, `getLatestForecast`, `runForecasts`, `getDashboard`, `getReport`, `getRules`, `getIndicatorSeries`, `createRule`, `updateRule`, `deleteRule`, `getKpiTargets`, `createKpiTarget`, `updateKpiTarget`, `deleteKpiTarget`, `getUsers`, `createUser`, `updateUser`, `deleteUser`, `getActivity`, `sendSupportMessage`) |
+| `js/session.js` | The logged-in session (`Session.save`, `get`, `update` after `GET /api/auth/me`, `clear`) |
+| `js/api.js` | One `request()` helper (bearer token, one network-failure message, the server's `message` on errors, `401` signs out) and one function per endpoint (`login`, `getCurrentUser`, `getBusiness`, `updateBusiness`, `getStatementDefinitions`, `getApprovedSubmissions`, `getPendingSubmissions`, `getSubmissions`, `previewUpload`, `checkUpload`, `downloadTemplate`, `submitUpload`, `decideSubmission`, `getLatestBudget`, `chooseBudget`, `decideBudget`, `getLatestForecast`, `runForecasts`, `getDashboard`, `getReport`, `getRules`, `getIndicatorSeries`, `createRule`, `updateRule`, `deleteRule`, `getKpiTargets`, `createKpiTarget`, `updateKpiTarget`, `deleteKpiTarget`, `getActivity`, `sendSupportMessage`) |
 | `js/format.js` | Formatters: rands, numbers, sheet amounts, dates, month names, initials, % change and its colour class, KPI values and gaps, `escapeHtml` |
 | `js/ui.js` | The `html` tagged template (escapes every value unless wrapped in `raw()`; arrays are joined), `withBusy(button, fn)`, and the render pieces sections share (empty rows and notes, team-managed tag, lock icon, inline delete / keep confirm, change cells, column heads, "N of M on target" badge, KPI figure and gap, chips, checks, comment rows) |
-| `js/roles.js` | Role display data: labels, each role's home section, duties text, demo accounts, and which role a locked action needs (`ACTION_ROLE`, for the read-only notes) |
-| `js/store.js` | The dashboard's shared data (user, business, statement definitions, uploads, rules, statement, budget) with `on(topic, fn)` / `emit(topic)` change events, `can(action)`, `showRoleNote()`, lookups into the definitions (`getCategory`, `subtotalName`, `getKpi`), and the loaders other sections reuse (rules and indicator series are fetched once per load) |
+| `js/store.js` | The dashboard's shared data (user, business, statement definitions, uploads, rules, statement, budget) with `on(topic, fn)` / `emit(topic)` change events, lookups into the definitions (`getCategory`, `subtotalName`, `getKpi`), and the loaders other sections reuse (rules and indicator series are fetched once per load) |
 | `js/forecast.js` | Joins the two forecast runs with the API's comparison of them (`compareRuns`, also used for the budget figures via `budgetFromRuns`), financial-year labels, the indicators' short names (`INDICATOR_NAMES`) and the warning rule check (no DOM) |
 | `js/importer.js` | Checks the server's preview of an upload and builds the approver's checks (`reviewUpload`); combines approved uploads into one history (no DOM; the file itself is read and its statement worked out by the API) |
-| `js/auth-form.js` | Shared by the login, register and password pages: floating labels, show-password toggle, card shake, loading buttons, field errors |
+| `js/auth-form.js` | Login page helpers: floating labels, show-password toggle, card shake, loading buttons, field errors |
 | `js/login.js` | Login page entry: form behaviour |
-| `js/register.js` | Register page entry: form behaviour |
-| `js/password.js` | Password page entry: picks the form from the address (`?token=`, `?change`, or forgot) and sends it |
-| `js/dashboard.js` | Dashboard page entry: signed-in user, sidebar navigation (each role lands on its own section), `loadData()`, then each section's `setup()` once and `refresh()` after every load |
+| `js/dashboard.js` | Dashboard page entry: signed-in user, sidebar navigation (opens on Dashboard), `loadData()`, then each section's `setup()` once and `refresh()` after every load |
 | `js/dashboard-section.js` | Dashboard section: metric cards, KPI cards, budget vs actual, both statements, search, year picker |
 | `js/upload.js` | Upload statement section behaviour |
 | `js/forecast-section.js` | Forecast & budget section behaviour (chart via [Chart.js](https://www.chartjs.org/), loaded from a CDN with an integrity hash when needed) |
 | `js/approvals.js` | Approvals section behaviour |
 | `js/targets.js` | Targets & rules section: the target and rule screens |
-| `js/settings.js` | Users & business section: business details and users (add, edit, switch off / on, delete) |
+| `js/settings.js` | Business section: business details |
 | `js/activity.js` | Activity log section: loads `GET /api/audit` each time the section opens or a filter changes |
 | `js/reports.js` | Reports section: loads `GET /api/reports` each time the section opens; CSV download and print / save as PDF |
 | `js/support.js` | Contact support section: the support form |
@@ -85,23 +66,13 @@ Each page keeps its HTML, CSS and JS in separate files; no inline styles or scri
 
 ## Who can do what
 
-Every role can open every section except **Reports**, which only the Decision Maker (and the admin) sees: its sidebar link is hidden for other roles and `#reports` opens their home section instead (`data-permission` on the section). Where a role can't act, the section is read-only with a note at the top (with `SHOW_DEMO_ACCOUNTS` on, the note names the demo account to sign in with). The rules come from the API: the signed-in user carries `permissions` (`viewStatement`, `upload`, `chooseBudget`, `decide`, `editTargets`, `editRules`, `manageUsers`, `editBusiness`, `viewReports`, `deleteAnyUser`, `runIngestion`) and `manageableRoles` (the roles they may add, edit or delete), and `can(action)` in `js/store.js` only checks that list. A session saved before these fields existed waits for `GET /api/auth/me` before any section is set up. The role named in a read-only note comes from `ACTION_ROLE` in `js/roles.js`. An **Admin** account (`isAdmin` on the signed-in user, e.g. `admin@gmail.com` / `admin`) gets every permission and shows "Admin" in the top bar, so all sections can be used without switching users. The API still treats it as its database role (Decision Maker) except for the admin-only user actions.
-
-| Action | Role | Others see |
-|---|---|---|
-| Upload a statement, Fix & re-upload | Submitter | Upload statement shows only the upload history, without the steps or Fix buttons |
-| Choose the budget | Decision Maker | Forecast & budget works fully (run and compare forecasts), but **Use as budget** is locked |
-| Approve or reject uploads and budgets | Approver | Approvals shows the queue without the comment box and buttons |
-| Add, edit, delete KPI targets | Decision Maker | Targets & rules shows the targets and their status, without the form or the edit / delete buttons |
-| Change warning rules (threshold, on/off, add, delete) | Approver, Decision Maker | Targets & rules shows the rules with the inputs locked and no add form |
-| Add, edit, switch off / on, delete users | Approver, Decision Maker | Users & business shows the user list without the form or buttons |
-| Change the business details | Decision Maker | Users & business shows the details with the fields locked |
+The one signed-in user can open every section and do every action: upload and fix statements, approve or reject uploads and budgets (including their own), choose the budget, set KPI targets and warning rules, edit the business details and read the reports and the whole activity log. Nothing is read-only and nothing is checked by role in the web app or the API.
 
 ## Dashboard
 
 | Part | What it does |
 |---|---|
-| Sidebar | Upload statement, Targets & rules, Forecast & budget, Approvals (with a count of items waiting), Dashboard, Reports (Decision Maker only), Users & business, Activity log, Contact support (workflow order; Targets & rules sits before Forecast & budget because its rules set the forecast warnings). Back/forward buttons work (URL hash). After signing in each role opens on its own section: the Submitter opens Upload statement, the Approver opens Approvals and the Decision Maker opens Dashboard (a `#section` in the URL wins) |
+| Sidebar | Upload statement, Targets & rules, Forecast & budget, Approvals (with a count of items waiting), Dashboard, Reports, Business, Activity log, Contact support (workflow order; Targets & rules sits before Forecast & budget because its rules set the forecast warnings). Back/forward buttons work (URL hash). After signing in the app opens on Dashboard (a `#section` in the URL wins) |
 | Top bar | Section title, financial year picker, signed-in user, sign out |
 | Search | Filters the lines of both income statements |
 | 4 metric cards | Each has a dropdown of the uploaded income statement lines (Sales, Rent, Water, Electricity…) plus totals (Gross profit… Net profit). Shows the amount for the chosen year and the change from the previous year (green = good, red = bad; a rise in an expense is bad). Choices are remembered in the browser |
@@ -114,7 +85,7 @@ Every role can open every section except **Reports**, which only the Decision Ma
 
 ## Reports
 
-For the Decision Maker: one combined report of every approved year (up to 5) followed by the approved budget's later years (shaded), from `GET /api/reports`.
+One combined report of every approved year (up to 5) followed by the approved budget's later years (shaded), from `GET /api/reports`.
 
 | Part | What it does |
 |---|---|
@@ -132,9 +103,9 @@ For the Decision Maker: one combined report of every approved year (up to 5) fol
 | Forecast & budget | See below |
 | Approvals | See below |
 | Targets & rules | See below |
-| Users & business | See below |
-| Activity log | Who did what and when: registrations, uploads, decisions, forecast runs, budget choices and every change to targets, rules, business details and users, newest first, with before → after values. Sign-in and sign-out are not listed. The **admin** sees everyone in the business and can filter by person; everyone else sees only their own actions. Filters: area, person (admin), from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
-| Contact support | "Get in touch" form (name and email filled in from the signed-in user, topic, message) sent through `POST /api/support`, which emails the support inbox (Mailpit at http://localhost:8025 in development) |
+| Business | See below |
+| Activity log | What was done and when: uploads, decisions, forecast runs, budget choices and every change to targets, rules and business details, newest first, with before → after values. Sign-in and sign-out are not listed. Filters: area, from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
+| Contact support | "Get in touch" form (name filled in from the signed-in user, then email, topic, message) sent through `POST /api/support`, which emails the support inbox (Mailpit at http://localhost:8025 in development) |
 
 ## Upload statement
 
@@ -173,13 +144,13 @@ Runs **Moving Average** and **Exponential Smoothing** side by side for each of t
 | Economic warnings | Each active warning rule (starting with one per external indicator: headline CPI, core CPI, electricity price, fuel price at 6 / 6 / 10 / 10%; set in Targets & rules) checked against the latest indicator year inside the history. A warning lists the categories to review and is also shown on those rows of the table. **Warnings never change the figures** |
 | History vs forecasts | Line chart for one category or total: actual figures (navy, solid), Moving Average (blue, dashed), Exponential Smoothing (sky, dashed) and their average (muted, dotted) starting from the last actual year. Pick it from the dropdown or click a table row |
 | Side-by-side comparison | Every category and subtotal: last actual year, both forecasts and their average, each with the % change (green = better for the business, red = worse). Team-managed categories (revenue, employee costs) are tagged |
-| Choose your budget | Three cards: **Moving Average**, **Exponential Smoothing** or **Both (average)** = (MA + ES) ÷ 2 per category, one number from both (revenue, total expenses, net profit on each). **Use as budget** saves the choice; it goes to an approver and sets the Budget column of the dashboard's processed statement straight away ("Waiting for approval"). Both forecasts are always kept, so there is no need to re-run to compare |
+| Choose your budget | Three cards: **Moving Average**, **Exponential Smoothing** or **Both (average)** = (MA + ES) ÷ 2 per category, one number from both (revenue, total expenses, net profit on each). **Use as budget** saves the choice; it waits for approval in Approvals and sets the Budget column of the dashboard's processed statement straight away ("Waiting for approval"). Both forecasts are always kept, so there is no need to re-run to compare |
 
 On first open it shows the latest saved forecast when `matchesHistory` is true, or runs one with the default settings. A correction of an earlier year makes `matchesHistory` false. It uses `GET /api/forecasts/latest`, `POST /api/forecasts` (the C# API asks the Python service and returns its two runs), `POST /api/budgets` (`{ method, run_ids: [MA run, ES run] }`, method `moving_average` / `exponential_smoothing` / `combined`) and `GET /api/budgets/latest` (the budget plus both runs; the API sends each method's figures as `comparison`, and `budgetFromRuns` in `js/forecast.js` picks the chosen method's, so the average is worked out once, on the server). When the API marks the budget `outOfDate`, the dashboard badge, Forecast & budget, Targets and the budget's Approvals checks say so and ask for a new choice; the figures are never changed. Economic warnings come from `GET /api/rules` and `GET /api/indicators/series`.
 
 ## Approvals
 
-Where an **Approver** approves or rejects what others send: uploads (the income statement history) and the chosen budget. Other roles see the queue read-only, with a note (with `SHOW_DEMO_ACCOUNTS` on, it names the demo approver account).
+Where uploads (the income statement history) and the chosen budget are approved or rejected. The same user who uploaded or chose may decide.
 
 | Part | What it does |
 |---|---|
@@ -193,7 +164,7 @@ Several uploads can be approved at once; they combine into one history (see Uplo
 
 ## Targets & rules
 
-Two panels: the **KPI targets** the Decision Maker sets, and the **economic warning rules** an Approver or Decision Maker tunes.
+Two panels: the **KPI targets** and the **economic warning rules**.
 
 | Part | What it does |
 |---|---|
@@ -204,17 +175,11 @@ Two panels: the **KPI targets** the Decision Maker sets, and the **economic warn
 
 Rule changes update the economic warnings in Forecast & budget and the budget checks in Approvals straight away; they never change the figures. Endpoints: `GET/POST /api/kpi-targets`, `PUT/DELETE /api/kpi-targets/{id}` (`{ metric_name, target_value, measurement_unit: "rand" | "percent", target_period }`, period = first day of the financial year; unique per unit, metric and period) and `GET/POST /api/rules`, `PUT/DELETE /api/rules/{id}` (`{ rule_name, indicator_code, threshold_value, active_status }`; rules belong to the business; `deletable` is false once a rule has raised an alert, and `DELETE` then answers 409). The rules' latest values come from `GET /api/indicators/series`; `buildIndicatorWarnings` in `js/forecast.js` checks them against the history years (see `../backend/README.md`).
 
-## Users & business
-
-Two panels: the **business details** (Decision Maker) and the **users** who can sign in (Approver or Decision Maker).
+## Business
 
 | Part | What it does |
 |---|---|
 | Business details | Registered name (required, shown in the sidebar straight away), industry (optional, picked from a list of SA SME sectors or "Other"), financial year-end month, plus country (South Africa) and how it's budgeted (Whole company, Rand) shown read-only. **Save** / **Undo** appear once something changes. The year-end is **locked once an income statement is uploaded or a KPI target is set**, because every financial year label and target date depends on it |
-| Add / edit a user | Full name, email (unique, case-insensitive), role and password; the hint explains what the chosen role can do. Accounts are made for people (e.g. by the owner or IT), so a new user needs a password of at least 8 characters, handed over with their email. When editing, the password is optional: leave it empty to keep it, or type a new one to reset it. You can edit your own name and email (the top bar updates) but not your own role |
-| Users table | Active users first, then by role and name, with a "You" tag on your own row and a badge counting active and switched-off users. **Switch off** stops a user signing in but keeps everything they uploaded or decided; **switch back on** undoes it. Only users with nothing on record can be **deleted** (asks "Delete …?" in the row); the others show a lock. You can't switch off or delete yourself |
-| Admin delete | An **Admin** (the `deleteAnyUser` permission, which only admins get) can delete **any** user, including ones with history, after typing their own password in a confirm row under the user. A wrong password deletes nothing and keeps the row open. The user leaves the list and can't sign in; their past uploads and decisions stay, with their name shown as "Name (former user)". Admin accounts show an "Admin" tag and a lock for everyone who isn't an admin. The safety rule below still applies |
-| Safety rule | A role change, switch-off or delete that would remove the **last active Approver or last active Decision Maker** is refused with a message (a newly registered business starts with only its Decision Maker) |
 
 This section uses the C# API (endpoints in `../backend/README.md`).
 
