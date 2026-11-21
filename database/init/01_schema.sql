@@ -45,29 +45,8 @@ CREATE TABLE app_user (
     user_id       VARCHAR(32)  PRIMARY KEY DEFAULT replace(gen_random_uuid()::text, '-', ''),
     unit_id       VARCHAR(32)  NOT NULL REFERENCES business_unit (unit_id) ON DELETE RESTRICT,
     full_name     VARCHAR(200) NOT NULL,
-    email         VARCHAR(254) NOT NULL,
-    password_hash VARCHAR(255),
-    role          VARCHAR(20)  NOT NULL
-                  CHECK (role IN ('submitter', 'approver', 'decision_maker')),
-    active_status VARCHAR(20)  NOT NULL DEFAULT 'active'
-                  CHECK (active_status IN ('active', 'inactive')),
-    is_admin      BOOLEAN      NOT NULL DEFAULT false,
-    must_change_password BOOLEAN NOT NULL DEFAULT false,
-    password_changed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ,
-    CHECK (deleted_at IS NULL OR (active_status = 'inactive' AND password_hash IS NULL AND NOT is_admin))
-);
-
-CREATE UNIQUE INDEX ux_app_user_email_current ON app_user (lower(email)) WHERE deleted_at IS NULL;
-
-CREATE TABLE password_reset (
-    reset_id   VARCHAR(32) PRIMARY KEY DEFAULT replace(gen_random_uuid()::text, '-', ''),
-    user_id    VARCHAR(32) NOT NULL REFERENCES app_user (user_id) ON DELETE CASCADE,
-    token_hash CHAR(64)    NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    used_at    TIMESTAMPTZ,
-    CHECK (expires_at > created_at)
+    username      VARCHAR(50)  NOT NULL UNIQUE CHECK (username = lower(username)),
+    password_hash VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE budget_submission (
@@ -268,7 +247,6 @@ CREATE TABLE audit_log (
 
 CREATE INDEX ix_business_unit_business      ON business_unit (business_id);
 CREATE INDEX ix_app_user_unit               ON app_user (unit_id);
-CREATE INDEX ix_password_reset_user         ON password_reset (user_id);
 CREATE INDEX ix_budget_submission_unit      ON budget_submission (unit_id, period_start);
 CREATE INDEX ix_budget_submission_user      ON budget_submission (submitted_by);
 CREATE INDEX ix_budget_submission_replaces  ON budget_submission (replaces_submission_id);

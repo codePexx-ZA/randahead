@@ -67,7 +67,7 @@ public static class ErrorResponses
         {
             StatusCodes.Status400BadRequest => "The request was not valid.",
             StatusCodes.Status401Unauthorized => "Your session has ended. Sign in again.",
-            StatusCodes.Status403Forbidden => "Your role can't do this.",
+            StatusCodes.Status403Forbidden => "This action isn't allowed.",
             StatusCodes.Status404NotFound => "This wasn't found. It may have been deleted.",
             StatusCodes.Status405MethodNotAllowed => "This action isn't allowed here.",
             StatusCodes.Status409Conflict => "This clashes with a change someone else made. Reload and try again.",

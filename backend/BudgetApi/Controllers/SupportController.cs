@@ -53,11 +53,10 @@ public class SupportController(Mailer mailer) : ApiController
         }
 
         var business = caller.Unit!.Business!;
-        var role = AuditLog.RoleNames.GetValueOrDefault(caller.Role, caller.Role) + (caller.IsAdmin ? " (admin)" : "");
         var body = $"""
             From: {name} <{email}>
             Business: {business.LegalName}
-            Account: {caller.FullName} <{caller.Email}>, {role}
+            Account: {caller.FullName} ({caller.Username})
             Topic: {topic}
 
             {message}

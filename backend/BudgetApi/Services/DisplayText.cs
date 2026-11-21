@@ -6,7 +6,7 @@ namespace BudgetApi.Services;
 public static class DisplayText
 {
     public static string Person(AppUser? user) =>
-        user is null ? "Unknown user" : user.DeletedAt is null ? user.FullName : $"{user.FullName} (former user)";
+        user is null ? "Unknown user" : user.FullName;
 
     public static string MidSentence(string name) =>
         name.Length > 1 && char.IsUpper(name[0]) && !char.IsUpper(name[1])

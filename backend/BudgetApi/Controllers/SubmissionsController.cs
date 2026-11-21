@@ -66,7 +66,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     private const int MaxRows = StatementImporter.MaxRows;
     private const long MaxFileBytes = 5 * 1024 * 1024;
     private const decimal MaxRandAmount = 10_000_000_000_000m;
-    private const string UploadersOnly = "Only a Submitter can upload income statements.";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> RowKinds = ["heading", "line", "subtotal", "total"];
     private static readonly HashSet<int> Scales = [1, 1000, 1000000];
@@ -98,7 +97,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
 
     [HttpPost("preview")]
     [RequestSizeLimit(MaxFileBytes + 64 * 1024)]
-    [RequirePermission(Permissions.Upload, UploadersOnly)]
     public async Task<IActionResult> Preview(IFormFile? file, CancellationToken cancellationToken)
     {
         var caller = Caller;
@@ -131,7 +129,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     }
 
     [HttpPost("check")]
-    [RequirePermission(Permissions.Upload, UploadersOnly)]
     public IActionResult Check(SubmissionRequest request)
     {
         if (Problem(request) is { } problem)
@@ -146,7 +143,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         (r.Kind, r.Subtotal, r.Values, r.Mapping);
 
     [HttpPost]
-    [RequirePermission(Permissions.Upload, UploadersOnly)]
     public async Task<IActionResult> Create(SubmissionRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;
@@ -236,7 +232,6 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
     }
 
     [HttpPost("{id}/decision")]
-    [RequirePermission(Permissions.Decide, "Only an Approver can approve or reject uploads.")]
     public async Task<IActionResult> Decide(string id, DecisionRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;

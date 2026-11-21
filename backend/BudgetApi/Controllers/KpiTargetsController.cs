@@ -37,7 +37,6 @@ public class KpiTargetsController(BudgetDbContext db, StatementFigures figures, 
     }
 
     [HttpPost]
-    [RequirePermission(Permissions.EditTargets)]
     public async Task<IActionResult> Create(KpiTargetRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;
@@ -65,7 +64,6 @@ public class KpiTargetsController(BudgetDbContext db, StatementFigures figures, 
     }
 
     [HttpPut("{id}")]
-    [RequirePermission(Permissions.EditTargets)]
     public async Task<IActionResult> Update(string id, KpiTargetRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;
@@ -106,7 +104,6 @@ public class KpiTargetsController(BudgetDbContext db, StatementFigures figures, 
     }
 
     [HttpDelete("{id}")]
-    [RequirePermission(Permissions.EditTargets)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var caller = Caller;

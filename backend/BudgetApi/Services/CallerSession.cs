@@ -2,7 +2,6 @@ using BudgetApi.Data;
 using BudgetApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace BudgetApi.Services;
 
@@ -10,26 +9,17 @@ public static class CallerSession
 {
     private const string Key = "caller";
 
-    public static IQueryable<AppUser> Live(this IQueryable<AppUser> users) =>
-        users.Where(u => u.ActiveStatus == "active" && u.DeletedAt == null);
-
     public static async Task ValidateAsync(TokenValidatedContext context)
     {
         var db = context.HttpContext.RequestServices.GetRequiredService<BudgetDbContext>();
         var userId = context.Principal?.FindFirst("sub")?.Value;
         var user = await db
-            .AppUsers.Live()
-            .Include(u => u.Unit!)
+            .AppUsers.Include(u => u.Unit!)
             .ThenInclude(u => u.Business)
             .FirstOrDefaultAsync(u => u.UserId == userId, context.HttpContext.RequestAborted);
-        if (
-            user is null
-            || user.Role != context.Principal?.FindFirst("role")?.Value
-            || context.SecurityToken is not JsonWebToken { IssuedAt: var issuedAt }
-            || issuedAt.AddSeconds(1) <= user.PasswordChangedAt
-        )
+        if (user is null)
         {
-            context.Fail("The account changed after this token was issued.");
+            context.Fail("The account behind this token no longer exists.");
             return;
         }
         context.HttpContext.Items[Key] = user;

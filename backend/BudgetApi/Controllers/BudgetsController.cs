@@ -56,7 +56,6 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
     }
 
     [HttpPost]
-    [RequirePermission(Permissions.ChooseBudget, "Only a Decision Maker can choose the budget.")]
     public async Task<IActionResult> Choose(BudgetRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;
@@ -121,7 +120,6 @@ public class BudgetsController(BudgetDbContext db, BusinessScope scope, Forecast
     }
 
     [HttpPost("{id}/decision")]
-    [RequirePermission(Permissions.Decide, "Only an Approver can approve or reject budgets.")]
     public async Task<IActionResult> Decide(string id, DecisionRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;

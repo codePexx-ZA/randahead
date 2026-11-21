@@ -7,18 +7,10 @@ public class AppUser
     public string UserId { get; set; } = Guid.NewGuid().ToString("N");
     public string UnitId { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
 
     [JsonIgnore]
-    public string? PasswordHash { get; set; }
-    public string Role { get; set; } = string.Empty;
-    public string ActiveStatus { get; set; } = "active";
-    public bool IsAdmin { get; set; }
-    public bool MustChangePassword { get; set; }
-
-    [JsonIgnore]
-    public DateTime PasswordChangedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? DeletedAt { get; set; }
+    public string PasswordHash { get; set; } = string.Empty;
 
     [JsonIgnore]
     public BusinessUnit? Unit { get; set; }

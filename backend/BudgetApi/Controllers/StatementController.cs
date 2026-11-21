@@ -12,7 +12,6 @@ namespace BudgetApi.Controllers;
 public class StatementController(BudgetDbContext db, StatementFigures figures) : ApiController
 {
     [HttpGet("definitions")]
-    [RequirePermission(Permissions.ViewStatement)]
     public async Task<IActionResult> Definitions(CancellationToken cancellationToken)
     {
         var categories = await figures.CategoriesAsync(cancellationToken);

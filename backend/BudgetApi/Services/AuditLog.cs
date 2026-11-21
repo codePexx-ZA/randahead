@@ -14,13 +14,6 @@ public record AuditChange(
 
 public class AuditLog(BudgetDbContext db)
 {
-    public static readonly Dictionary<string, string> RoleNames = new()
-    {
-        [Roles.Submitter] = "Submitter",
-        [Roles.Approver] = "Approver",
-        [Roles.DecisionMaker] = "Decision Maker",
-    };
-
     public static readonly Dictionary<string, string> MethodNames = new()
     {
         [ForecastRuns.MovingAverage] = "Moving Average",

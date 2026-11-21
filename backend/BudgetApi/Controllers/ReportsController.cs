@@ -17,7 +17,6 @@ public class ReportsController(StatementFigures figures) : ApiController
     ];
 
     [HttpGet]
-    [RequirePermission(Permissions.ViewReports, "Reports are for the Decision Maker.")]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
         var caller = Caller;

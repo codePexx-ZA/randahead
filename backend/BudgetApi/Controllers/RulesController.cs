@@ -34,7 +34,6 @@ public class RulesController(BudgetDbContext db, AuditLog audit) : ApiController
     }
 
     [HttpPost]
-    [RequirePermission(Permissions.EditRules)]
     public async Task<IActionResult> Create(RuleRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;
@@ -69,7 +68,6 @@ public class RulesController(BudgetDbContext db, AuditLog audit) : ApiController
     }
 
     [HttpPut("{id}")]
-    [RequirePermission(Permissions.EditRules)]
     public async Task<IActionResult> Update(string id, RuleRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;
@@ -110,7 +108,6 @@ public class RulesController(BudgetDbContext db, AuditLog audit) : ApiController
     }
 
     [HttpDelete("{id}")]
-    [RequirePermission(Permissions.EditRules)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var caller = Caller;

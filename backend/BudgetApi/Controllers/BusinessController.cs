@@ -28,7 +28,6 @@ public class BusinessController(BudgetDbContext db, BusinessScope scope, AuditLo
     }
 
     [HttpPut]
-    [RequirePermission(Permissions.EditBusiness)]
     public async Task<IActionResult> Update(BusinessRequest request, CancellationToken cancellationToken)
     {
         var caller = Caller;

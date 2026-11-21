@@ -7,21 +7,9 @@ INSERT INTO business (business_id, legal_name, industry, country, year_end_month
 INSERT INTO business_unit (unit_id, business_id, unit_name, unit_type, currency) VALUES
     ('a0000000000000000000000000000001', 'b0000000000000000000000000000001', 'Whole company', 'company', 'ZAR');
 
-INSERT INTO app_user (user_id, unit_id, full_name, email, password_hash, role, active_status) VALUES
-    ('c0000000000000000000000000000001', 'a0000000000000000000000000000001', 'Sipho Ndlovu',   'submitter@demo.co.za',
-     '$2b$11$Osoo8UhJcUSyHvl23W2Eve0Q/ir7jueFS23en7OvLg9BiyGN8hbiW', 'submitter',      'active'),
-    ('c0000000000000000000000000000002', 'a0000000000000000000000000000001', 'Anika Pillay',   'approver@demo.co.za',
-     '$2b$11$Osoo8UhJcUSyHvl23W2Eve0Q/ir7jueFS23en7OvLg9BiyGN8hbiW', 'approver',       'active'),
-    ('c0000000000000000000000000000003', 'a0000000000000000000000000000001', 'Johan van Wyk',  'owner@demo.co.za',
-     '$2b$11$Osoo8UhJcUSyHvl23W2Eve0Q/ir7jueFS23en7OvLg9BiyGN8hbiW', 'decision_maker', 'active'),
-    ('c0000000000000000000000000000004', 'a0000000000000000000000000000001', 'Test User',      'test@gmail.com',
-     '$2b$11$hHcwdpKjSC1.X1JBfCSSf.SLRkiejREResuZUxWh2NgujTIaTxrSW', 'decision_maker', 'active'),
-    ('c0000000000000000000000000000005', 'a0000000000000000000000000000001', 'Thandi Mokoena', 'thandi@demo.co.za',
-     '$2b$11$Osoo8UhJcUSyHvl23W2Eve0Q/ir7jueFS23en7OvLg9BiyGN8hbiW', 'submitter',      'inactive');
-
-INSERT INTO app_user (user_id, unit_id, full_name, email, password_hash, role, active_status, is_admin) VALUES
-    ('c0000000000000000000000000000006', 'a0000000000000000000000000000001', 'Admin',          'admin@gmail.com',
-     '$2b$11$/J6pa7wZUB9doukaT046Du8YO9CKjorPA.O0Xf/6ZxVXuAgxFBzGC', 'decision_maker', 'active', true);
+INSERT INTO app_user (user_id, unit_id, full_name, username, password_hash) VALUES
+    ('c0000000000000000000000000000001', 'a0000000000000000000000000000001', 'Demo User', 'demo123',
+     '$2a$11$cxsMS0LUX1nOcEuq7qCaou5C7PDfnMROJF3rtIi78o2VfgV86tBD.');
 
 INSERT INTO budget_submission
     (submission_id, unit_id, submitted_by, period_start, period_end, status, submitted_at,
@@ -151,11 +139,11 @@ SET mapping = '[{"category": "electricity", "percent": 70}, {"category": "other_
 WHERE submission_id = 'd0000000000000000000000000000004' AND source_label = 'Water & electricity';
 
 INSERT INTO approval_action (submission_id, acted_by, decision, comments, acted_at) VALUES
-    ('d0000000000000000000000000000001', 'c0000000000000000000000000000002', 'approved', NULL, '2025-05-14 10:00+02'),
-    ('d0000000000000000000000000000002', 'c0000000000000000000000000000002', 'rejected',
+    ('d0000000000000000000000000000001', 'c0000000000000000000000000000001', 'approved', NULL, '2025-05-14 10:00+02'),
+    ('d0000000000000000000000000000002', 'c0000000000000000000000000000001', 'rejected',
      'Interest paid is missing for FY2023, so net profit doesn''t match the signed statements. Please add it and upload again.',
      '2026-09-22 10:00+02'),
-    ('d0000000000000000000000000000003', 'c0000000000000000000000000000002', 'approved', NULL, '2026-09-28 10:00+02');
+    ('d0000000000000000000000000000003', 'c0000000000000000000000000000001', 'approved', NULL, '2026-09-28 10:00+02');
 
 INSERT INTO import_mapping (business_id, source_label, label_key, category_code, split_percent, created_by) VALUES
     ('b0000000000000000000000000000001', 'Water & electricity', 'water & electricity', 'electricity',     70, 'c0000000000000000000000000000001'),
@@ -183,11 +171,11 @@ GROUP BY category;
 
 INSERT INTO budget_selection (budget_id, unit_id, ma_run_id, es_run_id, budget_method, status, chosen_by, chosen_at) VALUES
     ('f0000000000000000000000000000001', 'a0000000000000000000000000000001', 'e0000000000000000000000000000001',
-     'e0000000000000000000000000000002', 'exponential_smoothing', 'approved', 'c0000000000000000000000000000003',
+     'e0000000000000000000000000000002', 'exponential_smoothing', 'approved', 'c0000000000000000000000000000001',
      '2026-10-01 15:00+02');
 
 INSERT INTO approval_action (budget_id, acted_by, decision, comments, acted_at) VALUES
-    ('f0000000000000000000000000000001', 'c0000000000000000000000000000002', 'approved', NULL, '2026-10-02 10:00+02');
+    ('f0000000000000000000000000000001', 'c0000000000000000000000000000001', 'approved', NULL, '2026-10-02 10:00+02');
 
 INSERT INTO rule_definition (business_id, rule_name, condition, action, indicator_code, threshold_value) VALUES
     ('b0000000000000000000000000000001', 'Headline CPI above threshold',
@@ -215,29 +203,29 @@ INSERT INTO kpi_target (unit_id, metric_name, target_value, measurement_unit, ta
     ('a0000000000000000000000000000001', 'employee_costs', 1800000,  'rand',    '2025-03-01');
 
 INSERT INTO audit_log (business_id, user_id, user_name, area, action, summary, details, occurred_at) VALUES
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Sipho Ndlovu', 'upload', 'uploaded',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'uploaded',
      'Uploaded Karoo_Outdoor_IS_FY2020-FY2024.xlsx (FY2020–FY2024)', NULL, '2025-05-12 09:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000002', 'Anika Pillay', 'upload', 'approved',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'approved',
      'Approved upload Karoo_Outdoor_IS_FY2020-FY2024.xlsx', NULL, '2025-05-14 10:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Sipho Ndlovu', 'upload', 'uploaded',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'uploaded',
      'Uploaded Karoo_Outdoor_IS_FY2021-FY2025_draft.xlsx (FY2021–FY2025)', NULL, '2026-09-18 09:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000002', 'Anika Pillay', 'upload', 'rejected',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'rejected',
      'Rejected upload Karoo_Outdoor_IS_FY2021-FY2025_draft.xlsx',
      '[{"field": "Comment", "after": "Interest paid is missing for FY2023, so net profit doesn''t match the signed statements. Please add it and upload again."}]',
      '2026-09-22 10:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Sipho Ndlovu', 'upload', 'uploaded',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'uploaded',
      'Uploaded Karoo_Outdoor_IS_FY2021-FY2025.xlsx (FY2021–FY2025)', NULL, '2026-09-25 09:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000002', 'Anika Pillay', 'upload', 'approved',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'approved',
      'Approved upload Karoo_Outdoor_IS_FY2021-FY2025.xlsx', NULL, '2026-09-28 10:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000003', 'Johan van Wyk', 'forecast', 'ran',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'forecast', 'ran',
      'Ran the forecasts for 1 year ahead',
      '[{"field": "Moving Average window", "after": "3 years"}, {"field": "Smoothing weight α", "after": "0.5"}]',
      '2026-10-01 14:55+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000003', 'Johan van Wyk', 'budget', 'chosen',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'budget', 'chosen',
      'Chose Exponential Smoothing as the budget', NULL, '2026-10-01 15:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000002', 'Anika Pillay', 'budget', 'approved',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'budget', 'approved',
      'Approved the budget (Exponential Smoothing)', NULL, '2026-10-02 10:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Sipho Ndlovu', 'upload', 'uploaded',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'uploaded',
      'Uploaded Karoo_Outdoor_IS_FY2022-FY2026.xlsx (FY2022–FY2026)', NULL, '2026-10-05 09:00+02');
 
 COMMIT;

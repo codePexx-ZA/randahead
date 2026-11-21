@@ -11,7 +11,6 @@ namespace BudgetApi.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-[RequirePermission(Permissions.RunIngestion)]
 [EnableRateLimiting(RateLimits.Ingestion)]
 public class IngestionController(IngestionService ingestionService, BudgetDbContext db) : ApiController
 {

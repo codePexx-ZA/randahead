@@ -38,21 +38,4 @@ public class BusinessScope(BudgetDbContext db)
             )
             .SingleAsync(cancellationToken);
 
-    public async Task<HashSet<string>> UsersOnRecordAsync(string businessId, CancellationToken cancellationToken) =>
-        (
-            await db
-                .Database.SqlQuery<string>(
-                    $"""
-                    SELECT u.user_id AS "Value" FROM app_user u
-                    JOIN business_unit bu ON bu.unit_id = u.unit_id
-                    WHERE bu.business_id = {businessId} AND (
-                        EXISTS (SELECT 1 FROM budget_submission s WHERE s.submitted_by = u.user_id)
-                        OR EXISTS (SELECT 1 FROM approval_action a WHERE a.acted_by = u.user_id)
-                        OR EXISTS (SELECT 1 FROM import_mapping m WHERE m.created_by = u.user_id)
-                        OR EXISTS (SELECT 1 FROM budget_selection b WHERE b.chosen_by = u.user_id)
-                    )
-                    """
-                )
-                .ToListAsync(cancellationToken)
-        ).ToHashSet();
 }

@@ -59,7 +59,6 @@ builder
             ValidAudience = jwt.Audience,
             IssuerSigningKey = jwt.SigningKey(),
             NameClaimType = "name",
-            RoleClaimType = "role",
         };
         options.Events = new JwtBearerEvents { OnTokenValidated = CallerSession.ValidateAsync };
     });
@@ -96,7 +95,6 @@ if (app.Environment.IsDevelopment())
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
-app.Use(MustChangePassword.Enforce);
 app.UseAuthorization();
 app.MapControllers();
 

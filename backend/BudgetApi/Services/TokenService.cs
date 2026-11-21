@@ -30,9 +30,8 @@ public class TokenService(JwtSettings settings)
             Subject = new ClaimsIdentity(
             [
                 new Claim(JwtRegisteredClaimNames.Sub, user.UserId),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim("username", user.Username),
                 new Claim("name", user.FullName),
-                new Claim("role", user.Role),
                 new Claim("unit_id", user.UnitId),
             ]),
         };

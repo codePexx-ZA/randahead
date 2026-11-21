@@ -11,15 +11,12 @@ public class MailSettings
     public string Username { get; set; } = "";
     public string Password { get; set; } = "";
     public string From { get; set; } = "RandAhead <no-reply@randahead.local>";
-    public string WebAppUrl { get; set; } = "http://127.0.0.1:5500";
     public string SupportTo { get; set; } = "support@randahead.local";
 }
 
 public class Mailer(MailSettings settings, ILogger<Mailer> logger, IHostEnvironment environment)
 {
     private string LoggedBody(string body) => environment.IsDevelopment() ? body : "(body hidden outside development)";
-
-    public string WebAppUrl => settings.WebAppUrl.TrimEnd('/');
 
     public string SupportTo => settings.SupportTo;
 

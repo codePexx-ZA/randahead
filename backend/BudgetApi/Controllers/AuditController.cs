@@ -19,7 +19,6 @@ public class AuditController(BudgetDbContext db) : ApiController
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? area,
-        [FromQuery] string? user,
         [FromQuery] DateOnly? from,
         [FromQuery] DateOnly? to,
         CancellationToken cancellationToken
@@ -37,9 +36,6 @@ public class AuditController(BudgetDbContext db) : ApiController
 
         var businessId = caller.Unit!.BusinessId;
         var query = db.AuditEntries.AsNoTracking().Where(e => e.BusinessId == businessId);
-        query = caller.IsAdmin
-            ? user is null ? query : query.Where(e => e.UserId == user)
-            : query.Where(e => e.UserId == caller.UserId);
         if (area is not null)
         {
             query = query.Where(e => e.Area == area);
@@ -61,22 +57,10 @@ public class AuditController(BudgetDbContext db) : ApiController
             .Take(PageSize + 1)
             .ToListAsync(cancellationToken);
 
-        var people = caller.IsAdmin
-            ? (
-                await db
-                    .AppUsers.AsNoTracking()
-                    .Where(u => u.Unit!.BusinessId == businessId)
-                    .OrderBy(u => u.FullName)
-                    .ToListAsync(cancellationToken)
-            ).Select(u => new { id = u.UserId, name = DisplayText.Person(u) })
-            : null;
-
         return Ok(
             new
             {
-                scope = caller.IsAdmin ? "business" : "own",
                 more = entries.Count > PageSize,
-                people,
                 entries = entries.Take(PageSize).Select(e => new
                 {
                     id = e.LogId,

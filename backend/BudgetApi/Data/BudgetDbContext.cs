@@ -26,7 +26,6 @@ public partial class BudgetDbContext(DbContextOptions<BudgetDbContext> options) 
     public DbSet<BudgetSelection> BudgetSelections => Set<BudgetSelection>();
     public DbSet<KpiTarget> KpiTargets => Set<KpiTarget>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
-    public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
 
     [GeneratedRegex("(?<!^)(?=[A-Z])")]
     private static partial Regex WordStart();
@@ -55,7 +54,6 @@ public partial class BudgetDbContext(DbContextOptions<BudgetDbContext> options) 
         modelBuilder.Entity<IndicatorType>().HasKey(e => e.IndicatorCode);
         modelBuilder.Entity<KpiTarget>().HasKey(e => e.TargetId);
         modelBuilder.Entity<LineCategory>().HasKey(e => e.CategoryCode);
-        modelBuilder.Entity<PasswordReset>().HasKey(e => e.ResetId);
         modelBuilder.Entity<RuleAlert>().HasKey(e => e.AlertId);
         modelBuilder.Entity<RuleDefinition>().HasKey(e => e.RuleId);
         modelBuilder.Entity<SubmissionRow>().HasKey(e => e.RowId);

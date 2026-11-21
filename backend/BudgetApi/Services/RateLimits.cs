@@ -6,8 +6,6 @@ namespace BudgetApi.Services;
 public static class RateLimits
 {
     public const string Login = "login";
-    public const string Register = "register";
-    public const string PasswordReset = "password-reset";
     public const string Support = "support";
     public const string Ingestion = "ingestion";
     private const int Segments = 5;
@@ -15,8 +13,6 @@ public static class RateLimits
     private static readonly Dictionary<string, (int Limit, TimeSpan Window)> Policies = new()
     {
         [Login] = (10, TimeSpan.FromMinutes(5)),
-        [Register] = (5, TimeSpan.FromHours(1)),
-        [PasswordReset] = (5, TimeSpan.FromMinutes(15)),
         [Support] = (5, TimeSpan.FromMinutes(15)),
         [Ingestion] = (5, TimeSpan.FromMinutes(15)),
     };
