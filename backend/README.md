@@ -25,21 +25,21 @@ Sales and salaries are **team-managed** (set by the business, e.g. salaries at i
 
 ## Prerequisites
 
-- .NET SDK 10
-- Docker Desktop (running)
+- .NET SDK 10 (for `dotnet run` and `dotnet test`; the container build uses `mcr.microsoft.com/dotnet/sdk:10.0`)
+- Docker Engine with the Compose plugin
 
 ## One-time setup (passwords are not in the code)
 
-From the repo root, create `.env` for Docker Compose, then replace `JWT_KEY` with a long random string (at least 32 characters; it signs the sign-in tokens):
+From the repo root, create `.env` for Docker Compose and set `POSTGRES_PASSWORD` and `JWT_KEY` (the key is a random string of at least 32 characters; it signs the sign-in tokens). Compose refuses to start while either is missing. Full start-up steps, including the external database volume, are in the [root README](../README.md#run-it):
 
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env
 ```
 
 For `dotnet run`, store the full connection string and a token key in .NET user secrets (kept outside the project folder):
 
-```powershell
-cd backend\BudgetApi
+```bash
+cd backend/BudgetApi
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=sme_budget;Username=budget;Password=<POSTGRES_PASSWORD from .env>"
 dotnet user-secrets set "Jwt:Key" "<a long random string of at least 32 characters>"
 ```
@@ -48,7 +48,7 @@ The API refuses to start without a `Jwt:Key` of at least 32 characters.
 
 ## Login
 
-**Temporary development login.** There is exactly one account, username `demo123`, password `test` (seeded in `../database/init/03_seed.sql` as a BCrypt hash). It has no role: the signed-in user may call every endpoint. One shared account with a known password is not secure; sign-in and permissions must be revisited before any real use.
+**Temporary development login.** There is exactly one account, seeded in `../database/init/03_seed.sql` as a BCrypt hash; its username and password are in the [root README](../README.md#sign-in). It has no role: the signed-in user may call every endpoint. One shared account with a known password is not secure; sign-in and permissions must be revisited before any real use.
 
 | Endpoint | Body / header | Returns |
 |---|---|---|
@@ -148,11 +148,11 @@ Figures come from `Services/StatementFigures.cs` (shared by both endpoints, alon
 
 ## Activity log
 
-Every upload, decision, forecast run, budget choice and change to targets, rules and business details adds an `audit_log` row through `Services/AuditLog.cs`, in the same save as the change. Sign-in, a failed sign-in and sign-out do not. A forecast run records the prediction name (Steady, Balanced or Recent) when it matches one, plus the moving-average window and the smoothing weight. Edits record only the fields that changed (`{ field, before, after }`); a password set by someone else shows as "Temporary password set", never the value; reset requests, reset-link use and own password changes are `account` rows. Rows are never edited or deleted.
+Every upload, decision, forecast run, budget choice and change to targets, rules and business details adds an `audit_log` row through `Services/AuditLog.cs`, in the same save as the change. Sign-in, a failed sign-in and sign-out do not. A forecast run records the prediction name (Steady, Balanced or Recent) when it matches one, plus the moving-average window and the smoothing weight. Edits record only the fields that changed (`{ field, before, after }`). Rows are never edited or deleted.
 
 | Endpoint | Who | Query | Returns |
 |---|---|---|---|
-| `GET /api/audit` | Signed-in user | `area` (`account`, `upload`, `forecast`, `budget`, `target`, `rule`, `business`, `user`), `from`, `to` (dates, South African time) | `{ more, entries: [{ id, at, who, area, action, summary, details }] }`, newest first, at most 200 (`more` is `true` when older rows exist); `400` unknown area or `from` after `to` |
+| `GET /api/audit` | Signed-in user | `area` (`upload`, `forecast`, `budget`, `target`, `rule`, `business`), `from`, `to` (dates, South African time) | `{ more, entries: [{ id, at, who, area, action, summary, details }] }`, newest first, at most 200 (`more` is `true` when older rows exist); `400` unknown area or `from` after `to` |
 
 ## Contact support
 
@@ -164,29 +164,31 @@ Emails the message to `Mail:SupportTo` (`support@randahead.local`; lands in Mail
 
 ## Run
 
-Everything in containers, from the repo root:
+Everything in containers, from the repo root (the database volume must exist first, see the [root README](../README.md#run-it)):
 
-```powershell
+```bash
 docker compose up -d --build
 ```
 
 Or only the database in Docker and the API locally (do not run both, they share port 5080):
 
-```powershell
+```bash
 docker compose up -d postgres
-cd backend\BudgetApi
+cd backend/BudgetApi
 dotnet run
 ```
 
-Swagger: http://localhost:5080/swagger
+Swagger: http://127.0.0.1:5080/swagger
 
 ## Trigger an ingest
 
 `POST /api/ingestion/run` (all four indicators) or `POST /api/ingestion/{code}` (one indicator, e.g. `fuel_price`):
 
-```powershell
-$login = Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/auth/login -ContentType "application/json" -Body '{"username":"demo123","password":"test"}'
-Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/ingestion/run -Headers @{ Authorization = "Bearer $($login.token)" }
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:5080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo123","password":"test"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+curl -s -X POST http://127.0.0.1:5080/api/ingestion/run -H "Authorization: Bearer $TOKEN"
 ```
 
 | Endpoint | Returns |

@@ -2,11 +2,11 @@
 
 Runs **Moving Average** and **Exponential Smoothing** on an annual income statement history and returns the forecasts. It is a pure calculation service: it has no database connection and saves nothing.
 
-The web app never calls this service. The C# API loads the signed-in user's approved history, sends it to `POST /api/forecasts` (`ForecastService:BaseUrl`), then saves the two runs in `forecast_run` and `forecast_value` itself.
+The web app never calls this service. The C# API loads the signed-in user's active history, sends it to `POST /api/forecasts` (`ForecastService:BaseUrl`), then saves the two runs in `forecast_run` and `forecast_value` itself.
 
 ## What it does
 
-1. Takes each category's approved annual amounts (the C# API has already picked the latest approved upload where uploads overlap).
+1. Takes each category's annual amounts from the active history (the C# API has already picked the most recently submitted active upload where uploads overlap). The request field and the service's own messages still use the word "approved".
 2. Runs **both** methods on every category with enough history, so the user can compare them side by side.
 3. Returns warnings with the result (the C# API stores them in `forecast_run.parameters.warnings`): short history (under 3 years), missing years, skipped categories.
 
@@ -28,20 +28,20 @@ Changes: forecast step added, α passed in with the request, cleaner start for s
 
 Python does not need to be installed; it runs in Docker. From the repo root (where the compose file lives):
 
-```powershell
+```bash
 docker compose up -d --build forecast
 ```
 
-API docs (try the endpoint): http://localhost:5090/docs
+API docs (try the endpoint): http://127.0.0.1:5090/docs
 
 **Without Docker (optional).** Python 3.13 and a virtual environment in `forecasting/.venv` (gitignored):
 
-```powershell
+```bash
 cd forecasting
-python -m venv .venv                                   # first time only
-.\.venv\Scripts\python -m pip install -r requirements.txt
-.\.venv\Scripts\python -m doctest app/algorithms.py app/forecasting.py -v # tests
-.\.venv\Scripts\python -m uvicorn app.main:app --port 5090                # run the API
+python3 -m venv .venv                                  # first time only
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m doctest app/algorithms.py app/forecasting.py -v  # tests
+.venv/bin/python -m uvicorn app.main:app --port 5090                 # run the API
 ```
 
 ## Endpoints
@@ -55,7 +55,7 @@ python -m venv .venv                                   # first time only
 
 The examples in `app/algorithms.py` and `app/forecasting.py` double as tests:
 
-```powershell
+```bash
 docker compose run --rm forecast python -m doctest app/algorithms.py app/forecasting.py -v
 ```
 

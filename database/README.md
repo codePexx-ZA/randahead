@@ -273,19 +273,15 @@ Docker's `postgres` image runs every `.sql` file in `init/` in **alphabetical or
 ```text
 init/
   01_schema.sql          -- CREATE TABLE for all 20 tables (parents before children)  [written]
-  02_reference_data.sql  -- categories, external indicator types, indicator -> category links, warning rules  [written]
-  03_seed.sql            -- fictional demo business, the one login, income statement uploads, chosen budget, KPI targets  [written]
+  02_reference_data.sql  -- categories, external indicator types, indicator -> category links  [written]
+  03_seed.sql            -- fictional demo business, the one login, income statement uploads, chosen budget, KPI targets, the demo warning rules  [written]
 ```
 
 ## Demo data (`03_seed.sql`)
 
 Everything is made up and matches the web app's demo mode: **Karoo Outdoor Supplies (Pty) Ltd**, retail, February year-end, one "Whole company" unit (`unit_id` `a0000000000000000000000000000001`).
 
-| Username | Password |
-|---|---|
-| `demo123` (Demo User) | `test` |
-
-**This is a temporary development login.** There is exactly one account and it may do everything; the earlier demo users and roles are gone. The password is stored as a BCrypt hash (`$2a$11$…`). One shared account with a known password is not secure: revisit sign-in and permissions before any real use. Every upload, budget choice and activity log row in the demo data belongs to this user.
+**This is a temporary development login.** The seed inserts exactly one `app_user` row, Demo User (`demo123`), whose password is stored as a BCrypt hash (`$2a$11$…`); the credentials are in the [root README](../README.md#sign-in). It may do everything. One shared account with a known password is not secure: revisit sign-in and permissions before any real use. Every upload, budget choice and activity log row in the demo data belongs to this user.
 
 `app_user.username` is unique and stored in lower case (a `CHECK` enforces it); the API lower-cases what is typed at sign-in.
 
@@ -299,15 +295,16 @@ The active upload also has its file rows (`submission_row`) so the web app can s
 
 **Chosen budget.** One forecast pair on the FY2021–FY2025 history, the **Balanced** prediction (Moving Average over the last 3 years, Exponential Smoothing weight 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget (`active`).
 
-The scripts only run on an **empty** volume. After changing a script, reset the database:
+The scripts only run on an **empty** volume. The volume `sme-budget_sme_budget_pgdata` is declared external in `docker-compose.yml`, so `docker compose down -v` leaves it in place and the scripts are skipped on the next start. Reset it by hand, from the repo root:
 
-```powershell
-cd ..
-docker compose down -v
+```bash
+docker compose down
+docker volume rm sme-budget_sme_budget_pgdata
+docker volume create sme-budget_sme_budget_pgdata
 docker compose up -d
 ```
 
-`down -v` deletes the database volume and all data in it (the demo data comes back from `03_seed.sql`). Re-run the ingest (`POST /api/ingestion/run`) afterwards to refill the external indicators.
+Removing the volume deletes the database and all data in it (the demo data comes back from `03_seed.sql`). Re-run the ingest (`POST /api/ingestion/run`) afterwards to refill the external indicators.
 
 ## Conventions in `01_schema.sql`
 
@@ -392,7 +389,7 @@ Every imported income statement row is mapped to one of these fixed categories (
 
 Subtotals (gross profit, operating profit, profit before tax, net profit) are **not** categories. The system calculates them and compares them with the sheet's own subtotals as a validation check.
 
-**Mapping rules** (for the planned Excel importer; choices saved in `import_mapping`)
+**Mapping rules** (applied by the Excel importer in the C# API; choices saved in `import_mapping`)
 
 - Rows are matched by **label, not row position**.
 - Known labels (including same-category combined lines such as "Salaries & wages") map automatically.
@@ -401,7 +398,7 @@ Subtotals (gross profit, operating profit, profit before tax, net profit) are **
 
 ## External indicators (`indicator_type`, `indicator_category_link`, `rule_definition`)
 
-The C# API fetches these automatically (annual % change, South Africa). Each indicator is linked to the income statement categories it affects. Warning rules belong to a business (`rule_definition.business_id`, names unique per business, case-insensitive); the demo business starts with one rule per indicator, and the API gives every newly registered business the same 4 rules.
+The C# API fetches these automatically (annual % change, South Africa). Each indicator is linked to the income statement categories it affects. Warning rules belong to a business (`rule_definition.business_id`, names unique per business, case-insensitive); the demo business starts with one rule per indicator, inserted by `03_seed.sql`. A new business's rules are added through `POST /api/rules`.
 
 | `indicator_code` | Indicator | API source | Linked categories | Rule threshold |
 |---|---|---|---|---|

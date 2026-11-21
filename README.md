@@ -67,10 +67,10 @@ graph LR
 
 | Folder | Technology | Port | Purpose |
 |---|---|---|---|
-| [`database/`](database/README.md) | PostgreSQL 16 | 5432 | The only place tables are created (21 tables + reference data + fictional demo data); data design (ERD) |
+| [`database/`](database/README.md) | PostgreSQL 16 | 5432 | The only place tables are created (20 tables + reference data + fictional demo data); data design (ERD) |
 | [`backend/`](backend/README.md) | C# .NET 10, ASP.NET Core, EF Core (Npgsql) | 5080 | Main API: login, business details, uploads, Excel importer, forecasts and the chosen budget (through the Python service), KPI targets, warning rules, external data ingestion, dashboard summary, reports, activity log |
 | [`forecasting/`](forecasting/README.md) | Python, FastAPI | 5090 | Moving Average and Exponential Smoothing forecasts per category; called by the API only |
-| [`frontend/`](frontend/README.md) | HTML, CSS, JavaScript | 5500 (Live Server) | Login page + single-page app: dashboard, reports, upload, forecast & budget, targets & rules, business, activity log |
+| [`frontend/`](frontend/README.md) | HTML, CSS, JavaScript | 5500 (static file server, outside Compose) | Login page + single-page app: dashboard, reports, upload, forecast & budget, targets & rules, business, activity log |
 | `samples/` | Excel | | Fictional income statements for testing uploads (see [Upload statement](frontend/README.md#upload-statement)) |
 | Mailpit (development only) | Mailpit | 8025 / 1025 | Catches the API's emails (support messages) so nothing is sent for real |
 
@@ -80,7 +80,7 @@ graph LR
 - **One entry point.** The browser talks only to the C# API, which checks the sign-in token and then calls the forecasting service internally.
 - **Transparent processing.** Forecasts use only Moving Average and Exponential Smoothing. External indicators raise visible warnings; nothing changes a figure without showing why.
 - **Controlled external data.** Indicators come from reliable APIs (World Bank, OECD), are validated, and stored with their source, period, unit and validation status. No web scraping.
-- **Reproducible.** The full stack runs with `docker compose up` from the repo root.
+- **Reproducible.** The four services run with `docker compose up` from the repo root on one named volume; the frontend is static files served separately ([Run it](#run-it)).
 
 ## Status
 
@@ -90,7 +90,7 @@ graph LR
 | External data (World Bank, OECD) + warning rules | Done |
 | Forecasting (MA + ES) | Done, runs end to end on the sample business |
 | Sample business data | Done (`database/init/03_seed.sql`, fictional) |
-| Login (API + web app) | Temporary development design: one login (`demo123` / `test`) signs in through `POST /api/auth/login` (BCrypt + JWT) and may do everything; every other API endpoint needs the token; sign-in is rate limited per IP. Registration, user management, roles and password reset/change are removed for now |
+| Login (API + web app) | Temporary development design: the one login above signs in through `POST /api/auth/login` (BCrypt + JWT) and may do everything; every other API endpoint needs the token; sign-in is rate limited per IP. Registration, user management, roles and password reset/change are removed for now |
 | Business (API) | Done: `/api/business`, scoped to the signed-in user's business; the Business screen uses it |
 | Uploads (API) | Done: `/api/submissions` (preview, save, version history). A saved statement is in use at once; an older upload whose years are all covered by newer ones is kept as a replaced version. The Upload statement screen uses it |
 | Forecasts and budget (API) | Done: `/api/forecasts` (C# asks the Python service) and `/api/budgets` (choose MA, ES or their average; the choice is the budget at once). The web app offers three predictions, Steady (3-year average, weight 0.3), Balanced (3-year average, weight 0.5) and Recent (2-year average, weight 0.7), plus how far ahead (1–3 years). Forecast & budget, and the dashboard budget use them |
@@ -102,34 +102,58 @@ graph LR
 
 ## Run it
 
-Needs **Docker Desktop** (running). From the repo root:
+The stack runs on the homelab notebook (Linux) with **Docker Engine** and the Compose plugin. Image builds pull the .NET 10 SDK image (`mcr.microsoft.com/dotnet/sdk:10.0`).
 
-```powershell
-Copy-Item .env.example .env      # first time only, then set JWT_KEY to a long random string
-docker compose up -d --build
-```
+From the repo root:
+
+1. Create the environment file and set both values (`POSTGRES_PASSWORD`, `JWT_KEY`; the key is a random string of at least 32 characters that signs the sign-in tokens):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Create the database volume. Compose declares `sme-budget_sme_budget_pgdata` as external, so it starts only when the volume already exists:
+
+   ```bash
+   docker volume create sme-budget_sme_budget_pgdata
+   ```
+
+3. Start the four services:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Serve the frontend from the repo root, outside Compose:
+
+   ```bash
+   python3 -m http.server 5500 --bind 127.0.0.1 --directory frontend
+   ```
 
 The compose project is `randahead`. The containers are `randahead-postgres`, `randahead-api`, `randahead-forecast` and `randahead-mailpit`.
 
-The database starts with a fictional business (Karoo Outdoor Supplies) and the one temporary development login, `demo123` / `test`.
+The database starts with a fictional business (Karoo Outdoor Supplies) and the one temporary development login from [Sign-in](#sign-in).
 
 | Service | URL |
 |---|---|
-| C# API (Swagger) | http://localhost:5080/swagger |
-| Python forecasting API | http://localhost:5090/docs |
-| Mailpit (development inbox: support emails) | http://localhost:8025 |
-| PostgreSQL | localhost:5432, database `sme_budget`, user `budget` |
+| Web app | http://127.0.0.1:5500 |
+| C# API (Swagger) | http://127.0.0.1:5080/swagger |
+| Python forecasting API | http://127.0.0.1:5090/docs |
+| Mailpit (development inbox: support emails) | http://127.0.0.1:8025 |
+| PostgreSQL | 127.0.0.1:5432, database `sme_budget`, user `budget` |
 
-PostgreSQL and the Python forecasting API only listen on this computer (`127.0.0.1`), so other devices on the network can't reach them.
+Every published port binds `127.0.0.1`, so the stack is reachable only from the machine it runs on; the frontend server binds the same address.
 
 Load the external indicators once the API is up:
 
-```powershell
-$login = Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/auth/login -ContentType "application/json" -Body '{"username":"demo123","password":"test"}'
-Invoke-RestMethod -Method Post -Uri http://localhost:5080/api/ingestion/run -Headers @{ Authorization = "Bearer $($login.token)" }
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:5080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo123","password":"test"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+curl -s -X POST http://127.0.0.1:5080/api/ingestion/run -H "Authorization: Bearer $TOKEN"
 ```
 
-Stop with `docker compose stop` (keeps data). `docker compose down -v` deletes the database; it is rebuilt from `database/init/` on the next start.
+Stop with `docker compose stop` (keeps data). `docker compose down` leaves the external volume in place; resetting the database is in [`database/README.md`](database/README.md#demo-data-03_seedsql).
 
 Each folder has its own `README.md` with details.
 

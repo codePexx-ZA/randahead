@@ -4,7 +4,13 @@ Responsive web app for **RandAhead™** (*Clear forecasts. Confident decisions.*
 
 ## Run it
 
-Open `frontend/index.html` with the VS Code / Cursor **Live Server** extension ("Go Live"), or any static file server.
+The frontend is static files served outside Docker Compose, on port 5500. From the repo root:
+
+```bash
+python3 -m http.server 5500 --bind 127.0.0.1 --directory frontend
+```
+
+Then open http://127.0.0.1:5500. Any other static file server on the same port and address works.
 
 Settings in `js/config.js`:
 
@@ -12,13 +18,9 @@ Settings in `js/config.js`:
 |---|---|---|
 | `API_BASE` | `http://localhost:5080/api` | The C# API (needs `docker compose up`) |
 
-The token is kept with the session and sent as `Authorization: Bearer …` on every API call; a `401` signs the user out. The session ends when the token expires (8 hours). Opening `dashboard.html` without a session goes to the login page, and the dashboard re-checks the user with `GET /api/auth/me` when it loads. Until the first statement is saved, the dashboard shows one "No income statement yet" message, Forecast & budget and KPI targets wait, and warning rules and Business work as usual. The industry list lives in `js/config.js`. The API allows the web app only from `http://127.0.0.1:5500` and `http://localhost:5500` (Live Server's default port).
+The token is kept with the session and sent as `Authorization: Bearer …` on every API call; a `401` signs the user out. The session ends when the token expires (8 hours). Opening `dashboard.html` without a session goes to the login page, and the dashboard re-checks the user with `GET /api/auth/me` when it loads. Until the first statement is saved, the dashboard shows one "No income statement yet" message, Forecast & budget and KPI targets wait, and warning rules and Business work as usual. The industry list lives in `js/config.js`. The API allows the web app only from `http://127.0.0.1:5500` and `http://localhost:5500` (`Cors:AllowedOrigins` in the API's `appsettings.json`).
 
-**Sign in** with the one account from `database/init/03_seed.sql`:
-
-| Username | Password |
-|---|---|
-| `demo123` | `test` |
+**Sign in** with the one account seeded by `database/init/03_seed.sql`; the credentials are in the [root README](../README.md#sign-in).
 
 **This is a temporary development login.** There is exactly one account and it can do everything; there are no roles, no registration, no user management and no password reset or change. One shared account with a known password is not secure: revisit sign-in and permissions before any real use.
 
@@ -181,7 +183,7 @@ This section uses the C# API (endpoints in `../backend/README.md`).
 
 ## Colour palette (dark theme)
 
-The app always uses one dark theme: a soft charcoal / slate, not black. There is no light mode and no toggle, and it does not follow the operating system's setting. `:root` sets `color-scheme: dark`, so native inputs, selects, date pickers and scrollbars are dark too, and `scrollbar-color` tints the scrollbars.
+The app always uses one dark theme in soft charcoal slate. There is no light mode and no toggle, and it ignores the operating system's setting. `:root` sets `color-scheme: dark`, so native inputs, selects, date pickers and scrollbars are dark too, and `scrollbar-color` tints the scrollbars.
 
 **Rule: every colour lives in `css/base.css`.** Page CSS and JS use only the variables (the forecast chart reads them with `getComputedStyle`). CI rejects a hex colour in any other CSS file.
 
