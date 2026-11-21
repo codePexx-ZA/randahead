@@ -6,7 +6,7 @@
 
 A lightweight budget forecasting web app for **South African small and medium businesses**.
 
-Businesses upload past **income statements** (Excel). The system forecasts each income statement category with **Moving Average** and **Exponential Smoothing**, raises warnings from South African economic data (inflation, fuel and electricity prices), and lets managers approve budgets and track targets and KPIs. It supports budgeting decisions; it is not an accounting system and gives no financial advice.
+Businesses upload past **income statements** (Excel). The system forecasts each income statement category with **Moving Average** and **Exponential Smoothing**, raises warnings from South African economic data (inflation, fuel and electricity prices), and lets the user choose a budget and track targets and KPIs. It supports budgeting decisions; it is not an accounting system and gives no financial advice.
 
 > **Solo rebuild of a university group project.** This repository is my independent end-to-end rebuild of the whole system. It reuses only the parts I wrote originally (database, external data service, forecasting service).
 
@@ -16,7 +16,7 @@ Businesses upload past **income statements** (Excel). The system forecasts each 
 |---|---|
 | `demo123` | `test` |
 
-There is one login and no roles: the signed-in user can do everything, from uploading and approving income statements to choosing and approving the budget, setting targets and rules, and editing the business details. **This is a temporary development login.** One shared account with a known password is not secure; sign-in and permissions must be revisited before any real use.
+There is one login and no roles: the signed-in user can do everything, from uploading income statements to choosing the budget, setting targets and rules, and editing the business details. **This is a temporary development login.** One shared account with a known password is not secure; sign-in and permissions must be revisited before any real use.
 
 ## Architecture
 
@@ -25,7 +25,7 @@ A decision support system in three layers: data input, processing and the web in
 ```mermaid
 graph LR
     subgraph USERS[User]
-        U["Single development login: uploads, approvals, forecasts, targets, KPIs"]
+        U["Single development login: uploads, forecasts, budget, targets, KPIs"]
     end
 
     subgraph FRONTEND[Presentation]
@@ -35,7 +35,7 @@ graph LR
     subgraph BACKEND[Application and processing]
         API["C# ASP.NET Core API"]
         AUTH["Authentication (one login, JWT)"]
-        WORKFLOW["Submissions, validation, approvals"]
+        WORKFLOW["Uploads, validation, version history"]
         IMPORT["Excel income statement importer"]
         RULES["Warning rules"]
         INGEST["External data ingestion"]
@@ -68,9 +68,9 @@ graph LR
 | Folder | Technology | Port | Purpose |
 |---|---|---|---|
 | [`database/`](database/README.md) | PostgreSQL 16 | 5432 | The only place tables are created (21 tables + reference data + fictional demo data); data design (ERD) |
-| [`backend/`](backend/README.md) | C# .NET 10, ASP.NET Core, EF Core (Npgsql) | 5080 | Main API: login, business details, uploads and approvals, Excel importer, forecasts and the chosen budget (through the Python service), KPI targets, warning rules, external data ingestion, dashboard summary, reports, activity log |
+| [`backend/`](backend/README.md) | C# .NET 10, ASP.NET Core, EF Core (Npgsql) | 5080 | Main API: login, business details, uploads, Excel importer, forecasts and the chosen budget (through the Python service), KPI targets, warning rules, external data ingestion, dashboard summary, reports, activity log |
 | [`forecasting/`](forecasting/README.md) | Python, FastAPI | 5090 | Moving Average and Exponential Smoothing forecasts per category; called by the API only |
-| [`frontend/`](frontend/README.md) | HTML, CSS, JavaScript | 5500 (Live Server) | Login page + single-page app: dashboard, reports, upload, forecast & budget, approvals, targets & rules, business, activity log |
+| [`frontend/`](frontend/README.md) | HTML, CSS, JavaScript | 5500 (Live Server) | Login page + single-page app: dashboard, reports, upload, forecast & budget, targets & rules, business, activity log |
 | `samples/` | Excel | | Fictional income statements for testing uploads (see [Upload statement](frontend/README.md#upload-statement)) |
 | Mailpit (development only) | Mailpit | 8025 / 1025 | Catches the API's emails (support messages) so nothing is sent for real |
 
@@ -92,13 +92,13 @@ graph LR
 | Sample business data | Done (`database/init/03_seed.sql`, fictional) |
 | Login (API + web app) | Temporary development design: one login (`demo123` / `test`) signs in through `POST /api/auth/login` (BCrypt + JWT) and may do everything; every other API endpoint needs the token; sign-in is rate limited per IP. Registration, user management, roles and password reset/change are removed for now |
 | Business (API) | Done: `/api/business`, scoped to the signed-in user's business; the Business screen uses it |
-| Submissions, approvals (API) | Done: `/api/submissions` (upload, approve / reject, versioning); the Upload statement and Approvals screens use it |
-| Forecasts and budget (API) | Done: `/api/forecasts` (C# asks the Python service) and `/api/budgets` (choose MA, ES or their average, approve / reject). The web app offers three predictions, Steady (3-year average, weight 0.3), Balanced (3-year average, weight 0.5) and Recent (2-year average, weight 0.7), plus how far ahead (1–3 years). Forecast & budget, the dashboard budget and budget approvals use them |
+| Uploads (API) | Done: `/api/submissions` (preview, save, version history). A saved statement is in use at once; an older upload whose years are all covered by newer ones is kept as a replaced version. The Upload statement screen uses it |
+| Forecasts and budget (API) | Done: `/api/forecasts` (C# asks the Python service) and `/api/budgets` (choose MA, ES or their average; the choice is the budget at once). The web app offers three predictions, Steady (3-year average, weight 0.3), Balanced (3-year average, weight 0.5) and Recent (2-year average, weight 0.7), plus how far ahead (1–3 years). Forecast & budget, and the dashboard budget use them |
 | Excel income statement importer | Done: C# + ClosedXML reads `.xlsx` / `.csv` on the server, standard template download |
 | API error handling | Done: every failed request (bad input, missing sign-in, database down, unexpected error) answers with a readable `{ message }` the web app can show; server errors are logged with a trace id |
 | Activity log | Done: every upload, decision and change is logged (`audit_log`, `GET /api/audit`); sign-in and sign-out are not |
-| KPI targets, dashboard, reports | Done: `/api/kpi-targets`, and `GET /api/dashboard` (a year's figures vs the year before, budget vs actual once a budgeted year is approved, KPI target progress) behind the dashboard's KPI cards and Budget vs actual panel, and `GET /api/reports` (every approved year and the approved budget side by side, key ratios, targets; CSV download and print / PDF) |
-| Web app screens | Login, dashboard (incl. KPI targets), reports, upload (incl. combining uploads into one history), forecast & budget, approvals, targets & rules (KPI targets, warning thresholds), business details and activity log, all open to the one signed-in user |
+| KPI targets, dashboard, reports | Done: `/api/kpi-targets`, and `GET /api/dashboard` (a year's figures vs the year before, budget vs actual once a budgeted year has actual figures, KPI target progress) behind the dashboard's KPI cards and Budget vs actual panel, and `GET /api/reports` (every year of the history and the chosen budget side by side, key ratios, targets; CSV download and print / PDF) |
+| Web app screens | Login, dashboard (incl. KPI targets), reports, upload (incl. combining uploads into one history), forecast & budget, targets & rules (KPI targets, warning thresholds), business details and activity log, all open to the one signed-in user |
 
 ## Run it
 

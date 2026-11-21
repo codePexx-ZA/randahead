@@ -1,6 +1,6 @@
 # Shared PostgreSQL schema
 
-This folder owns **all 21 tables**: the 14 from the original design plus 3 reference tables, `import_mapping`, `submission_row`, `budget_selection` and `audit_log`. No service creates or changes tables itself:
+This folder owns **all 20 tables**: 13 from the original design (its `approval_action` is gone with the approval workflow) plus 3 reference tables, `import_mapping`, `submission_row`, `budget_selection` and `audit_log`. No service creates or changes tables itself:
 
 - The C# API (EF Core) only **reads and writes** tables that already exist.
 - The Python forecasting service has no database access; the C# API sends it the history and saves its results.
@@ -18,12 +18,9 @@ erDiagram
     BUSINESS_UNIT ||--o{ APP_USER : assigns
     BUSINESS_UNIT ||--o{ BUDGET_SUBMISSION : receives
     APP_USER ||--o{ BUDGET_SUBMISSION : submits
-    BUDGET_SUBMISSION |o--o{ BUDGET_SUBMISSION : replaces
 
     BUDGET_SUBMISSION ||--|{ FINANCIAL_LINE_ITEM : includes
     BUDGET_SUBMISSION ||--o{ SUBMISSION_ROW : "keeps as in file"
-    BUDGET_SUBMISSION ||--o{ APPROVAL_ACTION : has
-    APP_USER ||--o{ APPROVAL_ACTION : records
 
     LINE_CATEGORY ||--o{ FINANCIAL_LINE_ITEM : classifies
     LINE_CATEGORY ||--o{ FORECAST_VALUE : classifies
@@ -35,7 +32,6 @@ erDiagram
     BUSINESS_UNIT ||--o{ BUDGET_SELECTION : "budgets with"
     FORECAST_RUN ||--o{ BUDGET_SELECTION : "chosen from"
     APP_USER ||--o{ BUDGET_SELECTION : chooses
-    BUDGET_SELECTION ||--o{ APPROVAL_ACTION : has
     FORECAST_RUN ||--o{ FORECAST_INPUT : uses
     EXTERNAL_INDICATOR ||--o{ FORECAST_INPUT : informs
 
@@ -87,7 +83,6 @@ erDiagram
         date period_end
         varchar status
         timestamptz submitted_at
-        varchar replaces_submission_id FK
         varchar import_method
         varchar source_file_name
         int source_scale
@@ -112,16 +107,6 @@ erDiagram
         numeric_array amounts
         jsonb mapping
         boolean hand_mapped
-    }
-
-    APPROVAL_ACTION {
-        varchar approval_id PK
-        varchar submission_id FK
-        varchar budget_id FK
-        varchar acted_by FK
-        varchar decision
-        varchar comments
-        timestamptz acted_at
     }
 
     IMPORT_MAPPING {
@@ -182,7 +167,7 @@ erDiagram
         varchar forecasting_method
         date history_start
         date history_end
-        timestamptz history_approved_at
+        timestamptz history_updated_at
         jsonb parameters
         timestamptz created_at
     }
@@ -263,10 +248,9 @@ erDiagram
 | `business` | The SME using the system; `year_end_month` maps "FY2024" to dates (default February) |
 | `business_unit` | Operating area; the app uses one "Whole company" unit per business for now |
 | `app_user` | The one temporary development login (`demo123`); no roles |
-| `budget_submission` | One uploaded set of income statement history; versioned via `replaces_submission_id` |
+| `budget_submission` | One uploaded set of income statement history, `active` once saved or `superseded` when newer uploads cover all its years |
 | `financial_line_item` | One amount per category per period |
 | `submission_row` | The upload's rows exactly as in the file, with each line's chosen mapping |
-| `approval_action` | Approvals and rejections of uploads and budgets (rejections need a comment) |
 | `import_mapping` | Remembered "spreadsheet label → category" choices per business, with % splits |
 | `line_category` | The 13 fixed income statement categories |
 | `indicator_type` | The external indicators the system tracks |
@@ -275,7 +259,7 @@ erDiagram
 | `external_indicator` | Validated indicator values per period |
 | `forecast_run` | One forecasting event: method, history window, parameters |
 | `forecast_value` | Forecast amount per category and future period (baseline, optional adjusted) |
-| `budget_selection` | The forecast pair chosen as the budget (MA, ES or their average) and its approval status |
+| `budget_selection` | The forecast pair chosen as the budget (MA, ES or their average): `active` for the current budget, `superseded` for earlier choices |
 | `forecast_input` | Which external indicators informed a forecast (reserved) |
 | `kpi_target` | Targets per unit and period |
 | `rule_definition` | Transparent warning rules with thresholds stored in the database, one set per business |
@@ -288,9 +272,9 @@ Docker's `postgres` image runs every `.sql` file in `init/` in **alphabetical or
 
 ```text
 init/
-  01_schema.sql          -- CREATE TABLE for all 21 tables (parents before children)  [written]
+  01_schema.sql          -- CREATE TABLE for all 20 tables (parents before children)  [written]
   02_reference_data.sql  -- categories, external indicator types, indicator -> category links, warning rules  [written]
-  03_seed.sql            -- fictional demo business, the one login, income statement uploads, approved budget, KPI targets  [written]
+  03_seed.sql            -- fictional demo business, the one login, income statement uploads, chosen budget, KPI targets  [written]
 ```
 
 ## Demo data (`03_seed.sql`)
@@ -301,20 +285,19 @@ Everything is made up and matches the web app's demo mode: **Karoo Outdoor Suppl
 |---|---|
 | `demo123` (Demo User) | `test` |
 
-**This is a temporary development login.** There is exactly one account and it may do everything; the earlier demo users and roles are gone. The password is stored as a BCrypt hash (`$2a$11$…`). One shared account with a known password is not secure: revisit sign-in and permissions before any real use. Every upload, decision, budget choice and activity log row in the demo data belongs to this user.
+**This is a temporary development login.** There is exactly one account and it may do everything; the earlier demo users and roles are gone. The password is stored as a BCrypt hash (`$2a$11$…`). One shared account with a known password is not secure: revisit sign-in and permissions before any real use. Every upload, budget choice and activity log row in the demo data belongs to this user.
 
 `app_user.username` is unique and stored in lower case (a `CHECK` enforces it); the API lower-cases what is typed at sign-in.
 
 | Upload | Years | Status |
 |---|---|---|
-| `Karoo_Outdoor_IS_FY2020-FY2024.xlsx` | FY2020–FY2024 | `superseded` (by the FY2021–FY2025 upload) |
-| `Karoo_Outdoor_IS_FY2021-FY2025_draft.xlsx` | FY2021–FY2025 | `rejected` (interest paid missing for FY2023) |
-| `Karoo_Outdoor_IS_FY2021-FY2025.xlsx` | FY2021–FY2025 | `approved`: the history forecasts use |
-| `Karoo_Outdoor_IS_FY2022-FY2026.xlsx` | FY2022–FY2026 | `submitted` (waiting for approval; "Water & electricity" split 70 / 30) |
+| `Karoo_Outdoor_IS_FY2020-FY2024.xlsx` | FY2020–FY2024 | `superseded` (an earlier version) |
+| `Karoo_Outdoor_IS_FY2021-FY2025_draft.xlsx` | FY2021–FY2025 | `superseded` (an earlier version; interest paid missing for FY2023) |
+| `Karoo_Outdoor_IS_FY2021-FY2025.xlsx` | FY2021–FY2025 | `active`: the history forecasts use |
 
-The last two also have their file rows (`submission_row`) so the web app can show and combine them; "Franchise levy" in the waiting upload was mapped by hand. Plus the remembered label mappings for that last upload and 5 KPI targets.
+The active upload also has its file rows (`submission_row`) so the web app can show it. Plus 5 KPI targets and remembered label mappings ("Water & electricity" 70 / 30, "Franchise levy"), so `samples/Karoo_Outdoor_IS_FY2022-FY2026.xlsx` maps itself when you upload it to try a new year.
 
-**Approved budget.** One forecast pair on the approved FY2021–FY2025 history, the **Balanced** prediction (Moving Average over the last 3 years, Exponential Smoothing weight 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget and approved by the demo user.
+**Chosen budget.** One forecast pair on the FY2021–FY2025 history, the **Balanced** prediction (Moving Average over the last 3 years, Exponential Smoothing weight 0.5; FY2026, worked out in SQL with the same maths as the Python service, e.g. revenue R10 350 000 / R10 409 375), with **Exponential Smoothing** chosen as the budget (`active`).
 
 The scripts only run on an **empty** volume. After changing a script, reset the database:
 
@@ -342,22 +325,21 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 | `business.year_end_month` | `1`–`12` (last month of the financial year; default `2` = February) |
 | `business_unit.unit_type` | `company` (default; the app's one "Whole company" unit), `store`, `branch`, `department` |
 | `rule_definition.active_status` | `active`, `inactive` |
-| `budget_submission.status` | `draft`, `submitted`, `approved`, `rejected`, `superseded` |
+| `budget_submission.status` | `active` (default), `superseded` |
 | `budget_submission.import_method` | `template`, `mapped_import`, `manual` |
 | `budget_submission.source_scale` | `1`, `1000` (R'000), `1000000` (R million) |
 | `financial_line_item.frequency` | `monthly`, `quarterly`, `annual` (default) |
 | `import_mapping.split_percent` | above 0, up to 100 (rows for one label must add up to 100; the importer checks this) |
-| `approval_action.decision` | `approved`, `rejected` (a rejection must have `comments`; each row points to exactly one of `submission_id` or `budget_id`) |
 | `budget_selection.budget_method` | `moving_average`, `exponential_smoothing`, `combined` (the average of the two, per category) |
-| `budget_selection.status` | `submitted`, `approved`, `rejected`, `superseded` (at most one `submitted` and one `approved` per unit) |
+| `budget_selection.status` | `active` (default), `superseded` (at most one `active` per unit) |
 | `data_source.source_type` | `api`, `spreadsheet`, `dataset`, `manual` |
 | `data_source.trusted_status` | `trusted`, `untrusted` |
 | `external_indicator.validation_status` | `pending`, `validated`, `flagged`, `rejected` |
 | `forecast_run.forecasting_method` | `moving_average`, `exponential_smoothing` |
 | `rule_alert.severity` | `info`, `warning`, `critical` |
 | `rule_alert.resolution_status` | `open`, `acknowledged`, `resolved` |
-| `audit_log.area` | `account`, `upload`, `forecast`, `budget`, `target`, `rule`, `business`, `user` |
-| `audit_log.action` | `registered`, `uploaded`, `approved`, `rejected`, `ran`, `chosen`, `added`, `changed`, `switched_off`, `switched_on`, `deleted`, `reset_requested` |
+| `audit_log.area` | `upload`, `forecast`, `budget`, `target`, `rule`, `business` |
+| `audit_log.action` | `uploaded`, `ran`, `chosen`, `added`, `changed`, `switched_off`, `switched_on`, `deleted` |
 
 `external_indicator.indicator_code` and `rule_definition.indicator_code` must exist in `indicator_type` (foreign key). `financial_line_item.category`, `forecast_value.category` and `import_mapping.category_code` must exist in `line_category`.
 
@@ -365,27 +347,26 @@ Every service must use exactly these lowercase strings, or the insert is rejecte
 
 **History length.** 3–5 years of annual statements, or at least 24 months of monthly reports (monthly preferred). Older years are not used.
 
-**External data uses the same time frame.** For each business, alerts and forecast inputs only use indicator periods inside its approved income statement history (a history from FY2022 onwards uses indicators from 2022). The user can request a longer range. Indicators are calendar years; they are matched to financial years with `business.year_end_month`.
+**External data uses the same time frame.** For each business, alerts and forecast inputs only use indicator periods inside its income statement history (a history from FY2022 onwards uses indicators from 2022). The user can request a longer range. Indicators are calendar years; they are matched to financial years with `business.year_end_month`.
 
 - **Each upload is one `budget_submission`.** `period_start` / `period_end` span every period in the file (e.g. 5 financial years).
 - **One `financial_line_item` per category per period.** `period_start` is the first day of the month, quarter or financial year (for a February year-end, FY2025 starts `2024-03-01`). Amounts are stored in rands after applying `source_scale`, **as positive figures for income and expenses alike** (the category says which it is; the bracketed negatives on a sheet are flipped on import).
-- **Combining uploads.** All `approved` submissions of a unit together form its history. A newer upload adds its periods; where two approved uploads cover the same category and period, the more recently submitted one wins. Only the latest 5 years are used. A file may hold a single year. Save every category for every period of an upload (0 where the file has no lines), so a newer upload's year fully replaces the older one.
-- **Re-uploads (versioning).** A corrected upload sets `replaces_submission_id` to the rejected version it replaces. When the new one is approved, the old one's status becomes `superseded`. An approved upload whose periods are all covered by newer approved uploads also becomes `superseded`. Superseded uploads are kept for history, never deleted. Forecasts read only `approved` submissions.
-- **File rows (`submission_row`).** Every row of the uploaded statement as it was in the file, in order (`row_order`): `row_kind` `heading`, `line`, `subtotal` (with `subtotal_code`) or `total`, the label, `amounts` (one per year, in file units before `source_scale`, signs as in the file, `NULL` for an empty cell), and for lines the chosen `mapping` (`JSONB`, e.g. `[{"category": "electricity", "percent": 70}, {"category": "other_utilities", "percent": 30}]`) and `hand_mapped`. The web app shows these on Approvals and on the dashboard; forecasts use `financial_line_item`.
+- **Combining uploads.** All `active` submissions of a unit together form its history. A newer upload adds its periods; where two active uploads cover the same category and period, the more recently submitted one wins. Only the latest 5 years are used. A file may hold a single year. Save every category for every period of an upload (0 where the file has no lines), so a newer upload's year fully replaces the older one.
+- **Versions.** Saving an upload makes it `active` at once. Any older active upload whose periods are all covered by newer active uploads becomes `superseded` in the same save. Superseded uploads are kept for history, never deleted. Forecasts read only `active` submissions.
+- **File rows (`submission_row`).** Every row of the uploaded statement as it was in the file, in order (`row_order`): `row_kind` `heading`, `line`, `subtotal` (with `subtotal_code`) or `total`, the label, `amounts` (one per year, in file units before `source_scale`, signs as in the file, `NULL` for an empty cell), and for lines the chosen `mapping` (`JSONB`, e.g. `[{"category": "electricity", "percent": 70}, {"category": "other_utilities", "percent": 30}]`) and `hand_mapped`. The web app shows these on the dashboard; forecasts use `financial_line_item`.
 - **Remembered mappings (`import_mapping`).** Per business, `label_key` (trimmed, lower case, single spaces) → category. A normal label has one row at 100%. A cross-category line has one row per category, e.g. "Water & electricity" → 70% `electricity` + 30% `other_utilities`. Split rows are summed into their categories before line items are saved.
 
 ## Forecasts and the chosen budget (`forecast_run`, `budget_selection`)
 
-- Every forecast runs **both** methods: the C# API saves one `forecast_run` per method from the Python service's results (same `created_at`), each with a `forecast_value` per category and future period. `history_approved_at` is the latest `acted_at` of the unit's approved uploads at that moment. A budget built on the run is out of date when a later upload is approved, even if the newest year is unchanged.
-- **Choosing the budget** saves a `budget_selection`: the Moving Average run (`ma_run_id`), the Exponential Smoothing run (`es_run_id`), the `budget_method` (one of the two, or `combined` = (MA + ES) ÷ 2 per category, worked out when shown) and who chose it. It starts as `submitted`; a newer choice makes a waiting one `superseded`.
-- **Approving or rejecting** it adds an `approval_action` with `budget_id` set. Approving makes the unit's previous approved budget `superseded`. Runs used by a budget can't be deleted (foreign key).
+- Every forecast runs **both** methods: the C# API saves one `forecast_run` per method from the Python service's results (same `created_at`), each with a `forecast_value` per category and future period. `history_updated_at` is the `submitted_at` of the unit's newest active upload at that moment. A budget built on the run is out of date when a later upload is saved, even if the newest year is unchanged.
+- **Choosing the budget** (Use as budget) saves a `budget_selection`: the Moving Average run (`ma_run_id`), the Exponential Smoothing run (`es_run_id`), the `budget_method` (one of the two, or `combined` = (MA + ES) ÷ 2 per category, worked out when shown) and who chose it. It is `active` at once and the previous budget becomes `superseded`. Runs used by a budget can't be deleted (foreign key).
 
 ## Activity log (`audit_log`)
 
-- The API writes one row for every upload, decision, forecast run, budget choice and every change to KPI targets, warning rules and business details, in the same save as the change itself. Sign-in, a failed sign-in and sign-out are not recorded.
-- `summary` is one readable line ("Approved upload Karoo_FY2025.xlsx"); `details` is a `JSONB` list of `{ field, before, after }` (e.g. a threshold change, a rejection comment).
+- The API writes one row for every upload, forecast run, budget choice and every change to KPI targets, warning rules and business details, in the same save as the change itself. Sign-in, a failed sign-in and sign-out are not recorded.
+- `summary` is one readable line ("Uploaded Karoo_FY2025.xlsx (FY2021–FY2025)"); `details` is a `JSONB` list of `{ field, before, after }` (e.g. a threshold change).
 - `user_name` keeps the person's name at the time, so rows survive with `user_id` set to `NULL` if the user row is ever removed. Rows are kept for good: nothing in the app edits or deletes them.
-- The signed-in user reads every row of the business. The `account` and `user` areas and the `registered`, `added`/`deleted` user and `reset_requested` actions stay allowed by the `CHECK` but nothing writes them now.
+- The signed-in user reads every row of the business.
 
 ## Income statement categories (`line_category`)
 
@@ -440,11 +421,11 @@ Thresholds are starting values to confirm with the business. Users change them i
 - New table `import_mapping` (remembered label → category choices per business, with % splits).
 - New table `submission_row` (each upload's rows as in the file, with the chosen mapping).
 - New table `audit_log` (who did what and when, for the activity log).
-- New table `budget_selection` (which forecast became the budget, and its approval status); `approval_action.submission_id` is nullable and `budget_id` added, so one table holds decisions on uploads and budgets.
+- New table `budget_selection` (which forecast became the budget; `active` or `superseded`). The original `approval_action` table is removed: uploads and budget choices take effect without approval.
 - `business.year_end_month` added; `business_unit.unit_type` gains `company`.
-- `budget_submission`: `replaces_submission_id`, `import_method`, `source_file_name`, `source_scale` added; status gains `superseded`.
+- `budget_submission`: `import_method`, `source_file_name`, `source_scale` added; status is `active` or `superseded`.
 - `financial_line_item.period_start` added (one row per category per period); `category` is now a foreign key to `line_category`, as is `forecast_value.category`.
-- `forecast_run.historical_period` split into `history_start` / `history_end` (`DATE`); `submission_id` is nullable because a forecast usually draws on several approved submissions.
+- `forecast_run.historical_period` split into `history_start` / `history_end` (`DATE`); `submission_id` is nullable because a forecast usually draws on several active submissions.
 - `forecast_value.forecast_period` and `kpi_target.target_period` are `DATE`.
 
 ## Column types the existing C# code expects
@@ -465,7 +446,7 @@ The C# API maps these tables. EF Core derives every table and column name from t
 | | `sort_order` / `team_managed` | `SMALLINT` / `BOOLEAN` |
 | `indicator_type` | `indicator_code` (PK), `display_name`, `description`, `measurement_unit`, `official_source` | `VARCHAR` |
 | `indicator_category_link` | `indicator_code` + `category_code` (composite PK, both FKs) | `VARCHAR` |
-| `budget_submission` | `submission_id` (PK), `unit_id`, `submitted_by`, `status`, `replaces_submission_id`, `import_method`, `source_file_name` | `VARCHAR` |
+| `budget_submission` | `submission_id` (PK), `unit_id`, `submitted_by`, `status`, `import_method`, `source_file_name` | `VARCHAR` |
 | | `period_start` / `period_end` / `source_scale` / `submitted_at` | `DATE` / `DATE` / `INTEGER` / `TIMESTAMPTZ` |
 | `submission_row` | `row_id` (PK), `submission_id` (FK, cascade delete), `row_kind`, `source_label`, `subtotal_code` | `VARCHAR` |
 | | `row_order` / `amounts` / `mapping` / `hand_mapped` | `SMALLINT` / `NUMERIC(20,6)[]` / `JSONB` / `BOOLEAN` |
@@ -473,10 +454,9 @@ The C# API maps these tables. EF Core derives every table and column name from t
 | | `period_start` / `amount` | `DATE` / `NUMERIC(18,2)` |
 | `import_mapping` | `mapping_id` (PK), `business_id`, `source_label`, `label_key`, `category_code`, `created_by` | `VARCHAR` |
 | | `split_percent` / `created_at` | `NUMERIC(5,2)` / `TIMESTAMPTZ` |
-| `approval_action` | `approval_id` (PK), `submission_id` (FK, nullable), `budget_id` (FK, nullable), `acted_by`, `decision`, `comments` | `VARCHAR` |
 | | `acted_at` | `TIMESTAMPTZ` |
 | `forecast_run` | `run_id` (PK), `unit_id`, `forecasting_method` | `VARCHAR` |
-| | `history_start` / `history_end` / `history_approved_at` / `parameters` / `created_at` | `DATE` / `DATE` / `TIMESTAMPTZ` / `JSONB` / `TIMESTAMPTZ` |
+| | `history_start` / `history_end` / `history_updated_at` / `parameters` / `created_at` | `DATE` / `DATE` / `TIMESTAMPTZ` / `JSONB` / `TIMESTAMPTZ` |
 | `forecast_value` | `value_id` (PK), `run_id` (FK, cascade delete), `category` | `VARCHAR` |
 | | `forecast_period` / `baseline_amount` / `adjusted_amount` | `DATE` / `NUMERIC(18,2)` / `NUMERIC(18,2)` |
 | `budget_selection` | `budget_id` (PK), `unit_id`, `ma_run_id`, `es_run_id` (FKs → `forecast_run`), `budget_method`, `status`, `chosen_by` | `VARCHAR` |
