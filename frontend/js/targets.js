@@ -131,8 +131,8 @@ function renderTargetTable() {
   const table = document.getElementById("kpiTable");
   const results = tg.targets;
   document.getElementById("kpiMeta").textContent = state.budget?.outOfDate
-    ? `A goal per KPI per financial year. Years with actual figures are checked against them; future years against the budget, which is out of date (the approved history now runs to ${state.processed.years.at(-1)}). Choose a new budget in Forecast & budget.`
-    : "A goal per KPI per financial year. Years with actual figures are checked against them; future years are checked against the budget.";
+    ? `Pick a measure and a year, then the goal. Future years are checked against the budget, which is out of date (history now runs to ${state.processed.years.at(-1)}): choose a new one in Forecast & budget.`
+    : "Pick a measure and a year, then the goal. Past years are checked against actual figures, future years against the budget.";
 
   const checked = results.filter((r) => r.value !== null);
   const badge = document.getElementById("kpiBadge");

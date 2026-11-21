@@ -639,15 +639,15 @@
           class="view"
           id="view-targets"
           data-title="Targets &amp; rules"
-          data-subtitle="Set KPI targets and the economic warning thresholds"
+          data-subtitle="Choose what to track, set targets, then set warning levels"
         >
           <article class="panel tg-panel">
             <header class="panel-header">
               <div>
-                <h2>KPI targets</h2>
+                <span class="step-label">Step 1 of 2</span>
+                <h2>Set KPI targets</h2>
                 <p class="panel-meta" id="kpiMeta">
-                  A goal per KPI per financial year. Years with actual figures are checked against them;
-                  future years are checked against the budget.
+                  Pick a measure and a year, then the goal. Past years are checked against actual figures, future years against the budget.
                 </p>
               </div>
               <span class="badge" id="kpiBadge" hidden></span>
@@ -658,7 +658,7 @@
               <h3 id="kpiFormTitle">Add a target</h3>
               <div class="tg-fields">
                 <label class="tg-field">
-                  <span>KPI</span>
+                  <span>What to track</span>
                   <select id="kpiMetric"></select>
                 </label>
                 <label class="tg-field">
@@ -689,9 +689,8 @@
             <p class="panel-note">
               <i class="fas fa-circle-info"></i>
               <span>
-                <strong>Met / Missed</strong>: the year's actual figure reached the target or not.
-                <strong>On track / Off track</strong>: the budget for that year reaches it or not.
-                Margins are a share of revenue.
+                <strong>Met / Missed</strong>: the actual figure reached the target.
+                <strong>On track / Off track</strong>: the budget reaches it. Margins are a share of revenue.
               </span>
             </p>
           </article>
@@ -699,10 +698,10 @@
           <article class="panel tg-panel">
             <header class="panel-header">
               <div>
-                <h2>Economic warning rules</h2>
+                <span class="step-label">Step 2 of 2</span>
+                <h2>Set warning levels</h2>
                 <p class="panel-meta">
-                  A rule warns when its indicator's latest yearly change within your history years is above
-                  the threshold. Warnings flag categories to review; they never change the figures.
+                  Each rule warns when its indicator rises above your level in your history years. Warnings flag lines to review; they never change figures.
                 </p>
               </div>
               <span class="badge" id="ruleBadge"></span>
@@ -714,31 +713,33 @@
               <div class="rule-row skeleton"></div>
             </div>
 
-            <form class="tg-form rule-add" id="ruleForm" novalidate>
-              <h3>Add a rule</h3>
-              <div class="tg-fields">
-                <label class="tg-field">
-                  <span>Indicator</span>
-                  <select id="ruleIndicator"></select>
-                </label>
-                <label class="tg-field">
-                  <span>Warn above</span>
-                  <span class="input-affix" data-unit="percent">
-                    <input type="text" inputmode="decimal" id="ruleThreshold" placeholder="e.g. 15" autocomplete="off" />
-                  </span>
-                </label>
-                <label class="tg-field tg-field-wide">
-                  <span>Name <small>optional</small></span>
-                  <input type="text" id="ruleName" maxlength="200" autocomplete="off" />
-                </label>
-                <div class="tg-form-buttons">
-                  <button type="submit" class="btn-primary" id="ruleAddBtn">
-                    <i class="fas fa-plus"></i><span>Add rule</span>
-                  </button>
+            <details class="more rule-add-more">
+              <summary>Add another warning rule</summary>
+              <form class="tg-form rule-add" id="ruleForm" novalidate>
+                <div class="tg-fields">
+                  <label class="tg-field">
+                    <span>Indicator</span>
+                    <select id="ruleIndicator"></select>
+                  </label>
+                  <label class="tg-field">
+                    <span>Warn above</span>
+                    <span class="input-affix" data-unit="percent">
+                      <input type="text" inputmode="decimal" id="ruleThreshold" placeholder="e.g. 15" autocomplete="off" />
+                    </span>
+                  </label>
+                  <label class="tg-field tg-field-wide">
+                    <span>Name <small>optional</small></span>
+                    <input type="text" id="ruleName" maxlength="200" autocomplete="off" />
+                  </label>
+                  <div class="tg-form-buttons">
+                    <button type="submit" class="btn-primary" id="ruleAddBtn">
+                      <i class="fas fa-plus"></i><span>Add rule</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <p class="rule-preview none" id="ruleAddPreview"></p>
-            </form>
+                <p class="rule-preview none" id="ruleAddPreview"></p>
+              </form>
+            </details>
           </article>
         </section>
 

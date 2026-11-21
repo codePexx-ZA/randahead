@@ -248,3 +248,18 @@
     justify-content: flex-start;
   }
 }
+
+.rule-add-more {
+  padding: 16px 20px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.rule-add-more[open] > summary {
+  margin-bottom: 4px;
+}
+
+.rule-add-more .tg-form {
+  padding: 0;
+  border-bottom: 0;
+  background: none;
+}
