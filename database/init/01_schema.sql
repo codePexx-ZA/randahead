@@ -55,17 +55,14 @@ CREATE TABLE budget_submission (
     submitted_by           VARCHAR(32)  NOT NULL REFERENCES app_user (user_id) ON DELETE RESTRICT,
     period_start           DATE         NOT NULL,
     period_end             DATE         NOT NULL,
-    status                 VARCHAR(20)  NOT NULL DEFAULT 'draft'
-                           CHECK (status IN ('draft', 'submitted', 'approved', 'rejected', 'superseded')),
-    submitted_at           TIMESTAMPTZ,
-    replaces_submission_id VARCHAR(32)  REFERENCES budget_submission (submission_id) ON DELETE RESTRICT,
+    status                 VARCHAR(20)  NOT NULL DEFAULT 'active'
+                           CHECK (status IN ('active', 'superseded')),
+    submitted_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     import_method          VARCHAR(20)  NOT NULL DEFAULT 'template'
                            CHECK (import_method IN ('template', 'mapped_import', 'manual')),
     source_file_name       VARCHAR(255),
     source_scale           INTEGER      NOT NULL DEFAULT 1 CHECK (source_scale IN (1, 1000, 1000000)),
-    CHECK (period_end >= period_start),
-    CHECK (status = 'draft' OR submitted_at IS NOT NULL),
-    CHECK (replaces_submission_id IS NULL OR replaces_submission_id <> submission_id)
+    CHECK (period_end >= period_start)
 );
 
 CREATE TABLE financial_line_item (
@@ -140,7 +137,7 @@ CREATE TABLE forecast_run (
                        CHECK (forecasting_method IN ('moving_average', 'exponential_smoothing')),
     history_start       DATE        NOT NULL,
     history_end         DATE        NOT NULL,
-    history_approved_at TIMESTAMPTZ,
+    history_updated_at  TIMESTAMPTZ,
     parameters          JSONB       NOT NULL DEFAULT '{}'::jsonb,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (history_end >= history_start)
@@ -163,27 +160,14 @@ CREATE TABLE budget_selection (
     es_run_id     VARCHAR(32) NOT NULL REFERENCES forecast_run (run_id) ON DELETE RESTRICT,
     budget_method VARCHAR(30) NOT NULL
                   CHECK (budget_method IN ('moving_average', 'exponential_smoothing', 'combined')),
-    status        VARCHAR(20) NOT NULL DEFAULT 'submitted'
-                  CHECK (status IN ('submitted', 'approved', 'rejected', 'superseded')),
+    status        VARCHAR(20) NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active', 'superseded')),
     chosen_by     VARCHAR(32) NOT NULL REFERENCES app_user (user_id) ON DELETE RESTRICT,
     chosen_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (ma_run_id <> es_run_id)
 );
 
-CREATE UNIQUE INDEX ux_budget_selection_waiting  ON budget_selection (unit_id) WHERE status = 'submitted';
-CREATE UNIQUE INDEX ux_budget_selection_approved ON budget_selection (unit_id) WHERE status = 'approved';
-
-CREATE TABLE approval_action (
-    approval_id   VARCHAR(32)   PRIMARY KEY DEFAULT replace(gen_random_uuid()::text, '-', ''),
-    submission_id VARCHAR(32)   REFERENCES budget_submission (submission_id) ON DELETE CASCADE,
-    budget_id     VARCHAR(32)   REFERENCES budget_selection (budget_id) ON DELETE CASCADE,
-    acted_by      VARCHAR(32)   NOT NULL REFERENCES app_user (user_id) ON DELETE RESTRICT,
-    decision      VARCHAR(20)   NOT NULL CHECK (decision IN ('approved', 'rejected')),
-    comments      VARCHAR(2000),
-    acted_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    CHECK (num_nonnulls(submission_id, budget_id) = 1),
-    CHECK (decision = 'approved' OR comments IS NOT NULL)
-);
+CREATE UNIQUE INDEX ux_budget_selection_active ON budget_selection (unit_id) WHERE status = 'active';
 
 CREATE TABLE forecast_input (
     input_id              VARCHAR(32)   PRIMARY KEY DEFAULT replace(gen_random_uuid()::text, '-', ''),
@@ -236,10 +220,10 @@ CREATE TABLE audit_log (
     user_id     VARCHAR(32)  REFERENCES app_user (user_id) ON DELETE SET NULL,
     user_name   VARCHAR(200) NOT NULL,
     area        VARCHAR(20)  NOT NULL
-                CHECK (area IN ('account', 'upload', 'forecast', 'budget', 'target', 'rule', 'business', 'user')),
+                CHECK (area IN ('upload', 'forecast', 'budget', 'target', 'rule', 'business')),
     action      VARCHAR(20)  NOT NULL
-                CHECK (action IN ('registered', 'uploaded', 'approved', 'rejected', 'ran',
-                                  'chosen', 'added', 'changed', 'switched_off', 'switched_on', 'deleted', 'reset_requested')),
+                CHECK (action IN ('uploaded', 'ran', 'chosen', 'added', 'changed',
+                                  'switched_off', 'switched_on', 'deleted')),
     summary     VARCHAR(500) NOT NULL,
     details     JSONB,
     occurred_at TIMESTAMPTZ  NOT NULL DEFAULT now()
@@ -249,11 +233,7 @@ CREATE INDEX ix_business_unit_business      ON business_unit (business_id);
 CREATE INDEX ix_app_user_unit               ON app_user (unit_id);
 CREATE INDEX ix_budget_submission_unit      ON budget_submission (unit_id, period_start);
 CREATE INDEX ix_budget_submission_user      ON budget_submission (submitted_by);
-CREATE INDEX ix_budget_submission_replaces  ON budget_submission (replaces_submission_id);
 CREATE INDEX ix_financial_line_item_cat     ON financial_line_item (category, period_start);
-CREATE INDEX ix_approval_action_submission  ON approval_action (submission_id);
-CREATE INDEX ix_approval_action_budget      ON approval_action (budget_id);
-CREATE INDEX ix_approval_action_user        ON approval_action (acted_by);
 CREATE INDEX ix_import_mapping_category     ON import_mapping (category_code);
 CREATE INDEX ix_import_mapping_user         ON import_mapping (created_by);
 CREATE INDEX ix_forecast_run_unit           ON forecast_run (unit_id, created_at);
