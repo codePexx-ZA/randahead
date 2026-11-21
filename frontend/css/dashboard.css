@@ -57,7 +57,26 @@
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nav-group {
+  margin: 14px 14px 4px;
+  color: var(--text-muted);
+  font-size: 0.74em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.nav-group:first-child {
+  margin-top: 0;
+}
+
+.nav-group:not(:first-child) {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .nav-item {
