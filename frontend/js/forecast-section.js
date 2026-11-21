@@ -2,7 +2,7 @@ import { chooseBudget as saveBudgetChoice, getLatestForecast, runForecasts } fro
 import { changeClass, numberFormat, percentChange, randFormat, yearsText } from "./format.js";
 import { FORECAST_PRESETS, METHOD_NAMES, compareRuns, describeMethod, presetFor } from "./forecast.js";
 import { describeSources } from "./importer.js";
-import { can, getCategory, indicatorWarnings, on, reloadBudget, showRoleNote, state, subtotalName } from "./store.js";
+import { getCategory, indicatorWarnings, on, reloadBudget, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
 import { categoryChips, changeCell, checksHtml, columnHead, figureItem, headingRow, html, raw, teamTag } from "./ui.js";
 
@@ -359,7 +359,6 @@ function updateChooseState() {
 
   const m = fc.chosen ? c.methods[fc.chosen] : null;
   const blocked = [
-    [!can("chooseBudget"), "Only a Decision Maker can choose the budget. You can still pick an option to highlight it in the table."],
     [isStale(), "Run the forecast with your new settings first, or set them back."],
     [!m, "Pick the forecast that looks most realistic to you, or both for their average."],
     [m && isCurrentBudget(m) && state.budget.status !== "rejected", "This option is already your budget."],
@@ -503,7 +502,6 @@ function showOnChart(key, scroll) {
 }
 
 async function chooseBudget() {
-  if (!can("chooseBudget")) return;
   const { methods } = fc.comparison;
   const m = methods[fc.chosen];
   const btn = document.getElementById("fcChooseBtn");
@@ -534,7 +532,6 @@ function onRulesChanged() {
 }
 
 export function setup() {
-  showRoleNote("fcRoleNote", "chooseBudget", "you can run and compare forecasts, but only a Decision Maker can choose the budget.");
   writeSettings(DEFAULT_FORECAST_SETTINGS);
   renderExplanations();
   renderChartSelect();

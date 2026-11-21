@@ -5,7 +5,6 @@ import { withBusy } from "./ui.js";
 
 function fillUser() {
   document.getElementById("supportName").value = state.user.fullName;
-  document.getElementById("supportEmail").value = state.user.email;
 }
 
 export function setup() {

@@ -1,7 +1,7 @@
 import { createKpiTarget, createRule, deleteKpiTarget, deleteRule as removeRule, getKpiTargets, updateKpiTarget, updateRule as saveRule } from "./api.js";
 import { formatKpiValue, numberFormat } from "./format.js";
 import { INDICATOR_NAMES, fyStartDate, nextYearLabels } from "./forecast.js";
-import { can, emit, getKpi, indicatorWarnings, on, reloadRules, showRoleNote, state } from "./store.js";
+import { emit, getKpi, indicatorWarnings, on, reloadRules, state } from "./store.js";
 import { showToast } from "./toast.js";
 import {
   TG_STATUS, categoryChips, chip, confirmDelete, emptyNote, emptyRow, html, kpiFigureHtml, kpiGapHtml, lockIcon, raw,
@@ -103,7 +103,6 @@ function startEditTarget(id) {
 }
 
 function targetActionsHtml(id) {
-  if (!can("editTargets")) return "";
   if (tg.confirmTarget === id) return html`<td class="action-cell">${confirmDelete("Delete this target?", "target", id)}</td>`;
   return html`<td class="action-cell">
     <button type="button" class="icon-btn" data-action="edit-target" data-id="${id}" title="Edit" aria-label="Edit target"><i class="fas fa-pen"></i></button>
@@ -141,11 +140,11 @@ function renderTargetTable() {
   setTargetBadge(badge, results.length, checked.length, checked.filter((r) => r.reached).length);
 
   if (!results.length) {
-    table.innerHTML = emptyRow(`No KPI targets yet.${can("editTargets") ? " Add one above." : ""}`);
+    table.innerHTML = emptyRow("No KPI targets yet. Add one above.");
     return;
   }
 
-  const cols = can("editTargets") ? 6 : 5;
+  const cols = 6;
   let lastYear = null;
   const body = results.map((r) => {
     let yearRow = "";
@@ -159,7 +158,7 @@ function renderTargetTable() {
 
   table.innerHTML = html`<thead><tr>
       <th>KPI</th><th class="num">Target</th><th class="num">Figure</th><th class="num">Difference</th><th>Status</th>
-      ${can("editTargets") ? raw('<th class="action-cell"><span class="sr-only">Actions</span></th>') : ""}
+      <th class="action-cell"><span class="sr-only">Actions</span></th>
     </tr></thead><tbody>${body}</tbody>`;
 }
 
@@ -182,7 +181,7 @@ function rejectField(input, message) {
 
 async function saveTarget(e) {
   e.preventDefault();
-  if (tg.busy || !can("editTargets")) return;
+  if (tg.busy) return;
 
   const metric = getKpi(document.getElementById("kpiMetric").value);
   const year = document.getElementById("kpiYear").value;
@@ -253,7 +252,6 @@ function parseThreshold(text) {
 }
 
 function ruleActionsHtml(rule) {
-  if (!can("editRules")) return "";
   if (tg.confirmRule === rule.id) return html`<div class="rule-actions">${confirmDelete("Delete this rule?", "rule")}</div>`;
   const hidden = raw(rule.id in tg.dirtyRules ? "" : " hidden");
   const del = rule.deletable
@@ -267,14 +265,13 @@ function ruleActionsHtml(rule) {
 }
 
 function ruleRowHtml(rule) {
-  const disabled = raw(can("editRules") ? "" : " disabled");
   const threshold = tg.dirtyRules[rule.id] ?? String(Number(rule.threshold));
   const preview = rulePreview(rule.value, rule.period, parseThreshold(threshold), rule.active);
   const fieldId = `ruleThreshold-${rule.id}`;
 
   return html`<div class="rule-row${rule.active ? "" : " inactive"}" data-id="${rule.id}">
     <label class="switch" title="${rule.active ? "On: raises warnings" : "Off: raises no warnings"}">
-      <input type="checkbox" class="rule-active"${raw(rule.active ? " checked" : "")}${disabled} aria-label="Rule switched on" />
+      <input type="checkbox" class="rule-active"${raw(rule.active ? " checked" : "")} aria-label="Rule switched on" />
       <span class="switch-track"></span>
     </label>
     <div class="rule-main">
@@ -285,7 +282,7 @@ function ruleRowHtml(rule) {
     <div class="rule-threshold">
       <label for="${fieldId}">Warn above</label>
       <div class="input-affix" data-unit="percent">
-        <input type="text" inputmode="decimal" id="${fieldId}" class="rule-threshold-input" value="${threshold}"${disabled} />
+        <input type="text" inputmode="decimal" id="${fieldId}" class="rule-threshold-input" value="${threshold}" />
       </div>
     </div>
     <p class="rule-preview ${preview.cls}">${previewHtml(preview)}</p>
@@ -389,7 +386,7 @@ function updateAddRulePreview() {
 
 async function addRule(e) {
   e.preventDefault();
-  if (tg.busy || !can("editRules")) return;
+  if (tg.busy) return;
 
   const thresholdInput = document.getElementById("ruleThreshold");
   const threshold = parseThreshold(thresholdInput.value);
@@ -427,11 +424,6 @@ function renderNoTargetHistory() {
 }
 
 export function setup() {
-  showRoleNote("kpiRoleNote", "editTargets", "you can see the targets, but only a Decision Maker can add or change them.");
-  showRoleNote("ruleRoleNote", "editRules", "you can see the rules, but only an Approver or Decision Maker can change them.");
-  document.getElementById("kpiForm").hidden = !can("editTargets");
-  document.getElementById("ruleForm").hidden = !can("editRules");
-
   document.getElementById("ruleIndicator").innerHTML = html`${Object.entries(INDICATOR_NAMES).map(([code, name]) => html`<option value="${code}">${name}</option>`)}`;
   on("rules", renderRules);
 
@@ -448,7 +440,7 @@ export function setup() {
 
   document.getElementById("kpiTable").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
-    if (!btn || !can("editTargets")) return;
+    if (!btn) return;
     const action = btn.dataset.action;
     if (action === "edit-target") startEditTarget(btn.dataset.id);
     if (action === "ask-delete-target") tg.confirmTarget = btn.dataset.id;
@@ -465,11 +457,11 @@ export function setup() {
     if (e.key === "Enter" && e.target.classList.contains("rule-threshold-input")) saveRuleThreshold(e.target.closest(".rule-row"));
   });
   list.addEventListener("change", (e) => {
-    if (e.target.classList.contains("rule-active") && can("editRules")) toggleRule(e.target.closest(".rule-row"), e.target.checked);
+    if (e.target.classList.contains("rule-active")) toggleRule(e.target.closest(".rule-row"), e.target.checked);
   });
   list.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
-    if (!btn || !can("editRules")) return;
+    if (!btn) return;
     const row = btn.closest(".rule-row");
     const id = row.dataset.id;
     const action = btn.dataset.action;
@@ -495,7 +487,7 @@ export async function refresh() {
     await loadTargets();
     tg.loaded = true;
     renderRules();
-    document.getElementById("kpiForm").hidden = !can("editTargets") || !state.processed;
+    document.getElementById("kpiForm").hidden = !state.processed;
     if (!state.processed) return renderNoTargetHistory();
     if (!tg.editingId) resetKpiForm();
     renderTargetTable();

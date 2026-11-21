@@ -1,9 +1,6 @@
-export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const MIN_PASSWORD_LENGTH = 8;
 
 export const CONFIG = {
   API_BASE: "http://localhost:5080/api",
-  SHOW_DEMO_ACCOUNTS: true,
 };
 
 export const INDUSTRIES = [

@@ -3,7 +3,7 @@ import { formatDate, yearsText } from "./format.js";
 import { describeMethod } from "./forecast.js";
 import { SCALE_LABELS, historyChange, reviewUpload, uploadPeriods, yearList } from "./importer.js";
 import {
-  can, emit, getCategory, indicatorWarnings, on, reloadBudget, reloadUploads, showRoleNote, state, subtotalName,
+  emit, getCategory, indicatorWarnings, on, reloadBudget, reloadUploads, state, subtotalName,
 } from "./store.js";
 import { showToast } from "./toast.js";
 import {
@@ -16,9 +16,6 @@ const AP_HISTORY_SIZE = 6;
 const ap = { pending: null };
 
 function decisionHtml(id, placeholder) {
-  if (!can("decide")) {
-    return raw('<p class="ap-locked"><i class="fas fa-lock"></i>Only an approver can approve or reject this.</p>');
-  }
   const fieldId = `apComment-${id}`;
   return html`<div class="ap-decision">
     <label class="ap-comment-label" for="${fieldId}">Comment <small>needed to reject, optional to approve</small></label>
@@ -294,14 +291,13 @@ async function decide(item, decision) {
 export function setup() {
   const view = document.getElementById("view-approvals");
 
-  showRoleNote("apRoleNote", "decide", "you can see what's waiting, but only an Approver can approve or reject.");
   on("uploads", refresh);
   on("budget", renderApprovals);
   on("rules", renderApprovals);
 
   view.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-decision]");
-    if (btn && can("decide")) decide(btn.closest(".ap-item"), btn.dataset.decision);
+    if (btn) decide(btn.closest(".ap-item"), btn.dataset.decision);
   });
   view.addEventListener("input", (e) => {
     if (e.target.classList.contains("ap-comment")) e.target.classList.remove("invalid");

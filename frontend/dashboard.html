@@ -52,7 +52,7 @@
           <i class="fas fa-file-lines"></i><span>Reports</span>
         </a>
         <a href="#settings" class="nav-item" data-view="settings">
-          <i class="fas fa-users-gear"></i><span>Users &amp; business</span>
+          <i class="fas fa-users-gear"></i><span>Business</span>
         </a>
         <a href="#activity" class="nav-item" data-view="activity">
           <i class="fas fa-clock-rotate-left"></i><span>Activity log</span>
@@ -93,10 +93,6 @@
               <small id="userRole">Not signed in</small>
             </div>
           </div>
-
-          <a href="password.html?change" class="btn-outline" id="passwordBtn" title="Change your password">
-            <i class="fas fa-key"></i><span>Password</span>
-          </a>
 
           <button type="button" class="btn-outline" id="signOutBtn">
             <i class="fas fa-right-from-bracket"></i><span>Sign out</span>
@@ -221,7 +217,6 @@
           id="view-reports"
           data-title="Reports"
           data-subtitle="Every approved year and the approved budget, side by side"
-          data-permission="viewReports"
         >
           <article class="panel rp-report">
             <header class="panel-header">
@@ -288,9 +283,6 @@
           data-title="Upload statement"
           data-subtitle="Send your income statement history for approval"
         >
-          <p class="role-note" id="uploadRoleNote" hidden>
-            <i class="fas fa-lock"></i><span></span>
-          </p>
 
           <div id="uploadFlow">
             <ol class="stepper" id="uploadSteps">
@@ -408,9 +400,6 @@
           data-title="Forecast &amp; budget"
           data-subtitle="Compare forecasting methods and choose your budget"
         >
-          <p class="role-note" id="fcRoleNote" hidden>
-            <i class="fas fa-lock"></i><span></span>
-          </p>
 
           <div class="fc-top">
             <form class="panel fc-settings" id="fcSettings" novalidate>
@@ -579,9 +568,6 @@
           data-title="Approvals"
           data-subtitle="Review uploads and budgets before they're used"
         >
-          <p class="role-note" id="apRoleNote" hidden>
-            <i class="fas fa-lock"></i><span></span>
-          </p>
 
           <div class="ap-summary">
             <div class="ap-stat">
@@ -657,9 +643,6 @@
               <span class="badge" id="kpiBadge" hidden></span>
             </header>
 
-            <p class="role-note tg-role-note" id="kpiRoleNote" hidden>
-              <i class="fas fa-lock"></i><span></span>
-            </p>
 
             <form class="tg-form" id="kpiForm" novalidate>
               <h3 id="kpiFormTitle">Add a target</h3>
@@ -715,9 +698,6 @@
               <span class="badge" id="ruleBadge"></span>
             </header>
 
-            <p class="role-note tg-role-note" id="ruleRoleNote" hidden>
-              <i class="fas fa-lock"></i><span></span>
-            </p>
 
             <div class="rule-list" id="ruleList">
               <div class="rule-row skeleton"></div>
@@ -755,8 +735,8 @@
         <section
           class="view"
           id="view-settings"
-          data-title="Users &amp; business"
-          data-subtitle="Your business details and who can sign in"
+          data-title="Business"
+          data-subtitle="Your business details"
         >
           <article class="panel st-panel">
             <header class="panel-header">
@@ -769,9 +749,6 @@
               </div>
             </header>
 
-            <p class="role-note tg-role-note" id="bizRoleNote" hidden>
-              <i class="fas fa-lock"></i><span></span>
-            </p>
 
             <form class="st-biz" id="bizForm" novalidate>
               <div class="st-biz-grid">
@@ -805,73 +782,14 @@
               </div>
             </form>
           </article>
-
-          <article class="panel st-panel">
-            <header class="panel-header">
-              <div>
-                <h2>Users</h2>
-                <p class="panel-meta">
-                  Everyone who can sign in to this business and what their role lets them do. Users with uploads or
-                  decisions on record can be switched off but not deleted, so their names stay on the history.
-                </p>
-              </div>
-              <span class="badge" id="userBadge" hidden></span>
-            </header>
-
-            <p class="role-note tg-role-note" id="userRoleNote" hidden>
-              <i class="fas fa-lock"></i><span></span>
-            </p>
-
-            <form class="tg-form" id="userForm" novalidate>
-              <h3 id="userFormTitle">Add a user</h3>
-              <div class="tg-fields">
-                <label class="tg-field">
-                  <span>Full name</span>
-                  <input type="text" id="userFullName" maxlength="200" autocomplete="off" />
-                </label>
-                <label class="tg-field tg-field-wide">
-                  <span>Email</span>
-                  <input type="email" id="userEmail" maxlength="254" autocomplete="off" />
-                </label>
-                <label class="tg-field">
-                  <span>Role</span>
-                  <select id="userRoleSelect"></select>
-                </label>
-                <label class="tg-field">
-                  <span id="userPasswordLabel">Password</span>
-                  <input type="password" id="userPassword" maxlength="72" autocomplete="new-password" />
-                </label>
-                <div class="tg-form-buttons">
-                  <button type="button" class="btn-outline" id="userCancel" hidden>Cancel</button>
-                  <button type="submit" class="btn-primary" id="userSave">
-                    <i class="fas fa-user-plus"></i><span id="userSaveText">Add user</span>
-                  </button>
-                </div>
-              </div>
-              <p class="tg-hint" id="userHint"></p>
-            </form>
-
-            <div class="table-wrap">
-              <table class="uploads-table st-users" id="userTable">
-                <tbody><tr class="row-loading"><td></td></tr></tbody>
-              </table>
-            </div>
-            <p class="panel-note">
-              <i class="fas fa-circle-info"></i>
-              <span>
-                A switched-off user can't sign in, but everything they uploaded or decided is kept. The last active Approver
-                and the last active Decision Maker can't be removed, so uploads and budgets can still be approved.
-              </span>
-            </p>
-          </article>
         </section>
 
-        <section class="view" id="view-activity" data-title="Activity log" data-subtitle="Who did what, and when">
+        <section class="view" id="view-activity" data-title="Activity log" data-subtitle="Everything done in RandAhead">
           <article class="panel">
             <header class="panel-header">
               <div>
-                <h2 id="acHeading">Activity</h2>
-                <p class="panel-meta" id="acMeta"></p>
+                <h2>All activity</h2>
+                <p class="panel-meta">Uploads, decisions and every change.</p>
               </div>
               <span class="badge info" id="acBadge" hidden></span>
             </header>
@@ -880,10 +798,6 @@
               <label class="tg-field">
                 <span>Area</span>
                 <select id="acArea"></select>
-              </label>
-              <label class="tg-field" id="acPersonField" hidden>
-                <span>Person</span>
-                <select id="acPerson"></select>
               </label>
               <label class="tg-field">
                 <span>From</span>

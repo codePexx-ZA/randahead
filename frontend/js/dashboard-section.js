@@ -2,7 +2,7 @@ import { getDashboard } from "./api.js";
 import { changeClass, formatKpiValue, formatSheet, numberFormat, randFormat, yearsText } from "./format.js";
 import { METHOD_NAMES, describeMethod } from "./forecast.js";
 import { describeSources } from "./importer.js";
-import { can, getCategory, getKpi, on, state, subtotalName } from "./store.js";
+import { getCategory, getKpi, on, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
 import {
   TG_STATUS, budgetCells, changeCell, chip, columnHead, emptyNote, emptyRow, headingRow, html, kpiFigureHtml, kpiGapHtml, pctCell, raw,
@@ -366,9 +366,7 @@ function renderBudgetCheck(summary) {
 function renderDashboardTargets(results) {
   const list = document.getElementById("dashKpiList");
   const badge = document.getElementById("dashKpiBadge");
-  const manage = can("editTargets")
-    ? raw('Add or change targets in <a href="#targets">Targets &amp; rules</a>.')
-    : raw('Targets are set by the Decision Maker in <a href="#targets">Targets &amp; rules</a>.');
+  const manage = raw('Add or change targets in <a href="#targets">Targets &amp; rules</a>.');
   document.getElementById("dashKpiNote").innerHTML =
     html`Years with actual figures are checked against them; future years against the budget. ${manage}`;
 
@@ -425,11 +423,7 @@ function setupSearch() {
 }
 
 function renderNoHistory() {
-  const next = can("upload")
-    ? raw('Upload your first one under <a href="#upload">Upload statement</a>; an Approver then approves it.')
-    : can("manageUsers")
-      ? raw('A Submitter uploads it and an Approver approves it: add them under <a href="#settings">Users &amp; business</a>.')
-      : "A Submitter uploads it and an Approver approves it.";
+  const next = raw('Upload your first one under <a href="#upload">Upload statement</a>, then approve it under <a href="#approvals">Approvals</a>.');
   document.getElementById("metrics").innerHTML =
     emptyNote(html`No approved income statement yet. ${next}`, "fa-circle-info", "dash-empty");
   ["submitted", "processed", "check"].forEach((id) => {

@@ -1,7 +1,6 @@
 import { getActivity } from "./api.js";
-import { state } from "./store.js";
 import { showToast } from "./toast.js";
-import { emptyRow, html, raw } from "./ui.js";
+import { emptyRow, html } from "./ui.js";
 
 const AC_AREAS = {
   account: { label: "Account", icon: "fa-key" },
@@ -11,7 +10,6 @@ const AC_AREAS = {
   target: { label: "KPI targets", icon: "fa-bullseye" },
   rule: { label: "Warning rules", icon: "fa-triangle-exclamation" },
   business: { label: "Business details", icon: "fa-building" },
-  user: { label: "Users", icon: "fa-user" },
 };
 const AC_ALERT_ACTIONS = ["rejected", "deleted", "switched_off"];
 const ac = { data: null, request: 0 };
@@ -19,14 +17,9 @@ const ac = { data: null, request: 0 };
 const acDateFormat = new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short", year: "numeric" });
 const acTimeFormat = new Intl.DateTimeFormat("en-ZA", { hour: "2-digit", minute: "2-digit" });
 
-function acIsAdmin() {
-  return Boolean(state.user?.isAdmin);
-}
-
 function acFilters() {
   return {
     area: document.getElementById("acArea").value,
-    user: acIsAdmin() ? document.getElementById("acPerson").value : "",
     from: document.getElementById("acFrom").value,
     to: document.getElementById("acTo").value,
   };
@@ -50,7 +43,6 @@ function acRowHtml(e) {
   const alert = AC_ALERT_ACTIONS.includes(e.action) ? " ac-alert" : "";
   return html`<tr class="ac-row${alert}">
     <td class="ac-when">${acDateFormat.format(at)}<small>${acTimeFormat.format(at)}</small></td>
-    ${acIsAdmin() ? html`<td class="ac-who">${e.who}</td>` : ""}
     <td>
       <div class="ac-entry">
         <span class="ac-icon" title="${area.label}"><i class="fas ${area.icon}"></i></span>
@@ -60,17 +52,9 @@ function acRowHtml(e) {
   </tr>`;
 }
 
-function renderPeople(people) {
-  const select = document.getElementById("acPerson");
-  const current = select.value;
-  select.innerHTML = html`<option value="">Everyone</option>${people.map((p) => html`<option value="${p.id}">${p.name}</option>`)}`;
-  select.value = current;
-}
-
 function renderActivity() {
-  const { entries, more, people } = ac.data;
+  const { entries, more } = ac.data;
   const filtered = Object.values(acFilters()).some(Boolean);
-  if (people) renderPeople(people);
 
   const badge = document.getElementById("acBadge");
   badge.hidden = false;
@@ -85,7 +69,7 @@ function renderActivity() {
     table.innerHTML = emptyRow(filtered ? "No activity matches these filters." : "No activity yet.");
     return;
   }
-  table.innerHTML = html`<thead><tr><th>When</th>${acIsAdmin() ? raw("<th>Who</th>") : ""}<th>What happened</th></tr></thead>
+  table.innerHTML = html`<thead><tr><th>When</th><th>What happened</th></tr></thead>
     <tbody>${entries.map(acRowHtml)}</tbody>`;
 }
 
@@ -111,16 +95,6 @@ async function refreshActivity() {
 }
 
 export function setup() {
-  const admin = acIsAdmin();
-  document.getElementById("view-activity").dataset.subtitle = admin
-    ? "Everything that happens in this business"
-    : "What you've done in RandAhead";
-  document.getElementById("acHeading").textContent = admin ? "All activity" : "Your activity";
-  document.getElementById("acMeta").textContent = admin
-    ? "Uploads, decisions and every change, by everyone in the business."
-    : "Your uploads, decisions and changes. Only the admin sees everyone's activity.";
-  document.getElementById("acPersonField").hidden = !admin;
-
   document.getElementById("acArea").innerHTML = html`<option value="">All areas</option>${Object.entries(AC_AREAS)
     .map(([value, area]) => html`<option value="${value}">${area.label}</option>`)}`;
 

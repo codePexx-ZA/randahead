@@ -3,7 +3,7 @@ import { formatKpiValue, numberFormat, yearsText } from "./format.js";
 import { METHOD_NAMES } from "./forecast.js";
 import { getCategory } from "./store.js";
 import { TG_STATUS } from "./ui.js";
-import { can, indicatorWarnings, state } from "./store.js";
+import { indicatorWarnings, state } from "./store.js";
 import { showToast } from "./toast.js";
 import { chip, emptyRow, headingRow, html, kpiFigureHtml, kpiGapHtml, pctCell, raw, setTargetBadge, teamTag } from "./ui.js";
 
@@ -191,7 +191,7 @@ export function setup() {
 }
 
 export async function refresh() {
-  if (!can("viewReports") || !rpActive() || !state.business) return;
+  if (!rpActive() || !state.business) return;
   if (!state.processed) {
     renderReportEmpty();
     return;

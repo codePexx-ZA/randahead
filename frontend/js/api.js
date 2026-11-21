@@ -43,38 +43,13 @@ async function errorMessage(res, fallback) {
 
 const id = encodeURIComponent;
 
-export async function login(email, password) {
+export async function login(username, password) {
   try {
-    return await request("/auth/login", { method: "POST", body: { email, password }, auth: false, fallback: "Could not sign in. Try again." });
+    return await request("/auth/login", { method: "POST", body: { username, password }, auth: false, fallback: "Could not sign in. Try again." });
   } catch (err) {
-    if (err.status === 401) throw new Error("Incorrect email or password.");
+    if (err.status === 401) throw new Error("Incorrect username or password.");
     throw err;
   }
-}
-
-export function register(details) {
-  const body = {
-    business_name: details.businessName,
-    industry: details.industry || null,
-    year_end_month: details.yearEndMonth,
-    full_name: details.fullName,
-    email: details.email,
-    password: details.password,
-  };
-  return request("/auth/register", { method: "POST", body, auth: false, fallback: "Could not register the business. Try again." });
-}
-
-export function forgotPassword(email) {
-  return request("/auth/forgot-password", { method: "POST", body: { email }, auth: false, fallback: "Could not send the reset link. Try again." });
-}
-
-export function resetPassword(token, password) {
-  return request("/auth/reset-password", { method: "POST", body: { token, password }, auth: false, fallback: "Could not save the new password. Try again." });
-}
-
-export function changePassword(currentPassword, newPassword) {
-  const body = { current_password: currentPassword, new_password: newPassword };
-  return request("/auth/change-password", { method: "POST", body, fallback: "Could not change your password." });
 }
 
 export async function getCurrentUser() {
@@ -197,23 +172,6 @@ export function deleteKpiTarget(targetId) {
   return request(`/kpi-targets/${id(targetId)}`, { method: "DELETE", fallback: "Could not delete the target." });
 }
 
-export function getUsers() {
-  return request("/users", { fallback: "Could not load the users." });
-}
-
-export function createUser(user) {
-  return request("/users", { method: "POST", body: userBody({ ...user, active: true }), fallback: "Could not add the user." });
-}
-
-export function updateUser(userId, user) {
-  return request(`/users/${id(userId)}`, { method: "PUT", body: userBody(user), fallback: "Could not save the user." });
-}
-
-export function deleteUser(userId, password) {
-  const body = password === undefined ? undefined : { password };
-  return request(`/users/${id(userId)}`, { method: "DELETE", body, fallback: "Could not delete the user." });
-}
-
 export function getActivity(filters) {
   const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value)).toString();
   return request(`/audit${query ? `?${query}` : ""}`, { fallback: "Could not load the activity log." });
@@ -221,16 +179,6 @@ export function getActivity(filters) {
 
 export function sendSupportMessage(message) {
   return request("/support", { method: "POST", body: message, fallback: "Could not send your message. Try again." });
-}
-
-function userBody(user) {
-  return {
-    full_name: user.fullName,
-    email: user.email,
-    role: user.role,
-    active_status: user.active ? "active" : "inactive",
-    ...(user.password ? { password: user.password } : {}),
-  };
 }
 
 function ruleBody(rule) {

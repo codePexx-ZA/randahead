@@ -4,7 +4,7 @@ import {
   MAX_HISTORY_YEARS, SCALE_LABELS, buildSubmissionPayload, checkPreview, describeChange, fileExtension, historyChange,
   isResolved, planHistory, uploadPeriods, yearList,
 } from "./importer.js";
-import { can, on, reloadUploads, showRoleNote, state, subtotalName } from "./store.js";
+import { on, reloadUploads, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
 import { checksHtml, chip, commentRow, emptyRow, headingRow, html, raw, sheetCells, withBusy } from "./ui.js";
 
@@ -393,7 +393,7 @@ function renderUploads() {
     if (u.status === "approved") decision += ` · ${usage(u)}`;
     if (replacer) decision += ` · replaced by ${replacer.fileName}`;
 
-    const canFix = u.status === "rejected" && !fixed.has(u.id) && can("upload");
+    const canFix = u.status === "rejected" && !fixed.has(u.id);
     const action = canFix
       ? html`<button type="button" class="btn-outline btn-small" data-fix="${u.id}"><i class="fas fa-wrench"></i><span>Fix &amp; re-upload</span></button>`
       : "";
@@ -416,12 +416,6 @@ function renderUploadsIfLoaded() {
 export function setup() {
   ["dragover", "drop"].forEach((type) => window.addEventListener(type, (e) => e.preventDefault()));
   on("uploads", renderUploadsIfLoaded);
-
-  if (!can("upload")) {
-    showRoleNote("uploadRoleNote", "upload", "you can see the uploads and their decisions, but only a Submitter can upload or fix a statement.");
-    document.getElementById("uploadFlow").hidden = true;
-    return;
-  }
 
   setupDropzone();
   goToStep(1);

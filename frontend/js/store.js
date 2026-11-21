@@ -1,7 +1,5 @@
 import * as api from "./api.js";
-import { CONFIG } from "./config.js";
 import { budgetFromRuns, buildIndicatorWarnings } from "./forecast.js";
-import { ACTION_ROLE, DEMO_ACCOUNTS, roleLabel } from "./roles.js";
 
 export const state = {
   user: null,
@@ -23,19 +21,6 @@ export function on(topic, fn) {
 
 export function emit(topic) {
   return Promise.all((listeners[topic] || []).map((fn) => fn()));
-}
-
-export function can(action) {
-  return Boolean(state.user?.permissions?.includes(action));
-}
-
-export function showRoleNote(noteId, action, text) {
-  if (can(action)) return;
-  const role = state.user ? roleLabel(state.user) : "a guest";
-  const demo = CONFIG.SHOW_DEMO_ACCOUNTS ? ` To try it, sign in as ${DEMO_ACCOUNTS[ACTION_ROLE[action]]} (password demo123).` : "";
-  const note = document.getElementById(noteId);
-  note.querySelector("span").textContent = `You're signed in as ${role}: ${text}${demo}`;
-  note.hidden = false;
 }
 
 export function getCategory(code) {
