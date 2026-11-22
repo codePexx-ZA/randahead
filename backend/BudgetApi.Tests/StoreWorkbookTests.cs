@@ -41,9 +41,14 @@ public class StoreWorkbookTests
         var lines = preview.Rows.Where(r => r.Kind == "line").ToDictionary(r => r.Label);
 
         Assert.Equal(
-            ["Sales - Bank", "Sales - Cash", "Cost of Sales", "Accounting Fees - Bma", "Rent Paid - Basic Rental", "Salaries & Wages - Salaries", "Interest Received", "Normal Taxation", "Dividends Declared / Paid"],
+            [
+                "Sales - Bank", "Sales - Cash", "Cost of Sales", "Accounting Fees - Bma", "Rent Paid - Basic Rental", "Insurance - Westernins",
+                "Salaries & Wages - Salaries", "Depreciation - Shelving", "Depreciation - Signage", "Interest Received", "Normal Taxation",
+                "Dividends Declared / Paid",
+            ],
             lines.Keys
         );
+        Assert.Equal("other_operating", lines["Insurance - Westernins"].Mapping!.Category);
         Assert.Equal([720m, 720m, 720m], lines["Sales - Bank"].Values);
         Assert.Equal("cost_of_sales", lines["Cost of Sales"].Mapping!.Category);
         Assert.Equal("income_tax", lines["Normal Taxation"].Mapping!.Category);
@@ -61,7 +66,7 @@ public class StoreWorkbookTests
         Assert.NotNull(preview.Statement);
         Assert.Equal([1200m, 1200m, 1200m], preview.Statement.Totals["revenue"]);
         Assert.Equal([600m, 600m, 600m], preview.Statement.Totals["cost_of_sales"]);
-        Assert.Equal([264m, 264m, 264m], preview.Statement.Subtotals["profit_before_tax"]);
+        Assert.Equal([192m, 192m, 192m], preview.Statement.Subtotals["profit_before_tax"]);
         Assert.True(preview.Statement.Checks!["gross_profit"].Matches);
         Assert.True(preview.Statement.Checks["profit_before_tax"].Matches);
         Assert.False(preview.Statement.Checks.ContainsKey("net_profit"));
@@ -231,18 +236,22 @@ public class StoreWorkbookTests
             ["2000010", "Purchase Variance", 0],
             [null, "GROSS PROFIT / (LOSS)", 50],
             [null, "GROSS PROFIT %", 0.5],
-            [null, "Expenses", 30],
+            [null, "Expenses", 36],
             ["3000000", label, 5],
             ["3000010", "Rent Paid - Basic Rental", 15],
+            [null, "Insurance - Westernins", 3], // an account without a code
             ["3000020", "Salaries & Wages - Salaries", 10],
+            [null, "Depreciation", 3], // a sub-total of the two accounts below it
+            ["3000030", "Depreciation - Shelving", 2],
+            ["3000040", "Depreciation - Signage", 1],
             [null, null, 2],
             ["4000000", "Interest Received", 2],
-            [null, "NET PROFIT / (LOSS) BEFORE TAX", 22],
+            [null, "NET PROFIT / (LOSS) BEFORE TAX", 16],
             [null, "Tax", 6],
             ["4500000", "Normal Taxation", 6],
             [null, "Dividends", 1],
             ["4600000", "Dividends Declared / Paid", 1],
-            [null, "NET PROFIT / (LOSS) AFTER TAX", 15],
+            [null, "NET PROFIT / (LOSS) AFTER TAX", 9],
             [null, "Stock On Hand Ex", 999],
             ["5200/000", "Retained Income / (Accumulated Loss)", 999],
             ["8400/000", "First National Bank", 999],

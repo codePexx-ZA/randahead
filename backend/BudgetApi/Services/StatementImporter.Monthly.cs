@@ -337,13 +337,18 @@ public static partial class StatementImporter
 
             if (coded)
             {
-                // An uncoded row directly above coded accounts is a section heading (often carrying the section total).
-                var next = parsed.Skip(i + 1).FirstOrDefault(x => x.Label.Length > 0);
-                if (next?.Code is not null)
+                // The run of accounts next to this row; any uncoded row with a label or amounts (even an unlabelled total) ends it.
+                static List<ParsedRow> Run(IEnumerable<ParsedRow> side) =>
+                    side.Where(x => x.Label.Length > 0 || x.HasAmounts).TakeWhile(x => x.Code is not null).ToList();
+                var below = Run(parsed.Skip(i + 1));
+                var above = Run(parsed.Take(i).Reverse());
+                var sectionHint = IsDividendPaid(clean) ? "ignore" : MatchCategory(key) is [var single] ? single : null;
+
+                if (above.Count == 0 && below.Count > 0)
                 {
-                    hint = IsDividendPaid(clean) ? "ignore" : MatchCategory(key) is [var single] ? single : null;
-                    var children = parsed.Skip(i + 1).Where(x => x.Label.Length > 0).TakeWhile(x => x.Code is not null);
-                    if (p.HasAmounts && !children.Any(c => c.HasAmounts))
+                    // Uncoded row opening a run of accounts: a section heading, often carrying the section total.
+                    hint = sectionHint;
+                    if (p.HasAmounts && !below.Any(c => c.HasAmounts))
                     {
                         // The accounts under it are empty, so the heading's own figures are the line (e.g. "Cost of Sales").
                         rows.Add(new SourceRow($"label:{key}", p.Label, "line", null, hint, p.Values));
@@ -351,6 +356,19 @@ public static partial class StatementImporter
                     else
                     {
                         skipped += p.HasAmounts ? 1 : 0;
+                    }
+                    continue;
+                }
+                if (above.Count > 0 && p.HasAmounts)
+                {
+                    // Inside a run of accounts: a total of the accounts next to it, or an account without a code.
+                    if ((below.Count > 0 && SameAmounts(p, below)) || SameAmounts(p, above))
+                    {
+                        skipped++;
+                    }
+                    else
+                    {
+                        rows.Add(new SourceRow($"label:{key}", p.Label, "line", null, hint, p.Values));
                     }
                     continue;
                 }
@@ -380,6 +398,10 @@ public static partial class StatementImporter
             .ToHashSet();
         return new SheetStatement(sheet, block, rows, filled, skipped);
     }
+
+    /// <summary>True when the row's amounts are the sum of the given accounts in every month (to within R1).</summary>
+    private static bool SameAmounts(ParsedRow total, List<ParsedRow> accounts) =>
+        total.Values.All(month => Math.Abs((month.Value ?? 0) - accounts.Sum(a => a.Values.GetValueOrDefault(month.Key) ?? 0)) <= 1);
 
     private static bool LooksLikeIncomeStatement(SheetStatement st)
     {
