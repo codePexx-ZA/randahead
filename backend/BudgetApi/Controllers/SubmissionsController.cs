@@ -112,7 +112,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         stream.Position = 0;
         try
         {
-            return Ok(StatementImporter.Read(stream, Path.GetFileName(file.FileName), remembered));
+            return Ok(StatementImporter.Read(stream, Path.GetFileName(file.FileName), remembered, caller.Unit!.Business!.YearEndMonth));
         }
         catch (StatementImportException error)
         {

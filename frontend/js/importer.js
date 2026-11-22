@@ -55,6 +55,18 @@ function subtotalsMatchItem(keys) {
   return { level: "ok", text: `Subtotals match the file (${keys.map((k) => subtotalName(k).toLowerCase()).join(", ")}).` };
 }
 
+// Workbooks with several sheets (one per year, plus loans, summaries…): say which sheets were read and why the rest were not.
+function sheetChecks(preview) {
+  if (!preview.sheets?.length) return [];
+  const describe = (s) => `"${s.name}" (${s.detail})`;
+  const used = preview.sheets.filter((s) => s.used);
+  const skipped = preview.sheets.filter((s) => !s.used);
+  const from = preview.title ? ` for ${preview.title}` : "";
+  const items = [{ level: "ok", text: `Read ${used.length} sheet${used.length > 1 ? "s" : ""}${from}: ${used.map(describe).join(", ")}.` }];
+  if (skipped.length) items.push({ level: "info", text: `Not used: ${skipped.map(describe).join(", ")}.` });
+  return items;
+}
+
 export function checkPreview(preview, change, statement) {
   const items = [];
   const lines = preview.rows.filter((r) => r.kind === "line");
@@ -67,7 +79,9 @@ export function checkPreview(preview, change, statement) {
   } else {
     items.push({ level: "ok", text: `${years.length} financial years found (${yearList(years)}).` });
   }
+  items.push(...sheetChecks(preview));
   preview.notes.forEach((text) => items.push({ level: "warning", text }));
+  (preview.info || []).forEach((text) => items.push({ level: "info", text }));
   const missing = missingYears(years);
   if (change) {
     items.push(...historyChecks(change));

@@ -30,7 +30,10 @@ public record StatementPreview(
     string? ScaleHint,
     PreviewRow[] Rows,
     string[] Notes,
-    StatementTable? Statement
+    StatementTable? Statement,
+    SheetChoice[]? Sheets = null,
+    string[]? Info = null,
+    string? Title = null
 );
 
 public class StatementImportException(string message) : Exception(message);
@@ -49,15 +52,15 @@ public static partial class StatementImporter
     private static readonly (string Category, string[] Words)[] Keywords =
     [
         ("revenue", ["sales", "revenue", "turnover", "income", "income from services", "service income", "fees earned", "takings"]),
-        ("other_income", ["other income", "interest received", "interest income", "sundry income", "rental income", "dividends received", "dividend income", "commission received", "commission income"]),
+        ("other_income", ["other income", "interest received", "interest income", "sundry income", "rental income", "dividends received", "dividend income", "commission received", "commission income", "discount received", "bad debts recovered"]),
         ("cost_of_sales", ["cost of sales", "cost of goods sold", "cost of goods", "cogs", "purchases", "direct costs"]),
-        ("employee_costs", ["salaries", "salary", "wages", "staff costs", "employee", "employee costs", "payroll", "uif", "sdl", "paye", "bonuses", "pension"]),
+        ("employee_costs", ["salaries", "salary", "wages", "staff costs", "employee", "employee costs", "payroll", "uif", "sdl", "paye", "bonuses", "pension", "staff training", "staff welfare", "directors fees", "remuneration", "human resources"]),
         ("occupancy", ["rent", "rental", "rates", "lease", "occupancy", "property"]),
         ("electricity", ["electricity", "eskom", "prepaid electricity"]),
-        ("other_utilities", ["water", "telephone", "internet", "telecoms", "telecommunications", "cellphone", "utilities", "other utilities", "wifi"]),
+        ("other_utilities", ["water", "telephone", "internet", "telecoms", "telecommunications", "cellphone", "utilities", "other utilities", "wifi", "fax"]),
         ("transport_fuel", ["fuel", "petrol", "diesel", "delivery", "motor vehicle", "vehicle", "transport", "courier", "travel"]),
         ("marketing", ["advertising", "marketing", "promotions", "promotion", "social media"]),
-        ("other_operating", ["other operating expenses", "admin", "administration", "bank charges", "repairs", "maintenance", "insurance", "stationery", "accounting fees", "audit fees", "legal fees", "professional fees", "cleaning", "security", "consumables", "licences", "subscriptions", "sundry expenses", "general expenses"]),
+        ("other_operating", ["other operating expenses", "admin", "administration", "bank charges", "repairs", "maintenance", "insurance", "stationery", "printing", "postage", "accounting", "accounting fees", "audit fees", "legal fees", "professional fees", "consulting fees", "secretarial fees", "computer expenses", "cleaning", "security", "consumables", "licence", "license", "licences", "subscriptions", "sundry expenses", "general expenses", "bad debts", "donations", "entertainment", "levies", "leasing charges", "discount allowed"]),
         ("depreciation", ["depreciation", "amortisation", "amortization"]),
         ("finance_costs", ["interest paid", "interest expense", "finance costs", "finance charges", "interest on overdraft", "interest on loan"]),
         ("income_tax", ["income tax", "tax", "taxation", "sars", "company tax"]),
@@ -71,7 +74,9 @@ public static partial class StatementImporter
         (IncomeStatement.NetProfit, new Regex(@"^(net (profit|loss|income)|(profit|loss)( loss)? (for the (year|period)|after tax))")),
     ];
 
-    private readonly record struct Cell(string Text, double? Number);
+    private readonly record struct Cell(string Text, double? Number, DateOnly? Date = null);
+
+    private record Sheet(string Name, bool Hidden, List<Cell[]> Grid);
 
     private record Header(int Row, List<(int Col, int Year)> Years, bool Monthly);
 
@@ -125,15 +130,31 @@ public static partial class StatementImporter
 
     public static string LabelKey(string label) => Spaces().Replace(label.Trim().ToLowerInvariant(), " ");
 
-    public static StatementPreview Read(Stream stream, string fileName, IReadOnlyDictionary<string, MappingPart[]> remembered)
+    public static StatementPreview Read(
+        Stream stream,
+        string fileName,
+        IReadOnlyDictionary<string, MappingPart[]> remembered,
+        int yearEndMonth = 2
+    )
     {
-        var grids = Path.GetExtension(fileName).Equals(".csv", StringComparison.OrdinalIgnoreCase)
-            ? [ParseCsv(ReadText(stream))]
+        List<Sheet> sheets = Path.GetExtension(fileName).Equals(".csv", StringComparison.OrdinalIgnoreCase)
+            ? [new Sheet(fileName, false, ParseCsv(ReadText(stream)))]
             : ReadWorkbook(stream);
-        return BuildPreview(grids, fileName, remembered);
+
+        // Visible sheets first: a hidden working sheet should never win over the statement the business sees.
+        var ordered = sheets.Where(s => !s.Hidden).Concat(sheets.Where(s => s.Hidden)).ToList();
+        var first = ordered.Select(s => (Sheet: s, Header: FindHeader(s.Grid))).FirstOrDefault(x => x.Header is not null);
+        if (first.Header is null || first.Header.Monthly)
+        {
+            if (ReadMonthly(sheets, fileName, remembered, yearEndMonth) is { } monthly)
+            {
+                return monthly;
+            }
+        }
+        return BuildPreview(ordered.Select(s => s.Grid).ToList(), fileName, remembered);
     }
 
-    private static List<List<Cell[]>> ReadWorkbook(Stream stream)
+    private static List<Sheet> ReadWorkbook(Stream stream)
     {
         const string unreadable = "We couldn't open this Excel file. Save it again as .xlsx (or .csv) and try again.";
         try
@@ -161,7 +182,9 @@ public static partial class StatementImporter
         }
         using (workbook)
         {
-            return workbook.Worksheets.Select(ReadSheet).ToList();
+            return workbook
+                .Worksheets.Select(s => new Sheet(s.Name.Trim(), s.Visibility != XLWorksheetVisibility.Visible, ReadSheet(s)))
+                .ToList();
         }
     }
 
@@ -199,11 +222,55 @@ public static partial class StatementImporter
         }
         return value.Type switch
         {
+            XLDataType.Number when IsDateFormat(cell) && ToDate(value.GetNumber()) is { } date => new Cell(FormattedText(cell), null, date),
             XLDataType.Number => new Cell(NumberText(value.GetNumber()), value.GetNumber()),
             XLDataType.Text => new Cell(value.GetText(), null),
-            XLDataType.DateTime => new Cell(cell.GetFormattedString(), null),
+            XLDataType.DateTime => new Cell(FormattedText(cell), null, DateOnly.FromDateTime(value.GetDateTime())),
             _ => default,
         };
+    }
+
+    [GeneratedRegex("\"[^\"]*\"|\\[[^\\]]*\\]")]
+    private static partial Regex FormatLiterals();
+
+    // Month headers are often formulas (=C3+31) whose cached value is a plain number with a date format.
+    private static bool IsDateFormat(IXLCell cell)
+    {
+        try
+        {
+            var format = cell.Style.NumberFormat;
+            if (format.NumberFormatId is >= 14 and <= 22 or >= 45 and <= 47)
+            {
+                return true;
+            }
+            var code = FormatLiterals().Replace(format.Format ?? "", "").ToLowerInvariant();
+            return code.Contains('d') || code.Contains('y') || code.Contains("mmm");
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static DateOnly? ToDate(double serial)
+    {
+        if (serial is < 32874 or > 73051) // 1990-01-01 .. 2100-01-01
+        {
+            return null;
+        }
+        return DateOnly.FromDateTime(DateTime.FromOADate(serial));
+    }
+
+    private static string FormattedText(IXLCell cell)
+    {
+        try
+        {
+            return cell.GetFormattedString();
+        }
+        catch (Exception)
+        {
+            return "";
+        }
     }
 
     private static string NumberText(double n) =>
@@ -385,6 +452,9 @@ public static partial class StatementImporter
         return null;
     }
 
+    private static (int Year, int? Month)? Period(Cell cell) =>
+        cell.Date is { } date ? (date.Year, date.Month) : ParsePeriodHeader(cell.Text);
+
     private static Header? FindHeader(List<Cell[]> grid)
     {
         var limit = Math.Min(grid.Count, HeaderSearchRows);
@@ -394,7 +464,7 @@ public static partial class StatementImporter
             var months = new List<(int Col, int Year, int Month)>();
             for (var col = 0; col < grid[r].Length; col++)
             {
-                if (ParsePeriodHeader(grid[r][col].Text) is not { } period)
+                if (Period(grid[r][col]) is not { } period)
                 {
                     continue;
                 }
@@ -424,7 +494,7 @@ public static partial class StatementImporter
             var hits = new List<(int Col, int Year)>();
             for (var col = 1; col < grid[r].Length; col++)
             {
-                if (ParsePeriodHeader(grid[r][col].Text) is { } period)
+                if (Period(grid[r][col]) is { } period)
                 {
                     hits.Add((col, period.Year));
                 }
@@ -530,15 +600,46 @@ public static partial class StatementImporter
         {
             return Row("total");
         }
+        return LineRow(id, label, values, remembered);
+    }
+
+    [GeneratedRegex(@"\bdividends?\b")]
+    private static partial Regex Dividend();
+
+    // Dividends declared or paid are a distribution of profit, not a cost, so they stay out of the statement.
+    private static bool IsDividendPaid(string clean) =>
+        Dividend().IsMatch(clean) && !clean.Contains("received") && !clean.Contains("income");
+
+    /// <param name="hint">Category of the section the line sits in (from the sheet's own heading), used when the label alone is unknown or ambiguous.</param>
+    private static PreviewRow LineRow(
+        int id,
+        string label,
+        decimal?[] values,
+        IReadOnlyDictionary<string, MappingPart[]> remembered,
+        string? hint = null
+    )
+    {
+        var key = LabelKey(label);
+        PreviewRow Row(string status, PreviewMapping? mapping = null, string[]? candidates = null) =>
+            new(id, label, key, values, "line", null, status, mapping, candidates);
+        PreviewMapping Mapping(string category) =>
+            category == "ignore" ? new PreviewMapping("ignore") : new PreviewMapping("single", Category: category);
+
         if (remembered.TryGetValue(key, out var parts))
         {
-            return Row("line", status: "remembered", mapping: MappingFromParts(parts));
+            return Row("remembered", MappingFromParts(parts));
+        }
+        if (IsDividendPaid(CleanText(key)))
+        {
+            return Row("auto", Mapping("ignore"));
         }
         return MatchCategory(key) switch
         {
-            null => Row("line", status: "unknown"),
-            [var single] => Row("line", status: "auto", mapping: new PreviewMapping("single", Category: single)),
-            var several => Row("line", status: "cross", candidates: several),
+            null when hint is not null => Row("auto", Mapping(hint)),
+            null => Row("unknown"),
+            [var single] => Row("auto", Mapping(single)),
+            var several when hint is not null && several.Contains(hint) => Row("auto", Mapping(hint)),
+            var several => Row("cross", candidates: several),
         };
     }
 
