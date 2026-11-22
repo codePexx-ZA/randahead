@@ -54,7 +54,7 @@ public static partial class StatementImporter
         ("revenue", ["sales", "revenue", "turnover", "income", "income from services", "service income", "fees earned", "takings"]),
         ("other_income", ["other income", "interest received", "interest income", "sundry income", "rental income", "dividends received", "dividend income", "commission received", "commission income", "discount received", "bad debts recovered"]),
         ("cost_of_sales", ["cost of sales", "cost of goods sold", "cost of goods", "cogs", "purchases", "direct costs"]),
-        ("employee_costs", ["salaries", "salary", "wages", "staff costs", "employee", "employee costs", "payroll", "uif", "sdl", "paye", "bonuses", "pension", "staff training", "staff welfare", "directors fees", "remuneration", "human resources"]),
+        ("employee_costs", ["salaries", "salary", "wages", "staff costs", "employee", "employee costs", "payroll", "uif", "sdl", "paye", "bonuses", "pension", "staff training", "staff welfare", "staff wellfare", "directors fees", "remuneration", "human resources"]),
         ("occupancy", ["rent", "rental", "rates", "lease", "occupancy", "property"]),
         ("electricity", ["electricity", "eskom", "prepaid electricity"]),
         ("other_utilities", ["water", "telephone", "internet", "telecoms", "telecommunications", "cellphone", "utilities", "other utilities", "wifi", "fax"]),
@@ -554,6 +554,12 @@ public static partial class StatementImporter
         if (Keywords.FirstOrDefault(k => k.Words.Contains(whole)).Category is { } exact)
         {
             return [exact];
+        }
+        // Accounting packages name accounts "Group - Detail" ("Rent Paid - Rates & Taxes"): a clear group decides.
+        var dash = key.IndexOf(" - ", StringComparison.Ordinal);
+        if (dash > 0 && MatchCategory(key[..dash]) is [var group])
+        {
+            return [group];
         }
         var parts = PartSeparator().Split(key.Replace("&", " and ")).Select(CleanText).Where(p => p.Length > 0).ToList();
         var found = parts.Select(BestKeyword).ToList();

@@ -118,6 +118,33 @@ public class StoreWorkbookTests
         Assert.True(preview.Statement!.Checks!["gross_profit"].Matches);
     }
 
+    [Theory]
+    [InlineData("Rent Paid - Rates & Taxes", "occupancy")]
+    [InlineData("Rent Paid - Security", "occupancy")]
+    [InlineData("Staff Welfare - Uniforms & Name Badges", "employee_costs")]
+    [InlineData("Staff Wellfare - Accommodation", "employee_costs")]
+    [InlineData("Motor Vehicle - Insurance & Licence", "transport_fuel")]
+    [InlineData("Dividends Declared / Paid", "ignore")]
+    [InlineData("Interest Received", "other_income")]
+    public void Read_AccountNamesGroupedWithADash_TakeTheGroupsCategory(string label, string expected)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("IS");
+        sheet.Cell(1, 2).Value = "FY2024";
+        sheet.Cell(1, 3).Value = "FY2025";
+        sheet.Cell(2, 1).Value = "Sales";
+        sheet.Cell(3, 1).Value = label;
+        foreach (var row in new[] { 2, 3 })
+        {
+            sheet.Cell(row, 2).Value = 100;
+            sheet.Cell(row, 3).Value = 100;
+        }
+
+        var line = Read(Save(workbook)).Rows.Single(r => r.Label == label);
+
+        Assert.Equal(expected, line.Mapping!.Category ?? line.Mapping.Type);
+    }
+
     private static StatementPreview Read(MemoryStream file, int yearEndMonth = 2) =>
         StatementImporter.Read(file, "store.xlsx", NoMappings, yearEndMonth);
 
