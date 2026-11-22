@@ -94,11 +94,19 @@ graph LR
 | Business (API) | Done: `/api/business`, scoped to the signed-in user's business; the Business screen uses it |
 | Uploads (API) | Done: `/api/submissions` (preview, save, version history). A saved statement is in use at once; an older upload whose years are all covered by newer ones is kept as a replaced version. The Upload statement screen uses it |
 | Forecasts and budget (API) | Done: `/api/forecasts` (C# asks the Python service) and `/api/budgets` (choose MA, ES or their average; the choice is the budget at once). The web app offers three predictions, Steady (3-year average, weight 0.3), Balanced (3-year average, weight 0.5) and Recent (2-year average, weight 0.7), plus how far ahead (1–3 years). Forecast & budget, and the dashboard budget use them |
-| Excel income statement importer | Done: C# + ClosedXML reads `.xlsx` / `.csv` on the server, standard template download |
+| Excel income statement importer | Done: C# + ClosedXML reads `.xlsx` / `.csv` on the server, standard template download. It reads annual files (one column per year) and monthly management-accounts workbooks (one sheet per year in any tab order, month columns, account codes); see [Monthly workbooks](backend/README.md#monthly-workbooks-management-accounts) |
 | API error handling | Done: every failed request (bad input, missing sign-in, database down, unexpected error) answers with a readable `{ message }` the web app can show; server errors are logged with a trace id |
 | Activity log | Done: every upload, decision and change is logged (`audit_log`, `GET /api/audit`); sign-in and sign-out are not |
 | KPI targets, dashboard, reports | Done: `/api/kpi-targets`, and `GET /api/dashboard` (a year's figures vs the year before, budget vs actual once a budgeted year has actual figures, KPI target progress) behind the dashboard's KPI cards and Budget vs actual panel, and `GET /api/reports` (every year of the history and the chosen budget side by side, key ratios, targets; CSV download and print / PDF) |
 | Web app screens | Login, dashboard (incl. KPI targets), reports, upload (incl. combining uploads into one history), forecast & budget, targets & rules (KPI targets, warning thresholds), business details and activity log, all open to the one signed-in user |
+
+## Planned
+
+| Area | State |
+|---|---|
+| One business, many stores | Not built. A business has one store (unit) and one history, so uploading a second store's workbook replaces the first store's years |
+| AI line matching | Planned. Only account labels the importer cannot categorise go to a hosted model; the user confirms the suggestions. See [docs/ai-line-matching-plan.md](docs/ai-line-matching-plan.md) |
+| Paid plans | Planned in the same document. Needs real accounts and public hosting first |
 
 ## Run it
 
