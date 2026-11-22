@@ -4,13 +4,7 @@ Responsive web app for **RandAhead™** (*Clear forecasts. Confident decisions.*
 
 ## Run it
 
-The frontend is static files served outside Docker Compose, on port 5500. From the repo root:
-
-```bash
-python3 -m http.server 5500 --bind 127.0.0.1 --directory frontend
-```
-
-Then open http://127.0.0.1:5500. Any other static file server on the same port and address works.
+Follow the [root setup guide](../README.md#run-it) to start the API stack and the separate frontend server on the homelab notebook. Open http://127.0.0.1:5500 on the notebook.
 
 Settings in `js/config.js`:
 
@@ -18,11 +12,9 @@ Settings in `js/config.js`:
 |---|---|---|
 | `API_BASE` | `http://localhost:5080/api` | The C# API (needs `docker compose up`) |
 
-The token is kept with the session and sent as `Authorization: Bearer …` on every API call; a `401` signs the user out. The session ends when the token expires (8 hours). Opening `dashboard.html` without a session goes to the login page, and the dashboard re-checks the user with `GET /api/auth/me` when it loads. Until the first statement is saved, the dashboard shows one "No income statement yet" message, Forecast & budget and KPI targets wait, and warning rules and Business work as usual. The industry list lives in `js/config.js`. The API allows the web app only from `http://127.0.0.1:5500` and `http://localhost:5500` (`Cors:AllowedOrigins` in the API's `appsettings.json`).
+The token is stored in `sessionStorage`, or `localStorage` when Remember me is selected, and sent as `Authorization: Bearer …` on every API call; a `401` signs the user out. The session ends when the token expires (8 hours). Opening `dashboard.html` without a session goes to the login page, and the dashboard re-checks the user with `GET /api/auth/me` when it loads. Until the first statement is saved, the dashboard shows one "No income statement yet" message, Forecast & budget and KPI targets wait, and warning rules and Business work as usual. The industry list lives in `js/config.js`. The API allows the web app only from `http://127.0.0.1:5500` and `http://localhost:5500` (see the [API configuration](../backend/README.md#login)).
 
-**Sign in** with the one account seeded by `database/init/03_seed.sql`; the credentials are in the [root README](../README.md#sign-in).
-
-**This is a temporary development login.** There is exactly one account and it can do everything; there are no roles, no registration, no user management and no password reset or change. One shared account with a known password is not secure: revisit sign-in and permissions before any real use.
+Use the [temporary development login](../README.md#sign-in). The root README owns its credentials and security limitations.
 
 ## Structure
 
@@ -66,7 +58,7 @@ Each page keeps its HTML, CSS and JS in separate files; no inline styles or scri
 
 ## Who can do what
 
-The one signed-in user can open every section and do every action: upload statements, choose the budget, set KPI targets and warning rules, edit the business details and read the reports and the whole activity log. Nothing is read-only and nothing is checked by role in the web app or the API.
+The one signed-in user can open every section and do every action: upload statements, choose the budget, set KPI targets and warning rules, edit the business details and read the reports and the whole activity log. Every section is available after sign-in.
 
 ## Dashboard
 
@@ -103,8 +95,8 @@ One combined report of every year in the history (up to 5) followed by the chose
 | Forecast & budget | See below |
 | Targets & rules | See below |
 | Business | See below |
-| Activity log | What was done and when: uploads, decisions, forecast runs, budget choices and every change to targets, rules and business details, newest first, with before → after values. Sign-in and sign-out are not listed. Filters: area, from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
-| Contact support | "Get in touch" form (name filled in from the signed-in user, then email, topic, message) sent through `POST /api/support`, which emails the support inbox (Mailpit at http://localhost:8025 in development) |
+| Activity log | What was done and when: uploads, forecast runs, budget choices and every change to targets, rules and business details, newest first, with before → after values. Sign-in and sign-out are not listed. Filters: area, from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
+| Contact support | "Get in touch" form (name filled in from the signed-in user, then email, topic, message) sent through `POST /api/support`; delivery is described in the [support API](../backend/README.md#contact-support) |
 
 ## Upload statement
 
@@ -112,21 +104,22 @@ The page reads top to bottom in the order of the work, with a stepper showing **
 
 1. **Choose your file.** "No file yet? Download the template" comes first, then the drop zone. The file rules sit in a collapsed **What the file needs** list.
 2. **Check and save**, in lettered steps: (a) pick the unit the amounts are in, (b) check the category of each line (change it or split it), (c) read our checks; then the history once saved, the confirm tick and **Save statement**. The statement is in use straight away and the dashboard reloads.
+
 After saving, a short confirmation shows what changed in the history, with **Upload another file**.
 
 **Your uploads** stays at the bottom: every version, In use or Replaced.
 
 | Part | What it does |
 |---|---|
-| 1 Choose your file | Drag and drop or browse. Excel (.xlsx) or CSV up to 5 MB; old `.xls`, PDFs and images are refused with a message. **Download the template** (real API only) gives the standard Excel layout. To test, use the sample files below |
-| Reading the file | Finds the first row with at least two year columns (`FY2025`, `2025`, `2024/25`, `Feb 2025`, `Year ended 28 Feb 2025`), sorts years oldest first and keeps the latest 5. Failing that, a **single-year file**: one year heading to the right of the labels with amounts under it. Monthly files are refused for now. Amounts accept brackets, spaces, `R`, commas and dashes (= 0). Scale is detected from `R'000` / `R million` text and confirmed by the user |
+| 1 Choose your file | Drag and drop or browse. Excel (.xlsx) or CSV up to 5 MB; old `.xls`, PDFs and images are refused with a message. **Download the template** gives the standard Excel layout. To test, use the sample files below |
+| Reading the file | Finds the first row with at least two year columns (`FY2025`, `2025`, `2024/25`, `Feb 2025`, `Year ended 28 Feb 2025`), sorts years oldest first and keeps the latest 5. Failing that, a **single-year file**: one year heading to the right of the labels with amounts under it. Monthly workbooks (month columns, usually one sheet per year) are read by the API and added up into financial years; see the [monthly workbook notes](../backend/README.md#monthly-workbooks-management-accounts). Amounts accept brackets, spaces, `R`, commas and dashes (= 0). Scale is detected from `R'000` / `R million` text and confirmed by the user |
 | 2 Check the category of each line | Every line is matched **by label**: known labels map automatically, choices made before are **remembered**, unknown labels must be given a category, and cross-category lines (e.g. "Water & electricity") must be assigned to one category or **split by %** (the user types the %, never guessed). Lines can also be marked "not part of the income statement". Total lines ("Total operating expenses") are skipped |
-| Checks | Years in the file, then the **history once saved** (warning under 3 years, gaps, what the file adds / replaces / pushes out, years a newer upload already covers), blank amounts (treated as 0), unmapped lines and missing revenue (both block sending), and the sheet's subtotals vs our recalculation (per subtotal row, with the difference) |
+| Checks | Years in the file, the sheets read and the sheets not used with the reason (multi-sheet workbooks), then the **history once saved** (warning under 3 years, gaps, what the file adds / replaces / pushes out, years a newer upload already covers), blank amounts (treated as 0), unmapped lines and missing revenue (both block sending), and the sheet's subtotals vs our recalculation (per subtotal row, with the difference) |
 | History once saved | One column per year of the combined history: "This file" (new year, or which upload it replaces) or the saved upload the year keeps coming from |
 | Save statement | Needs every line mapped and the confirm tick. The file's years join the history at once; older uploads whose years are all covered become Replaced. User choices are remembered for the next upload |
 | Your uploads | Every version with its years, who uploaded it and when, and its status: **In use** (with the years of the history it provides, e.g. "Used for FY2022–FY2025", or that it falls outside the latest 5 years) or **Replaced** (with the upload that replaced it) |
 
-**Combining uploads.** Active uploads add up to one history, the same rule as the Python forecasting service (`forecasting/app/forecasting.py`): a newer upload adds its years, and where two uploads cover the same year the **more recently submitted upload wins**. Only the latest 5 years are used. An active upload becomes **Replaced** (`superseded`) when newer active uploads cover every one of its years; a partly covered upload stays in use. The dashboard's income statement as uploaded follows the newest upload's layout; lines only older uploads have are slotted in, and a line missing from a year's upload shows a dash. The helpers are pure functions in `js/importer.js` (`planHistory`, `historyChange`, `combineUploads`); the C# API marks covered uploads as replaced. Python merges per category and year, so the C# importer should save all 13 categories for every year of an upload (0 where there are no lines), so that a newer upload's year fully replaces an older one there too.
+**Combining uploads.** Active uploads add up to one history: a newer upload adds its years, and where two uploads cover the same year the **more recently submitted upload wins**. Only the latest 5 years are used. An active upload becomes **Replaced** (`superseded`) when newer active uploads cover every one of its years; a partly covered upload stays in use. The dashboard's income statement as uploaded follows the newest upload's layout; lines only older uploads have are slotted in, and a line missing from a year's upload shows a dash. The helpers are pure functions in `js/importer.js` (`planHistory`, `historyChange`, `combineUploads`); the C# API marks covered uploads as replaced. The C# API combines active amounts before calling Python. See the [API upload contract](../backend/README.md#uploads) for how category totals are saved and the [data model](../database/README.md#income-statement-uploads) for stored history.
 
 The file is read on the server (`POST /api/submissions/preview`, C# + ClosedXML, remembered mappings applied there); the mapping screen stays in the browser and only the mapped rows are sent. Category totals and subtotal checks come from the API: with the preview, then from `POST /api/submissions/check` after each mapping or scale change once every line has a category (an older answer is dropped when a newer change was made). Endpoints: `POST /api/submissions/preview`, `POST /api/submissions/check`, `GET /api/submissions/template`, `POST /api/submissions`, `GET /api/submissions`.
 
@@ -153,7 +146,7 @@ The page is four labelled steps in order:
 |---|---|
 | 1 Set up and run | Three predictions: **Steady** (last 3 years, smoothing weight 0.3), **Balanced** (last 3 years, weight 0.5, the default) and **Recent** (last 2 years, weight 0.7). How far ahead is still 1, 2 or 3 years. **Run forecasts** runs both methods once (one saved run each). Changing a setting shows "Settings changed" until you run again. The exact window and weight are shown under the prediction and stored on the activity log |
 | How the two methods work (collapsed in step 1) | Moving Average says it adds the last 2 or 3 years and divides, each year counting the same. Exponential Smoothing follows the prediction: **Steady** keeps older years in the picture, **Balanced** lets recent years count more without following only the latest year, **Recent** follows the latest years. An honest note says forecasts are **flat** (years 2–3 repeat year 1, no growth or inflation added) and how many categories come out below last year |
-| 2 Compare: chart | Line chart for one category or total: actual figures (navy, solid), Moving Average (blue, dashed), Exponential Smoothing (sky, dashed) and their average (muted, dotted) starting from the last actual year. Pick it from the dropdown or click a table row |
+| 2 Compare: chart | Line chart for one category or total: actual figures (`--text`, solid), Moving Average (blue, dashed), Exponential Smoothing (sky, dashed) and their average (muted, dotted) starting from the last actual year. Pick it from the dropdown or click a table row |
 | 2 Compare: every category side by side | Every category and subtotal: last actual year, both forecasts and their average, each with the % change (green = better for the business, red = worse). Team-managed categories (revenue, employee costs) are tagged |
 | 3 Check the economic warnings | Each active warning rule (starting with one per external indicator: headline CPI, core CPI, electricity price, fuel price at 6 / 6 / 10 / 10%; set in Targets & rules) checked against the latest indicator year inside the history. A warning lists the categories to review and is also shown on those rows of the table. **Warnings never change the figures** |
 | 4 Choose your budget | Three cards: **Moving Average**, **Exponential Smoothing** or **Both (average)** = (MA + ES) ÷ 2 per category, one number from both (revenue, total expenses, net profit on each). **Use as budget** saves the choice; it is the budget at once and sets the Budget column of the dashboard's processed statement straight away (badge "Chosen budget"). Both forecasts are always kept, so there is no need to re-run to compare |
@@ -171,7 +164,7 @@ The page is two labelled steps: **1 Set KPI targets** (pick what to track and th
 | Warning rules | One card per rule: on/off switch, name, indicator, linked categories, the **Warn above** threshold and a live preview of what it means for the latest indicator value in the history ("6.3% in 2024, above 6%, so it warns"). Typing a new threshold shows **Save** / **Undo** (Enter saves). Rules that have raised alerts can only be switched off (lock icon); added rules can be deleted |
 | Add another warning rule (collapsed) | Indicator, threshold and an optional name (suggested from the indicator and threshold); a rule name can only be used once. Several rules per indicator are allowed (e.g. a second fuel rule at 5%) |
 
-Rule changes update the economic warnings in Forecast & budget straight away; they never change the figures. Endpoints: `GET/POST /api/kpi-targets`, `PUT/DELETE /api/kpi-targets/{id}` (`{ metric_name, target_value, measurement_unit: "rand" | "percent", target_period }`, period = first day of the financial year; unique per unit, metric and period) and `GET/POST /api/rules`, `PUT/DELETE /api/rules/{id}` (`{ rule_name, indicator_code, threshold_value, active_status }`; rules belong to the business; `deletable` is false once a rule has raised an alert, and `DELETE` then answers 409). The rules' latest values come from `GET /api/indicators/series`; `buildIndicatorWarnings` in `js/forecast.js` checks them against the history years (see `../backend/README.md`).
+Rule changes update the economic warnings in Forecast & budget straight away; they never change the figures. Endpoints: `GET/POST /api/kpi-targets`, `PUT/DELETE /api/kpi-targets/{id}` (`{ metric_name, target_value, measurement_unit: "rand" | "percent", target_period }`, period = first day of the financial year; unique per unit, metric and period) and `GET/POST /api/rules`, `PUT/DELETE /api/rules/{id}` (`{ rule_name, indicator_code, threshold_value, active_status }`; rules belong to the business; `deletable` is false once a rule has raised an alert, and `DELETE` then answers 409). The rules' latest values come from `GET /api/indicators/series`; `buildIndicatorWarnings` in `js/forecast.js` checks them against the history years (see the [API reference](../backend/README.md#kpi-targets-and-warning-rules)).
 
 ## Business
 
@@ -179,11 +172,11 @@ Rule changes update the economic warnings in Forecast & budget straight away; th
 |---|---|
 | Business details | Registered name (required, shown in the sidebar straight away), industry (optional, picked from a list of SA SME sectors or "Other"), financial year-end month, plus country (South Africa) and how it's budgeted (Whole company, Rand) shown read-only. **Save** / **Undo** appear once something changes. The year-end is **locked once an income statement is uploaded or a KPI target is set**, because every financial year label and target date depends on it |
 
-This section uses the C# API (endpoints in `../backend/README.md`).
+This section uses the [Business API](../backend/README.md#business).
 
 ## Colour palette (dark theme)
 
-The app always uses one dark theme in soft charcoal slate. There is no light mode and no toggle, and it ignores the operating system's setting. `:root` sets `color-scheme: dark`, so native inputs, selects, date pickers and scrollbars are dark too, and `scrollbar-color` tints the scrollbars.
+The screen uses one permanent dark theme in soft charcoal slate, independent of the operating system's theme setting. `:root` sets `color-scheme: dark`, so native inputs, selects, date pickers and scrollbars are dark too, and `scrollbar-color` tints the scrollbars.
 
 **Rule: every colour lives in `css/base.css`.** Page CSS and JS use only the variables (the forecast chart reads them with `getComputedStyle`). CI rejects a hex colour in any other CSS file.
 
@@ -217,3 +210,21 @@ Text uses the system UI font (`--font`). Amounts, statement figures and metric v
 ## Look
 
 Panels, fields and buttons sit a step lighter than the charcoal page, with a 1px border (`--line` in `base.css`, and the old `--neu-*` names now point at that same line). Corners are 8px on panels and 6px on buttons and fields. Keyboard focus draws a 2px accent outline. Colour on a figure means something: green is better for the business, red is worse, amber means check it (off track or out of date). The login card uses the same border.
+
+## Frontend checks
+
+The [CI workflow](../.github/workflows/ci.yml) checks frontend syntax and file separation:
+
+| Check | Scope |
+|---|---|
+| JavaScript syntax | Node.js 24 runs `node --check` on every `frontend/js/*.js` file |
+| CSS colours | Hex colours in `frontend/css/*.css` are allowed only in `base.css` |
+| HTML separation | `frontend/*.html` is checked for `style=`, `<style` and bare `<script>` tags; page code lives in separate CSS and JavaScript files |
+
+Run the same syntax check locally from the repository root when Node.js is available:
+
+```bash
+for file in frontend/js/*.js; do
+  node --check "$file"
+done
+```
