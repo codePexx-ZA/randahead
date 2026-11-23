@@ -68,7 +68,7 @@ graph LR
 | [`forecasting/`](forecasting/README.md) | Python, FastAPI | 5090 | Moving Average and Exponential Smoothing forecasts per category; called by the API only |
 | [`frontend/`](frontend/README.md) | HTML, CSS, JavaScript | 5500 (static file server, outside Compose) | Login page + single-page app: dashboard, reports, upload, forecast & budget, targets & rules, business, activity log |
 | `samples/` | Excel | | Fictional income statements for testing uploads (see [Upload statement](frontend/README.md#upload-statement)) |
-| Mailpit (development only) | Mailpit | 8025 / 1025 | Catches the API's emails (support messages) so nothing is sent for real |
+| Mailpit (development only) | Mailpit | 8025 / 1025 | Catches support email when `MAIL_SMTP_HOST` is unset. The message is also stored in the activity log. A real inbox needs the SMTP settings in `.env` |
 
 **Design rules**
 

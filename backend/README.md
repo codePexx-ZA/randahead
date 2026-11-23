@@ -114,7 +114,7 @@ A **statement table** is `{ years, totals: { category: [one per year] }, subtota
 
 On save the API stores the rows exactly as in the file (`submission_row`), one `financial_line_item` per category per year (all 13 categories; amount = sum of the mapped lines × split % × scale, as a positive figure) and the user's choices as remembered mappings (`import_mapping`). `import_method` is `mapped_import` when any line was mapped by hand, otherwise `template`.
 
-**Version history.** A saved upload is `active`. In the same save, any older active upload whose years are all covered by newer active uploads becomes `superseded` (`supersededBy` names the upload that replaced it); superseded uploads stay on record and are never deleted. For a year in more than one active upload, the newest is used.
+**Version history.** A saved upload is `active`. In the same save, any older upload whose years are all covered by newer uploads becomes `superseded` (`supersededBy` names the upload that replaced it). For a year in more than one active upload, the newest is used. `DELETE /api/submissions/{id}` removes that upload and recalculates which remaining uploads are in use. When it was the last upload, the unit's forecasts and chosen budget are removed too. `404` when the upload is not in the caller's unit.
 ## Forecasts and budgets
 
 Forecasts run in the Python service (`ForecastService:BaseUrl`, `http://localhost:5090/` for `dotnet run`, `http://forecast:8000/` in Docker Compose); the Python service only calculates. This API loads the unit's active history, sends it with the settings, and saves the two `forecast_run` rows and their `forecast_value` rows itself, in the same save as the audit entry. Each run stores `history_updated_at`, the time of the unit's newest active upload when the forecast was made. Runs come back in snake_case: `{ run_id, unit_id, forecasting_method, history_start, history_end, parameters, created_at, values: [{ category, display_name, forecast_period, baseline_amount, adjusted_amount }] }`, Moving Average first, inside `{ runs, comparison, matchesHistory }`. `matchesHistory` is false when a later upload has been saved, including a correction of an earlier year. Everything is limited to the caller's business unit.
@@ -161,11 +161,11 @@ Figures come from `Services/StatementFigures.cs` (shared by both endpoints, alon
 
 ## Activity log
 
-Every upload, decision, forecast run, budget choice and change to targets, rules and business details adds an `audit_log` row through `Services/AuditLog.cs`, in the same save as the change. Sign-in, a failed sign-in and sign-out do not. A forecast run records the prediction name (Steady, Balanced or Recent) when it matches one, plus the moving-average window and the smoothing weight. Edits record only the fields that changed (`{ field, before, after }`). Rows are never edited or deleted.
+Every upload, deletion, decision, forecast run, budget choice, support message and change to targets, rules and business details adds an `audit_log` row through `Services/AuditLog.cs`, in the same save as the change. Sign-in, a failed sign-in and sign-out do not. A forecast run records the prediction name (Steady, Balanced or Recent) when it matches one, plus the moving-average window and the smoothing weight. Edits record only the fields that changed (`{ field, before, after }`). Rows are never edited or deleted.
 
 | Endpoint | Who | Query | Returns |
 |---|---|---|---|
-| `GET /api/audit` | Signed-in user | `area` (`upload`, `forecast`, `budget`, `target`, `rule`, `business`), `from`, `to` (dates, South African time) | `{ more, entries: [{ id, at, who, area, action, summary, details }] }`, newest first, at most 200 (`more` is `true` when older rows exist); `400` unknown area or `from` after `to` |
+| `GET /api/audit` | Signed-in user | `area` (`upload`, `forecast`, `budget`, `target`, `rule`, `business`, `ai`, `support`), `from`, `to` (dates, South African time) | `{ more, entries: [{ id, at, who, area, action, summary, details }] }`, newest first, at most 200 (`more` is `true` when older rows exist); the default list leaves out `ai`; `400` unknown area or `from` after `to` |
 
 ## Contact support
 

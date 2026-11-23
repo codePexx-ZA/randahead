@@ -376,7 +376,7 @@ function renderUploads() {
 
     const remove = upload.confirmId === u.id
       ? confirmDelete("Delete this upload?", "upload", u.id)
-      : html`<button type="button" class="icon-btn danger" data-action="ask-delete-upload" data-id="${u.id}" title="Delete" aria-label="Delete upload"><i class="fas fa-trash-can"></i></button>`;
+      : html`<button type="button" class="btn-danger btn-small" data-action="ask-delete-upload" data-id="${u.id}">Delete</button>`;
     return html`<tr class="${u.id === highlightId ? "row-new" : ""}">
       <td><i class="fas fa-file-lines file-icon"></i>${u.fileName}</td>
       <td>${yearList(uploadPeriods(u))}</td>

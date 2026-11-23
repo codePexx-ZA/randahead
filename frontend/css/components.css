@@ -172,6 +172,19 @@
   z-index: 2;
 }
 
+#processedTable {
+  table-layout: fixed;
+}
+
+#processedTable th:first-child,
+#processedTable td:first-child,
+#processedTable .cat-sources {
+  width: 280px;
+  max-width: 280px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .row-subtotal td:first-child {
   background: var(--surface-hover);
 }
