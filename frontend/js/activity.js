@@ -72,6 +72,28 @@ function renderActivity() {
     <tbody>${entries.map(acRowHtml)}</tbody>`;
 }
 
+function renderAi(entries) {
+  const report = entries.find((entry) => entry.action === "report");
+  const names = entries.filter((entry) => entry.action === "categorised");
+  const note = document.getElementById("aiReport");
+  note.innerHTML = report
+    ? html`<i class="fas fa-circle-info"></i><span>${report.summary}</span>`
+    : html`<i class="fas fa-circle-info"></i><span>The Sunday 23:59 report appears here after the first classified name.</span>`;
+
+  const table = document.getElementById("aiTable");
+  if (!names.length) {
+    table.innerHTML = emptyRow("No names yet. AI runs only when an upload has a label the importer does not recognise.");
+    return;
+  }
+  table.innerHTML = html`<thead><tr><th>When</th><th>Name</th><th>Category</th></tr></thead>
+    <tbody>${names.map((entry) => {
+      const at = new Date(entry.at);
+      const category = entry.details.find((detail) => detail.field === "Category")?.after || "";
+      const label = entry.summary.split(" → ")[0];
+      return html`<tr class="ac-row"><td class="ac-when">${acDateFormat.format(at)}<small>${acTimeFormat.format(at)}</small></td><td>${label}</td><td>${category}</td></tr>`;
+    })}</tbody>`;
+}
+
 async function refreshActivity() {
   const filters = acFilters();
   if (filters.from && filters.to && filters.from > filters.to) {
@@ -83,9 +105,10 @@ async function refreshActivity() {
 
   const request = ++ac.request;
   try {
-    const data = await getActivity(filters);
+    const [data, ai] = await Promise.all([getActivity(filters), getActivity({ area: "ai" })]);
     if (request !== ac.request) return;
     ac.data = data;
+    renderAi(ai.entries);
     renderActivity();
   } catch (err) {
     if (request !== ac.request) return;

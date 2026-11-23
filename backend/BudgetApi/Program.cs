@@ -79,6 +79,12 @@ builder.Services.AddHttpClient<ForecastClient>(client =>
     client.BaseAddress = new Uri(builder.Configuration["ForecastService:BaseUrl"] ?? "http://localhost:5090/");
     client.Timeout = TimeSpan.FromSeconds(30);
 });
+builder.Services.AddHttpClient<LineCategoriser>(client =>
+{
+    client.BaseAddress = new Uri("https://api.deepseek.com/");
+    client.Timeout = TimeSpan.FromSeconds(45);
+});
+builder.Services.AddHostedService<AiImporterReportService>();
 builder.Services.AddScoped<RuleEngine>();
 builder.Services.AddScoped<IngestionService>();
 

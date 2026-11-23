@@ -304,7 +304,7 @@
                   <i class="fas fa-cloud-arrow-up"></i>
                   <strong>Drag your income statement here</strong>
                   <span>or <span class="dropzone-link">browse your files</span></span>
-                  <small>Excel (.xlsx) or CSV, up to 5 MB</small>
+                  <small>Excel (.xlsx) or CSV, up to 32 MB</small>
                 </label>
 
                 <details class="more upload-help">
@@ -329,6 +329,7 @@
                     <h2><span id="previewFile"></span></h2>
                     <p class="panel-meta" id="previewMeta"></p>
                   </div>
+                  <span class="badge" id="previewAi"></span>
                 </header>
 
                 <div class="check-step">
@@ -721,6 +722,20 @@
         </section>
 
         <section class="view" id="view-activity" data-title="Activity log" data-subtitle="Everything done in RandAhead">
+          <article class="panel" id="aiActivity">
+            <header class="panel-header">
+              <div>
+                <h2>AI API activity</h2>
+                <p class="panel-meta">Account names the model categorised, and the Sunday report of names still missing from the importer.</p>
+              </div>
+            </header>
+            <p class="panel-note" id="aiReport"></p>
+            <div class="table-wrap">
+              <table class="uploads-table ac-table" id="aiTable">
+                <tbody><tr class="row-loading"><td></td></tr></tbody>
+              </table>
+            </div>
+          </article>
           <article class="panel">
             <header class="panel-header">
               <div>

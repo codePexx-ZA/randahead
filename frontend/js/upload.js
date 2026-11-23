@@ -8,7 +8,7 @@ import { emit, on, reloadUploads, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
 import { checksHtml, chip, emptyRow, headingRow, html, raw, sheetCells, withBusy } from "./ui.js";
 
-const UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+const UPLOAD_MAX_BYTES = 32 * 1024 * 1024;
 const UPLOAD_TYPES = [".xlsx", ".csv"];
 const TEMPLATE_FILE_NAME = "RandAhead_income_statement_template.xlsx";
 const UNREADABLE_TYPES = [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".tif", ".tiff"];
@@ -53,7 +53,7 @@ async function handleFile(file) {
     return;
   }
   if (file.size > UPLOAD_MAX_BYTES) {
-    showToast("That file is over 5 MB. Remove extra sheets or images and try again.", "error");
+    showToast("That file is over 32 MB. Remove extra sheets or images and try again.", "error");
     return;
   }
 
@@ -123,6 +123,9 @@ function renderPreview() {
 
   document.getElementById("previewFile").textContent = p.fileName;
   document.getElementById("previewMeta").textContent = `${yearList(p.years)} · ${lineCount} lines · ${scaleNote}`;
+  const ai = document.getElementById("previewAi");
+  ai.textContent = p.aiRan ? "AI ran" : "AI did not run";
+  ai.className = p.aiRan ? "badge ok" : "badge";
 
   document.getElementById("scaleSelect").innerHTML = html`${Object.entries(SCALE_LABELS)
     .map(([value, label]) => html`<option value="${value}"${Number(value) === p.scale ? " selected" : ""}>${label}</option>`)}`;

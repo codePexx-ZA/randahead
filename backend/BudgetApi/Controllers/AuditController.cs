@@ -14,7 +14,7 @@ public class AuditController(BudgetDbContext db) : ApiController
 {
     private const int PageSize = 200;
     private static readonly TimeSpan SouthAfrica = TimeSpan.FromHours(2);
-    private static readonly HashSet<string> Areas = ["upload", "forecast", "budget", "target", "rule", "business"];
+    private static readonly HashSet<string> Areas = ["upload", "forecast", "budget", "target", "rule", "business", "ai"];
 
     [HttpGet]
     public async Task<IActionResult> List(
@@ -36,10 +36,7 @@ public class AuditController(BudgetDbContext db) : ApiController
 
         var businessId = caller.Unit!.BusinessId;
         var query = db.AuditEntries.AsNoTracking().Where(e => e.BusinessId == businessId);
-        if (area is not null)
-        {
-            query = query.Where(e => e.Area == area);
-        }
+        query = area is not null ? query.Where(e => e.Area == area) : query.Where(e => e.Area != "ai");
         if (from is { } start)
         {
             var since = StartOfDay(start);

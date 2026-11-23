@@ -1,6 +1,6 @@
 # AI line matching and paid plans (planned, not built)
 
-Status: **idea, waiting on month-end budget** (noted 2026-11-22). Nothing here is implemented.
+Status: **classifier running** (2026-11-23). Upload sends unrecognised labels only to DeepSeek V4.1 Flash. The page shows whether the call ran. AI API activity lists each name and category. A report of names still outside the importer is written at 23:59 on Sundays, South African time.
 
 ## Intention
 After the code importer reads a workbook, send only the lines it could not categorise to an AI model, show the suggestions on the normal review screen, and let the user confirm. The user sees a short "Checking your lines…" step, then the review screen with suggestions filled in. Charge users for RandAhead so subscriptions cover the (small) API cost and more.

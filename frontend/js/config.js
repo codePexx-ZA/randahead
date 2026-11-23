@@ -1,6 +1,6 @@
 
 export const CONFIG = {
-  API_BASE: "http://localhost:5080/api",
+  API_BASE: location.hostname === "randahead.pexxindustries.dev" ? "/api" : "http://localhost:5080/api",
 };
 
 export const INDUSTRIES = [

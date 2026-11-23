@@ -52,11 +52,11 @@ public record SubmissionView(
 [ApiController]
 [Route("api/submissions")]
 [Authorize]
-public partial class SubmissionsController(BudgetDbContext db, BusinessScope scope, AuditLog audit) : ApiController
+public partial class SubmissionsController(BudgetDbContext db, BusinessScope scope, AuditLog audit, LineCategoriser lines) : ApiController
 {
     private const int MaxYears = StatementImporter.MaxYears;
     private const int MaxRows = StatementImporter.MaxRows;
-    private const long MaxFileBytes = 5 * 1024 * 1024;
+    private const long MaxFileBytes = 32 * 1024 * 1024;
     private const decimal MaxRandAmount = 10_000_000_000_000m;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> RowKinds = ["heading", "line", "subtotal", "total"];
@@ -98,7 +98,7 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
             _ when file is null || file.Length == 0 => "Choose a file to upload.",
             _ when extension == ".xls" => "Old .xls files can't be read. Open the file in Excel and save it as .xlsx (or .csv).",
             _ when extension is not (".xlsx" or ".csv") => "Please choose an Excel (.xlsx) or CSV file.",
-            _ when file.Length > MaxFileBytes => "That file is over 5 MB. Remove extra sheets or images and try again.",
+            _ when file.Length > MaxFileBytes => "That file is over 32 MB. Remove extra sheets or images and try again.",
             _ => null,
         };
         if (problem is not null)
@@ -112,7 +112,8 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
         stream.Position = 0;
         try
         {
-            return Ok(StatementImporter.Read(stream, Path.GetFileName(file.FileName), remembered, caller.Unit!.Business!.YearEndMonth));
+            var preview = StatementImporter.Read(stream, Path.GetFileName(file.FileName), remembered, caller.Unit!.Business!.YearEndMonth);
+            return Ok(await lines.ApplyAsync(preview, caller, cancellationToken));
         }
         catch (StatementImportException error)
         {

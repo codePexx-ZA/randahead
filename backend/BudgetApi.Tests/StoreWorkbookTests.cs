@@ -150,6 +150,89 @@ public class StoreWorkbookTests
         Assert.Equal(expected, line.Mapping!.Category ?? line.Mapping.Type);
     }
 
+    [Theory]
+    [InlineData("Operating Costs / Cost of Sales", "cost_of_sales")]
+    [InlineData("Franchise Fee", "other_operating")]
+    [InlineData("Head Office Monthly Fee", "other_operating")]
+    [InlineData("Courier & Postage", "other_operating")]
+    [InlineData("Cash Solutions", "other_operating")]
+    [InlineData("Electricity & Water", "electricity")]
+    public void Read_ManagementAccountPhrases_TakeOneCategory(string label, string expected)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("IS");
+        sheet.Cell(1, 2).Value = "FY2024";
+        sheet.Cell(1, 3).Value = "FY2025";
+        sheet.Cell(2, 1).Value = "Sales";
+        sheet.Cell(3, 1).Value = label;
+        foreach (var row in new[] { 2, 3 })
+        {
+            sheet.Cell(row, 2).Value = 100;
+            sheet.Cell(row, 3).Value = 100;
+        }
+
+        var line = Read(Save(workbook)).Rows.Single(r => r.Label == label);
+
+        Assert.Equal(expected, line.Mapping!.Category);
+        Assert.Equal("auto", line.Status);
+    }
+
+    [Fact]
+    public void Read_PrefixedProfitLabels_AreTheProfitSubtotals()
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("IS");
+        sheet.Cell(1, 2).Value = "FY2025";
+        object[][] rows =
+        [
+            ["Sales", 100],
+            ["Cost of Sales", 40],
+            ["GP GROSS PROFIT / (LOSS)", 60],
+            ["NPAT NET PROFIT / (LOSS) AFTER TAX", 60],
+        ];
+        for (var r = 0; r < rows.Length; r++)
+        {
+            sheet.Cell(r + 2, 1).Value = (string)rows[r][0];
+            sheet.Cell(r + 2, 2).Value = (int)rows[r][1];
+        }
+
+        var preview = Read(Save(workbook));
+        var labels = preview.Rows.Where(r => r.Kind == "line").Select(r => r.Label).ToList();
+
+        Assert.DoesNotContain("GP GROSS PROFIT / (LOSS)", labels);
+        Assert.DoesNotContain("NPAT NET PROFIT / (LOSS) AFTER TAX", labels);
+        Assert.Equal(["gross_profit", "net_profit"], preview.Rows.Where(r => r.Kind == "subtotal").Select(r => r.Subtotal));
+        Assert.True(preview.Statement!.Checks!["gross_profit"].Matches);
+    }
+
+    [Fact]
+    public void Read_VisibleSummarySheet_DoesNotOverrideTheDetailedYearSheet()
+    {
+        using var workbook = new XLWorkbook();
+        var summary = workbook.AddWorksheet("Data");
+        for (var i = 0; i < 12; i++)
+        {
+            summary.Cell(1, 2 + i).Value = new DateTime(2025, 3, 1).AddMonths(i);
+        }
+        object[][] brief = [["Sales", 100], ["Cost of Sales", 40], ["GROSS PROFIT / (LOSS)", 60], ["Expenses", 10], ["NET PROFIT / (LOSS) BEFORE TAX", 50]];
+        for (var r = 0; r < brief.Length; r++)
+        {
+            summary.Cell(r + 2, 1).Value = (string)brief[r][0];
+            for (var i = 0; i < 12; i++)
+            {
+                summary.Cell(r + 2, 2 + i).Value = (int)brief[r][1];
+            }
+        }
+        StoreSheet(workbook, "Store Feb 2026", 2026, "Accounting Fees - Bma", 12, numericDates: false);
+
+        var preview = Read(Save(workbook));
+
+        Assert.False(preview.Sheets!.Single(s => s.Name == "Data").Used);
+        Assert.Contains("working sheet", preview.Sheets!.Single(s => s.Name == "Data").Detail);
+        Assert.DoesNotContain(preview.Rows, r => r.Label == "Sales");
+        Assert.Contains(preview.Rows, r => r.Label == "Sales - Bank");
+    }
+
     private static StatementPreview Read(MemoryStream file, int yearEndMonth = 2) =>
         StatementImporter.Read(file, "store.xlsx", NoMappings, yearEndMonth);
 

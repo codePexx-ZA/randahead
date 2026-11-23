@@ -87,6 +87,29 @@ public static partial class StatementImporter
             return null;
         }
 
+        // The pack's Data tab is a working summary. The year sheets hold the income statement.
+        var working = statements.Where(s => s.Sheet.Name.Trim().Equals("Data", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (working.Count > 0 && statements.Count > working.Count)
+        {
+            foreach (var st in working)
+            {
+                choices[st.Sheet] = new SheetChoice(st.Sheet.Name, false, "working sheet; the year sheets have the income statement");
+            }
+            statements = statements.Except(working).ToList();
+        }
+
+        // A one-page summary must not take months from the detailed year sheets.
+        var richest = statements.Max(s => s.Lines);
+        if (richest >= 12)
+        {
+            var detailed = statements.Where(s => s.Lines * 2 >= richest).ToList();
+            foreach (var st in statements.Where(s => !detailed.Contains(s)))
+            {
+                choices[st.Sheet] = new SheetChoice(st.Sheet.Name, false, "summary sheet; a more detailed income statement is in this workbook");
+            }
+            statements = detailed;
+        }
+
         // Newest sheet first: when two sheets carry the same month, the newer one wins.
         statements = statements.OrderByDescending(s => s.Filled.Count > 0 ? s.Filled.Max() : (0, 0)).ToList();
         var owner = new Dictionary<(int Year, int Month), SheetStatement>();
@@ -326,7 +349,15 @@ public static partial class StatementImporter
             }
             if (SubtotalPatterns.FirstOrDefault(s => s.Pattern.IsMatch(clean)).Subtotal is { } subtotal)
             {
-                rows.Add(new SourceRow($"subtotal:{subtotal}", p.Label, "subtotal", subtotal, null, p.Values));
+                var subtotalKey = $"subtotal:{subtotal}";
+                if (rows.Any(r => r.Key == subtotalKey))
+                {
+                    skipped += p.HasAmounts ? 1 : 0;
+                }
+                else
+                {
+                    rows.Add(new SourceRow(subtotalKey, p.Label, "subtotal", subtotal, null, p.Values));
+                }
                 hint = null;
                 if (subtotal == IncomeStatement.NetProfit)
                 {

@@ -1,15 +1,33 @@
+# Secrets stay in .env or dotnet user secrets. .env.example keeps the names only.
 .env
+.env.*
+!.env.example
 **/appsettings.*.local.json
+**/appsettings.Production.json
+**/appsettings.Production.*.json
+**/secrets.json
+**/*credentials*.json
+**/*.pem
+**/*.pfx
+**/*.p12
 
 /private/
 *.md
 
+# Real workbooks and exports. The only tracked spreadsheets are the three fictional Karoo samples.
 /data/
 *.xlsx
 *.xls
+*.xlsm
+*.xlsb
 *.csv
-!**/templates/*.xlsx
-!/samples/*.xlsx
+*.ods
+*.sqlite
+*.sqlite3
+*.db
+!/samples/Karoo_Outdoor_IS_FY2021-FY2025.xlsx
+!/samples/Karoo_Outdoor_IS_FY2021-FY2025_draft.xlsx
+!/samples/Karoo_Outdoor_IS_FY2022-FY2026.xlsx
 
 **/bin/
 **/obj/
@@ -29,3 +47,4 @@ dist/
 !.vscode/settings.json
 Thumbs.db
 .DS_Store
+.nuget/

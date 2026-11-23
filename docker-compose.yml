@@ -31,6 +31,7 @@ services:
       ForecastService__BaseUrl: http://forecast:8000/
       Mail__Host: mailpit
       Mail__Port: 1025
+      DeepSeek__ApiKey: ${DEEPSEEK_API_KEY:-}
     ports:
       - "127.0.0.1:5080:8080"
     depends_on:

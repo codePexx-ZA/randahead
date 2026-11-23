@@ -33,7 +33,8 @@ public record StatementPreview(
     StatementTable? Statement,
     SheetChoice[]? Sheets = null,
     string[]? Info = null,
-    string? Title = null
+    string? Title = null,
+    bool AiRan = false
 );
 
 public class StatementImportException(string message) : Exception(message);
@@ -44,7 +45,7 @@ public static partial class StatementImporter
     public const int MaxRows = 500;
     private const int MaxGridRows = 2000;
     private const int MaxGridColumns = 60;
-    private const long MaxUnzippedBytes = 20 * 1024 * 1024;
+    private const long MaxUnzippedBytes = 256 * 1024 * 1024;
     private const int HeaderSearchRows = 40;
 
     private static readonly string[] Months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -56,11 +57,11 @@ public static partial class StatementImporter
         ("cost_of_sales", ["cost of sales", "cost of goods sold", "cost of goods", "cogs", "purchases", "direct costs"]),
         ("employee_costs", ["salaries", "salary", "wages", "staff costs", "employee", "employee costs", "payroll", "uif", "sdl", "paye", "bonuses", "pension", "staff training", "staff welfare", "staff wellfare", "directors fees", "remuneration", "human resources"]),
         ("occupancy", ["rent", "rental", "rates", "lease", "occupancy", "property"]),
-        ("electricity", ["electricity", "eskom", "prepaid electricity"]),
+        ("electricity", ["electricity", "eskom", "prepaid electricity", "electricity and water"]),
         ("other_utilities", ["water", "telephone", "internet", "telecoms", "telecommunications", "cellphone", "utilities", "other utilities", "wifi", "fax"]),
         ("transport_fuel", ["fuel", "petrol", "diesel", "delivery", "motor vehicle", "vehicle", "transport", "courier", "travel"]),
         ("marketing", ["advertising", "marketing", "promotions", "promotion", "social media"]),
-        ("other_operating", ["other operating expenses", "admin", "administration", "bank charges", "repairs", "maintenance", "insurance", "stationery", "printing", "postage", "accounting", "accounting fees", "audit fees", "legal fees", "professional fees", "consulting fees", "secretarial fees", "computer expenses", "cleaning", "security", "consumables", "licence", "license", "licences", "subscriptions", "sundry expenses", "general expenses", "bad debts", "donations", "entertainment", "levies", "leasing charges", "discount allowed"]),
+        ("other_operating", ["other operating expenses", "admin", "administration", "bank charges", "repairs", "maintenance", "insurance", "stationery", "printing", "postage", "courier and postage", "accounting", "accounting fees", "audit fees", "legal fees", "professional fees", "consulting fees", "secretarial fees", "computer expenses", "cleaning", "security", "cash solutions", "consumables", "licence", "license", "licences", "subscriptions", "sundry expenses", "general expenses", "bad debts", "donations", "entertainment", "levies", "leasing charges", "discount allowed", "franchise fee", "franchise fees", "head office"]),
         ("depreciation", ["depreciation", "amortisation", "amortization"]),
         ("finance_costs", ["interest paid", "interest expense", "finance costs", "finance charges", "interest on overdraft", "interest on loan"]),
         ("income_tax", ["income tax", "tax", "taxation", "sars", "company tax"]),
@@ -69,9 +70,9 @@ public static partial class StatementImporter
     private static readonly (string Subtotal, Regex Pattern)[] SubtotalPatterns =
     [
         (IncomeStatement.ProfitBeforeTax, new Regex(@"\b(profit|loss)\b.*\bbefore (income )?tax")),
-        (IncomeStatement.GrossProfit, new Regex(@"^gross (profit|loss|margin)")),
+        (IncomeStatement.GrossProfit, new Regex(@"^(?:[a-z]{2,4}\s+)?gross (profit|loss|margin)")),
         (IncomeStatement.OperatingProfit, new Regex(@"^(operating (profit|loss|income)|(profit|loss) from operations|ebit)\b")),
-        (IncomeStatement.NetProfit, new Regex(@"^(net (profit|loss|income)|(profit|loss)( loss)? (for the (year|period)|after tax))")),
+        (IncomeStatement.NetProfit, new Regex(@"^(?:[a-z]{2,4}\s+)?(net (profit|loss|income)|(profit|loss)( loss)? (for the (year|period)|after tax))")),
     ];
 
     private readonly record struct Cell(string Text, double? Number, DateOnly? Date = null);
@@ -129,6 +130,8 @@ public static partial class StatementImporter
     private static partial Regex MillionsScale();
 
     public static string LabelKey(string label) => Spaces().Replace(label.Trim().ToLowerInvariant(), " ");
+
+    public static bool ImporterCovers(string label) => MatchCategory(LabelKey(label)) is not null;
 
     public static StatementPreview Read(
         Stream stream,
@@ -562,12 +565,9 @@ public static partial class StatementImporter
             return [group];
         }
         var parts = PartSeparator().Split(key.Replace("&", " and ")).Select(CleanText).Where(p => p.Length > 0).ToList();
-        var found = parts.Select(BestKeyword).ToList();
-        if (found.Count == 0 || found.Any(c => c is null))
-        {
-            return null;
-        }
-        return found.Select(c => c!).Distinct().ToArray();
+        var found = parts.Select(BestKeyword).Where(c => c is not null).Select(c => c!).Distinct().ToArray();
+        // "Operating Costs / Cost of Sales" has one recognised part. A section hint must not turn that into revenue.
+        return found.Length == 0 ? null : found;
     }
 
     private static PreviewMapping MappingFromParts(MappingPart[] parts) =>
