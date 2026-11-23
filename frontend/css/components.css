@@ -161,7 +161,11 @@
   position: sticky;
   left: 0;
   z-index: 1;
+  width: 280px;
+  max-width: 280px;
   background: var(--surface);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .statement th:first-child {

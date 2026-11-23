@@ -9,6 +9,7 @@ const AC_AREAS = {
   target: { label: "KPI targets", icon: "fa-bullseye" },
   rule: { label: "Warning rules", icon: "fa-triangle-exclamation" },
   business: { label: "Business details", icon: "fa-building" },
+  support: { label: "Support messages", icon: "fa-headset" },
 };
 const AC_ALERT_ACTIONS = ["deleted", "switched_off"];
 const ac = { data: null, request: 0 };

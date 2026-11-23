@@ -220,10 +220,10 @@ CREATE TABLE audit_log (
     user_id     VARCHAR(32)  REFERENCES app_user (user_id) ON DELETE SET NULL,
     user_name   VARCHAR(200) NOT NULL,
     area        VARCHAR(20)  NOT NULL
-                CHECK (area IN ('upload', 'forecast', 'budget', 'target', 'rule', 'business', 'ai')),
+                CHECK (area IN ('upload', 'forecast', 'budget', 'target', 'rule', 'business', 'ai', 'support')),
     action      VARCHAR(20)  NOT NULL
                 CHECK (action IN ('uploaded', 'ran', 'chosen', 'added', 'changed',
-                                  'switched_off', 'switched_on', 'deleted', 'categorised', 'report')),
+                                  'switched_off', 'switched_on', 'deleted', 'categorised', 'report', 'sent')),
     summary     VARCHAR(500) NOT NULL,
     details     JSONB,
     occurred_at TIMESTAMPTZ  NOT NULL DEFAULT now()

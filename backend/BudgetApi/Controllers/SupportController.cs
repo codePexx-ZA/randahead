@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using BudgetApi.Data;
 using BudgetApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +17,7 @@ public record SupportRequest(
 [ApiController]
 [Route("api/support")]
 [Authorize]
-public class SupportController(Mailer mailer) : ApiController
+public class SupportController(BudgetDbContext db, Mailer mailer, AuditLog audit) : ApiController
 {
     private const int MaxMessageLength = 2000;
     private static readonly string[] Topics =
@@ -61,14 +62,17 @@ public class SupportController(Mailer mailer) : ApiController
 
             {message}
             """;
+        audit.Add(caller, "support", "sent", $"Support message: {topic}", [
+            new AuditChange("From", null, $"{name} <{email}>"),
+            new AuditChange("Message", null, message),
+        ]);
+        await db.SaveChangesAsync(cancellationToken);
         var sent = await mailer.SendAsync(mailer.SupportTo, $"Support: {topic} ({business.LegalName})", body, cancellationToken, email);
-        if (!sent)
+        return Ok(new
         {
-            return StatusCode(
-                StatusCodes.Status503ServiceUnavailable,
-                new { message = "Your message couldn't be sent right now. Try again in a few minutes." }
-            );
-        }
-        return Ok(new { message = "Message sent. We'll get back to you within one business day." });
+            message = sent
+                ? $"Message sent to {mailer.SupportTo}. We'll get back to you within one business day."
+                : "Message saved in the activity log. Email delivery is not set up on this server yet.",
+        });
     }
 }

@@ -91,12 +91,12 @@ One combined report of every year in the history (up to 5) followed by the chose
 
 | Section | What it does |
 |---|---|
-| Upload statement | See below |
+| Upload statement | See below. The upload history has a delete button. Deleting the last upload also clears that business's forecasts and chosen budget |
 | Forecast & budget | See below |
 | Targets & rules | See below |
 | Business | See below |
-| Activity log | What was done and when: uploads, forecast runs, budget choices and every change to targets, rules and business details, newest first, with before → after values. Sign-in and sign-out are not listed. Filters: area, from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
-| Contact support | "Get in touch" form (name filled in from the signed-in user, then email, topic, message) sent through `POST /api/support`; delivery is described in the [support API](../backend/README.md#contact-support) |
+| Activity log | What was done and when: uploads, forecast runs, budget choices, support messages and every change to targets, rules and business details, newest first, with before → after values. Sign-in and sign-out are not listed. Filters: area, from and to dates. Shows the newest 200 matching entries; entries can't be edited or deleted |
+| Contact support | "Get in touch" form (name filled in from the signed-in user, then email, topic, message) sent through `POST /api/support` and kept in the activity log; delivery is described in the [support API](../backend/README.md#contact-support) |
 
 ## Upload statement
 

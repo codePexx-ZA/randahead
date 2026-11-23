@@ -29,8 +29,13 @@ services:
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=sme_budget;Username=budget;Password=${POSTGRES_PASSWORD}
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env (copy .env.example)}
       ForecastService__BaseUrl: http://forecast:8000/
-      Mail__Host: mailpit
-      Mail__Port: 1025
+      Mail__Host: ${MAIL_SMTP_HOST-mailpit}
+      Mail__Port: ${MAIL_SMTP_PORT:-1025}
+      Mail__EnableSsl: ${MAIL_SMTP_SSL:-false}
+      Mail__Username: ${MAIL_SMTP_USERNAME:-}
+      Mail__Password: ${MAIL_SMTP_PASSWORD:-}
+      Mail__From: "${MAIL_FROM:-RandAhead <no-reply@randahead.local>}"
+      Mail__SupportTo: ${MAIL_SUPPORT_TO:-support@randahead.local}
       DeepSeek__ApiKey: ${DEEPSEEK_API_KEY:-}
     ports:
       - "127.0.0.1:5080:8080"

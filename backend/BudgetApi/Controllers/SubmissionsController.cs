@@ -272,17 +272,55 @@ public partial class SubmissionsController(BudgetDbContext db, BusinessScope sco
 
     internal static void SupersedeCovered(List<BudgetSubmission> newestFirst)
     {
-        var active = newestFirst.Where(s => s.Status == "active").ToList();
         var covered = new HashSet<DateOnly>();
-        foreach (var submission in active)
+        foreach (var submission in newestFirst)
         {
             var periods = Periods(submission);
             if (covered.Count > 0 && periods.All(covered.Contains))
             {
                 submission.Status = "superseded";
             }
-            covered.UnionWith(periods);
+            else
+            {
+                submission.Status = "active";
+                covered.UnionWith(periods);
+            }
         }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
+    {
+        var caller = Caller;
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await scope.LockUnitAsync(caller.UnitId, cancellationToken);
+        var submission = await db.BudgetSubmissions
+            .FirstOrDefaultAsync(s => s.SubmissionId == id && s.UnitId == caller.UnitId, cancellationToken);
+        if (submission is null)
+        {
+            return NotFound(new { message = "That upload no longer exists." });
+        }
+
+        db.BudgetSubmissions.Remove(submission);
+        var remaining = (await LoadAsync(caller.UnitId, tracked: true, cancellationToken))
+            .Where(s => s.SubmissionId != submission.SubmissionId)
+            .ToList();
+        SupersedeCovered(remaining);
+        if (remaining.Count == 0)
+        {
+            var budgets = await db.BudgetSelections.Where(b => b.UnitId == caller.UnitId).ToListAsync(cancellationToken);
+            db.BudgetSelections.RemoveRange(budgets);
+            await db.SaveChangesAsync(cancellationToken);
+            var runs = await db.ForecastRuns.Where(r => r.UnitId == caller.UnitId).ToListAsync(cancellationToken);
+            db.ForecastRuns.RemoveRange(runs);
+        }
+        audit.Add(caller, "upload", "deleted", $"Deleted {submission.SourceFileName ?? "an upload"}");
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        var cleared = remaining.Count == 0;
+        return Ok(new { message = cleared
+            ? "Upload deleted. Forecasts and the chosen budget were cleared."
+            : "Upload deleted." });
     }
 
     private static SubmissionView View(BudgetSubmission s, List<BudgetSubmission> all, int yearEndMonth)

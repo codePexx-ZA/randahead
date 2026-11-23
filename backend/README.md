@@ -173,7 +173,7 @@ Every upload, decision, forecast run, budget choice and change to targets, rules
 |---|---|---|---|
 | `POST /api/support` | Signed-in user | `{ name, email, topic, message }`; `topic` is one of "Uploading a statement", "Forecasts and budgets", "Account and access", "Something else"; `message` up to 2 000 characters | `200 { message }`; `400` missing name or message, invalid email, unknown topic, message too long; `503` the email couldn't be sent |
 
-Emails the message to `Mail:SupportTo` (`support@randahead.local`; lands in Mailpit in development) with the sender's email as the reply address, plus their business and account. Rate limited to 5 messages per 15 minutes per IP. Not stored in the database.
+Emails the message to `Mail:SupportTo` with the sender's email as the reply address, plus their business and account. The same message is stored in the activity log. When `MAIL_SMTP_HOST` is empty, the API uses Mailpit and the message does not leave the machine. Set `MAIL_SMTP_HOST`, `MAIL_SMTP_PORT`, `MAIL_SMTP_SSL`, `MAIL_SMTP_USERNAME`, `MAIL_SMTP_PASSWORD`, `MAIL_FROM` and `MAIL_SUPPORT_TO` in `.env` to deliver it to a real inbox. Rate limited to 5 messages per 15 minutes per IP.
 
 ## Run
 

@@ -14,7 +14,7 @@ public class AuditController(BudgetDbContext db) : ApiController
 {
     private const int PageSize = 200;
     private static readonly TimeSpan SouthAfrica = TimeSpan.FromHours(2);
-    private static readonly HashSet<string> Areas = ["upload", "forecast", "budget", "target", "rule", "business", "ai"];
+    private static readonly HashSet<string> Areas = ["upload", "forecast", "budget", "target", "rule", "business", "ai", "support"];
 
     [HttpGet]
     public async Task<IActionResult> List(

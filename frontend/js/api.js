@@ -96,6 +96,10 @@ export function submitUpload(payload) {
   return request("/submissions", { method: "POST", body: payload, fallback: "Could not send the upload." });
 }
 
+export function deleteUpload(uploadId) {
+  return request(`/submissions/${encodeURIComponent(uploadId)}`, { method: "DELETE", fallback: "Could not delete the upload." });
+}
+
 export function getLatestBudget() {
   return request("/budgets/latest", { nullOn404: true, fallback: "Could not load the budget." });
 }

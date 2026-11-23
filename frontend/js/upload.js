@@ -1,4 +1,4 @@
-import { checkUpload, downloadTemplate as fetchTemplate, previewUpload, submitUpload as sendUpload } from "./api.js";
+import { checkUpload, deleteUpload, downloadTemplate as fetchTemplate, previewUpload, submitUpload as sendUpload } from "./api.js";
 import { formatDate, randFormat } from "./format.js";
 import {
   MAX_HISTORY_YEARS, SCALE_LABELS, buildSubmissionPayload, checkPreview, describeChange, fileExtension, historyChange,
@@ -6,7 +6,7 @@ import {
 } from "./importer.js";
 import { emit, on, reloadUploads, state, subtotalName } from "./store.js";
 import { showToast } from "./toast.js";
-import { checksHtml, chip, emptyRow, headingRow, html, raw, sheetCells, withBusy } from "./ui.js";
+import { checksHtml, chip, confirmDelete, emptyRow, headingRow, html, raw, sheetCells, withBusy } from "./ui.js";
 
 const UPLOAD_MAX_BYTES = 32 * 1024 * 1024;
 const UPLOAD_TYPES = [".xlsx", ".csv"];
@@ -24,6 +24,7 @@ const upload = {
   statementToken: 0,
   check: null,
   highlightId: null,
+  confirmId: null,
 };
 
 function goToStep(step) {
@@ -373,14 +374,40 @@ function renderUploads() {
     const replacer = u.status === "superseded" && uploads.find((x) => x.id === u.supersededBy);
     const detail = u.status === "active" ? usage(u) : replacer ? `Replaced by ${replacer.fileName}` : "";
 
+    const remove = upload.confirmId === u.id
+      ? confirmDelete("Delete this upload?", "upload", u.id)
+      : html`<button type="button" class="icon-btn danger" data-action="ask-delete-upload" data-id="${u.id}" title="Delete" aria-label="Delete upload"><i class="fas fa-trash-can"></i></button>`;
     return html`<tr class="${u.id === highlightId ? "row-new" : ""}">
       <td><i class="fas fa-file-lines file-icon"></i>${u.fileName}</td>
       <td>${yearList(uploadPeriods(u))}</td>
       <td>${formatDate(u.submittedOn)}<small>${u.submittedBy}</small></td>
-      <td><span class="badge ${u.status}">${UPLOAD_STATUS[u.status] || u.status}</span><small>${detail}</small></td></tr>`;
+      <td><span class="badge ${u.status}">${UPLOAD_STATUS[u.status] || u.status}</span><small>${detail}</small></td>
+      <td>${remove}</td></tr>`;
   });
 
-  table.innerHTML = html`<thead><tr><th>File</th><th>Years</th><th>Uploaded</th><th>Status</th></tr></thead><tbody>${rows}</tbody>`;
+  table.innerHTML = html`<thead><tr><th>File</th><th>Years</th><th>Uploaded</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+}
+
+async function removeUpload(id) {
+  try {
+    const result = await deleteUpload(id);
+    upload.confirmId = null;
+    showToast(result.message, "success");
+    await emit("reload");
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+function onUploadClick(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+  const action = button.dataset.action;
+  if (action === "ask-delete-upload") upload.confirmId = button.dataset.id;
+  else if (action === "keep-upload") upload.confirmId = null;
+  else if (action === "delete-upload") return removeUpload(button.dataset.id);
+  else return;
+  renderUploads();
 }
 
 function renderUploadsIfLoaded() {
@@ -392,6 +419,7 @@ export function setup() {
   on("uploads", renderUploadsIfLoaded);
 
   setupDropzone();
+  document.getElementById("uploadsTable").addEventListener("click", onUploadClick);
   goToStep(1);
   document.getElementById("templateBtn").addEventListener("click", downloadTemplate);
 
