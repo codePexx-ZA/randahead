@@ -69,6 +69,7 @@ public class AiImporterReportService(IServiceScopeFactory scopes, ILogger<AiImpo
         var due = AiImporterReport.MostRecentDueUtc(DateTime.UtcNow);
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<BudgetDbContext>();
+        await RlsSession.SetBypassAsync(db, cancellationToken);
         var businesses = await db.AuditEntries.AsNoTracking()
             .Where(entry => entry.Area == "ai" && entry.Action == "categorised")
             .Select(entry => entry.BusinessId)

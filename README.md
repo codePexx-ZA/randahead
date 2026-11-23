@@ -12,11 +12,7 @@ Businesses upload past **income statements** (Excel). The system forecasts each 
 
 ## Sign-in
 
-| Username | Password |
-|---|---|
-| `demo123` | `test` |
-
-There is one login and no roles: the signed-in user can do everything, from uploading income statements to choosing the budget, setting targets and rules, and editing the business details. **This is a temporary development login.** One shared account with a known password is not secure; sign-in and permissions must be revisited before any real use.
+There is one account, username `pexx`. Sign-in trims the username and ignores its case, so `Pexx` works. The password is stored only as a BCrypt hash on `app_user`. The signed-in user can do everything, from uploading income statements to choosing the budget, setting targets and rules, and editing the business details.
 
 ## Architecture
 
@@ -25,7 +21,7 @@ A decision support system in three layers: data input, processing and the web in
 ```mermaid
 graph LR
     subgraph USERS[User]
-        U["Single development login: uploads, forecasts, budget, targets, KPIs"]
+        U["Signed-in user: uploads, forecasts, budget, targets, KPIs"]
     end
 
     subgraph FRONTEND[Presentation]
@@ -90,7 +86,7 @@ graph LR
 | External data (World Bank, OECD) + warning rules | Done |
 | Forecasting (MA + ES) | Done, runs end to end on the sample business |
 | Sample business data | Done (`database/init/03_seed.sql`, fictional) |
-| Login (API + web app) | Temporary development design: the one login above signs in through `POST /api/auth/login` (BCrypt + JWT) and may do everything; every other API endpoint needs the token; sign-in is rate limited per IP. Registration, user management, roles and password reset/change are removed for now |
+| Login (API + web app) | One account (`pexx`) signs in through `POST /api/auth/login` (BCrypt + JWT) and may do everything; every other API endpoint needs the token; sign-in is rate limited per IP. Registration, user management, roles and password reset/change are absent |
 | Business (API) | Done: `/api/business`, scoped to the signed-in user's business; the Business screen uses it |
 | Uploads (API) | Done: `/api/submissions` (preview, save, version history). A saved statement is in use at once; an older upload whose years are all covered by newer ones is kept as a replaced version. The Upload statement screen uses it |
 | Forecasts and budget (API) | Done: `/api/forecasts` (C# asks the Python service) and `/api/budgets` (choose MA, ES or their average; the choice is the budget at once). The web app offers three predictions, Steady (3-year average, weight 0.3), Balanced (3-year average, weight 0.5) and Recent (2-year average, weight 0.7), plus how far ahead (1–3 years). Forecast & budget, and the dashboard budget use them |
@@ -140,7 +136,7 @@ From the repo root:
 
 The compose project is `randahead`. The containers are `randahead-postgres`, `randahead-api`, `randahead-forecast` and `randahead-mailpit`.
 
-The database starts with a fictional business (Karoo Outdoor Supplies) and the one temporary development login from [Sign-in](#sign-in).
+The database starts with a fictional business (Karoo Outdoor Supplies) and the one login from [Sign-in](#sign-in).
 
 | Service | URL |
 |---|---|
@@ -157,7 +153,7 @@ Load the external indicators once the API is up:
 ```bash
 TOKEN=$(curl -s -X POST http://127.0.0.1:5080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"demo123","password":"test"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+  -d '{"username":"pexx","password":"<password>"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
 curl -s -X POST http://127.0.0.1:5080/api/ingestion/run -H "Authorization: Bearer $TOKEN"
 ```
 

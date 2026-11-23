@@ -19,34 +19,39 @@ public partial class SingleLoginTests
     private static string SeedSql() => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "schema", "03_seed.sql"));
 
     [Fact]
-    public void Seed_HasExactlyOneLogin_Demo123WithAHashedPassword()
+    public void Seed_HasExactlyOneLogin_WithAHashedPassword()
     {
         var sql = SeedSql();
         Assert.Single(Regex.Matches(sql, "INSERT INTO app_user"));
         var match = SeedUser().Match(sql);
         Assert.True(match.Success);
-        Assert.Equal("demo123", match.Groups[2].Value);
+        Assert.Equal("pexx", match.Groups[2].Value);
         var hash = match.Groups[3].Value;
-        Assert.StartsWith("$2", hash);
-        Assert.True(BCrypt.Net.BCrypt.Verify("test", hash));
+        Assert.StartsWith("$2a$", hash);
+        Assert.False(BCrypt.Net.BCrypt.Verify("test", hash));
         Assert.False(BCrypt.Net.BCrypt.Verify("demo123", hash));
     }
 
     [Theory]
-    [InlineData("demo123")]
-    [InlineData(" DEMO123 ")]
-    public async Task Login_Succeeds_ForDemo123AndTest(string username)
+    [InlineData("pexx")]
+    [InlineData(" Pexx ")]
+    public async Task Login_Succeeds_WhenThePasswordMatchesTheStoredHash(string username)
     {
         await using var db = await SeededDb();
-        var result = await NewController(db).Login(new LoginRequest(username, "test"), CancellationToken.None);
+        var user = await db.AppUsers.SingleAsync();
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("local-test-password", 4);
+        await db.SaveChangesAsync();
+        var result = await NewController(db).Login(new LoginRequest(username, "local-test-password"), CancellationToken.None);
         var ok = Assert.IsType<OkObjectResult>(result);
         var token = ok.Value!.GetType().GetProperty("token")!.GetValue(ok.Value) as string;
         Assert.False(string.IsNullOrEmpty(token));
     }
 
     [Theory]
-    [InlineData("demo123", "wrong")]
-    [InlineData("demo123", "")]
+    [InlineData("pexx", "wrong")]
+    [InlineData("pexx", "")]
+    [InlineData("pexx", "test")]
+    [InlineData("demo123", "test")]
     [InlineData("owner@demo.co.za", "demo123")]
     [InlineData("admin@gmail.com", "admin")]
     [InlineData("test@gmail.com", "test")]
@@ -131,7 +136,7 @@ public partial class SingleLoginTests
         {
             UserId = match.Groups[1].Value,
             UnitId = "unit",
-            FullName = "Demo User",
+            FullName = "Pexx",
             Username = match.Groups[2].Value,
             PasswordHash = match.Groups[3].Value,
         });

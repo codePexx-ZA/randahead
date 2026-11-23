@@ -8,8 +8,8 @@ INSERT INTO business_unit (unit_id, business_id, unit_name, unit_type, currency)
     ('a0000000000000000000000000000001', 'b0000000000000000000000000000001', 'Whole company', 'company', 'ZAR');
 
 INSERT INTO app_user (user_id, unit_id, full_name, username, password_hash) VALUES
-    ('c0000000000000000000000000000001', 'a0000000000000000000000000000001', 'Demo User', 'demo123',
-     '$2a$11$cxsMS0LUX1nOcEuq7qCaou5C7PDfnMROJF3rtIi78o2VfgV86tBD.');
+    ('c0000000000000000000000000000001', 'a0000000000000000000000000000001', 'Pexx', 'pexx',
+     '$2a$11$PUX02Lk5Rimd3Eqc/0Xs7OBtO64QKWCsQTdfzCq7xc3RRf3WSf.2G');
 
 INSERT INTO budget_submission
     (submission_id, unit_id, submitted_by, period_start, period_end, status, submitted_at,
@@ -139,17 +139,17 @@ INSERT INTO kpi_target (unit_id, metric_name, target_value, measurement_unit, ta
     ('a0000000000000000000000000000001', 'employee_costs', 1800000,  'rand',    '2025-03-01');
 
 INSERT INTO audit_log (business_id, user_id, user_name, area, action, summary, details, occurred_at) VALUES
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'uploaded',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Pexx', 'upload', 'uploaded',
      'Uploaded Karoo_Outdoor_IS_FY2020-FY2024.xlsx (FY2020–FY2024)', NULL, '2025-05-12 09:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'uploaded',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Pexx', 'upload', 'uploaded',
      'Uploaded Karoo_Outdoor_IS_FY2021-FY2025_draft.xlsx (FY2021–FY2025)', NULL, '2026-09-18 09:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'upload', 'uploaded',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Pexx', 'upload', 'uploaded',
      'Uploaded Karoo_Outdoor_IS_FY2021-FY2025.xlsx (FY2021–FY2025)', NULL, '2026-09-25 09:00+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'forecast', 'ran',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Pexx', 'forecast', 'ran',
      'Ran the forecasts for 1 year ahead',
      '[{"field": "Moving Average window", "after": "3 years"}, {"field": "Smoothing weight α", "after": "0.5"}]',
      '2026-10-01 14:55+02'),
-    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Demo User', 'budget', 'chosen',
+    ('b0000000000000000000000000000001', 'c0000000000000000000000000000001', 'Pexx', 'budget', 'chosen',
      'Chose Exponential Smoothing as the budget', NULL, '2026-10-01 15:00+02');
 
 COMMIT;

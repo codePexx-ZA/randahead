@@ -5,6 +5,8 @@ This folder owns **all 20 tables**: 13 from the original design (its `approval_a
 - The C# API (EF Core) only **reads and writes** tables that already exist.
 - The Python forecasting service has no database access; the C# API sends it the history and saves its results.
 
+`init/04_row_level_security.sql` forces row level security on every tenant table. The signed-in request sets `app.user_id`, `app.unit_id` and `app.business_id`. Login sets `app.login_username` for that lookup only. The weekly importer report sets `app.bypass` to `on`. Categories, indicator types and external indicator rows stay shared.
+
 ## Data design (ERD)
 
 The SQL source of truth is `init/01_schema.sql`; this diagram matches it.
@@ -247,7 +249,7 @@ erDiagram
 |---|---|
 | `business` | The SME using the system; `year_end_month` maps "FY2024" to dates (default February) |
 | `business_unit` | Operating area; the app uses one "Whole company" unit per business for now |
-| `app_user` | The one temporary development login (`demo123`); no roles |
+| `app_user` | The one login (`pexx`); no roles |
 | `budget_submission` | One uploaded set of income statement history, `active` once saved or `superseded` when newer uploads cover all its years |
 | `financial_line_item` | One amount per category per period |
 | `submission_row` | The upload's rows exactly as in the file, with each line's chosen mapping |
@@ -281,7 +283,7 @@ init/
 
 Everything is made up and matches the web app's demo mode: **Karoo Outdoor Supplies (Pty) Ltd**, retail, February year-end, one "Whole company" unit (`unit_id` `a0000000000000000000000000000001`).
 
-**This is a temporary development login.** The seed inserts exactly one `app_user` row, Demo User (`demo123`), whose password is stored as a BCrypt hash (`$2a$11$…`); the credentials are in the [root README](../README.md#sign-in). It may do everything. One shared account with a known password is not secure: revisit sign-in and permissions before any real use. Every upload, budget choice and activity log row in the demo data belongs to this user.
+The seed inserts exactly one `app_user` row, Pexx (`pexx`). The password is a BCrypt hash (`$2a$11$…`). That account may do everything. Every upload, budget choice and activity log row in the demo data belongs to this user.
 
 `app_user.username` is unique and stored in lower case (a `CHECK` enforces it); the API lower-cases what is typed at sign-in.
 

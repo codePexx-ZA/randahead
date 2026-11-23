@@ -48,7 +48,7 @@ The API refuses to start without a `Jwt:Key` of at least 32 characters.
 
 ## Login
 
-**Temporary development login.** There is exactly one account, seeded in `../database/init/03_seed.sql` as a BCrypt hash; its username and password are in the [root README](../README.md#sign-in). It has no role: the signed-in user may call every endpoint. One shared account with a known password is not secure; sign-in and permissions must be revisited before any real use.
+There is exactly one account, username `pexx`, seeded in `../database/init/03_seed.sql` as a BCrypt hash. Sign-in accepts `Pexx` because the username is stored in lower case. It has no role: the signed-in user may call every endpoint.
 
 | Endpoint | Body / header | Returns |
 |---|---|---|
@@ -200,7 +200,7 @@ Swagger: http://127.0.0.1:5080/swagger
 ```bash
 TOKEN=$(curl -s -X POST http://127.0.0.1:5080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"demo123","password":"test"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+  -d '{"username":"pexx","password":"<password>"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
 curl -s -X POST http://127.0.0.1:5080/api/ingestion/run -H "Authorization: Bearer $TOKEN"
 ```
 

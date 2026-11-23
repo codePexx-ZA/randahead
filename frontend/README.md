@@ -14,7 +14,7 @@ Settings in `js/config.js`:
 
 The token is stored in `sessionStorage`, or `localStorage` when Remember me is selected, and sent as `Authorization: Bearer …` on every API call; a `401` signs the user out. The session ends when the token expires (8 hours). Opening `dashboard.html` without a session goes to the login page, and the dashboard re-checks the user with `GET /api/auth/me` when it loads. Until the first statement is saved, the dashboard shows one "No income statement yet" message, Forecast & budget and KPI targets wait, and warning rules and Business work as usual. The industry list lives in `js/config.js`. The API allows the web app only from `http://127.0.0.1:5500` and `http://localhost:5500` (see the [API configuration](../backend/README.md#login)).
 
-Use the [temporary development login](../README.md#sign-in). The root README owns its credentials and security limitations.
+Sign in with the account in the [root README](../README.md#sign-in).
 
 ## Structure
 

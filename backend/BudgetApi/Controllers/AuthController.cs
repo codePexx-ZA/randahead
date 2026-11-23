@@ -23,6 +23,7 @@ public class AuthController(BudgetDbContext db, TokenService tokens) : ApiContro
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken cancellationToken)
     {
         var username = request.Username.Trim().ToLowerInvariant();
+        await RlsSession.SetLoginAsync(db, username, cancellationToken);
         var user = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
 
         var passwordOk = BCrypt.Net.BCrypt.Verify(request.Password, user?.PasswordHash ?? DummyHash.Value);

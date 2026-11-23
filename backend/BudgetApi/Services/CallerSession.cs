@@ -12,7 +12,8 @@ public static class CallerSession
     public static async Task ValidateAsync(TokenValidatedContext context)
     {
         var db = context.HttpContext.RequestServices.GetRequiredService<BudgetDbContext>();
-        var userId = context.Principal?.FindFirst("sub")?.Value;
+        var userId = context.Principal?.FindFirst("sub")?.Value ?? "";
+        await RlsSession.SetTenantAsync(db, userId, "", "", context.HttpContext.RequestAborted);
         var user = await db
             .AppUsers.Include(u => u.Unit!)
             .ThenInclude(u => u.Business)
@@ -22,6 +23,7 @@ public static class CallerSession
             context.Fail("The account behind this token no longer exists.");
             return;
         }
+        await RlsSession.SetTenantAsync(db, user.UserId, user.UnitId, user.Unit!.BusinessId, context.HttpContext.RequestAborted);
         context.HttpContext.Items[Key] = user;
     }
 

@@ -36,8 +36,11 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddDbContext<BudgetDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")).UseSnakeCaseNamingConvention()
+builder.Services.AddSingleton<RlsConnectionInterceptor>();
+builder.Services.AddDbContext<BudgetDbContext>((services, options) =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .UseSnakeCaseNamingConvention()
+        .AddInterceptors(services.GetRequiredService<RlsConnectionInterceptor>())
 );
 
 builder.Services.AddSingleton(jwt);
