@@ -11,7 +11,7 @@ import { emit, fetchBudget, loadRules, loadUploads, on, state } from "./store.js
 import * as support from "./support.js";
 import * as targets from "./targets.js";
 import { showToast } from "./toast.js";
-import * as upload from "./upload.js?v=2";
+import * as upload from "./upload.js?v=3";
 
 const SECTIONS = { activity, reports, dashboard, support, upload, forecast, targets, settings };
 

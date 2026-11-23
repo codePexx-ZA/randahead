@@ -1,4 +1,4 @@
-import { checkUpload, deleteUpload, downloadTemplate as fetchTemplate, previewUpload, submitUpload as sendUpload } from "./api.js";
+import { checkUpload, deleteUpload, downloadTemplate as fetchTemplate, previewUpload, submitUpload as sendUpload } from "./api.js?v=3";
 import { formatDate, randFormat } from "./format.js";
 import {
   MAX_HISTORY_YEARS, SCALE_LABELS, buildSubmissionPayload, checkPreview, describeChange, fileExtension, historyChange,
